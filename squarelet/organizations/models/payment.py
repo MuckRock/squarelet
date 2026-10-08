@@ -904,8 +904,12 @@ class Subscription(Cancellable, models.Model):
             return "create_prorations"
         return "always_invoice"
 
-    def stripe_modify(self):
-        """Push local state to Stripe for every item on this subscription."""
+    def stripe_modify(self, proration_behavior=None):
+        """Push local state to Stripe for every item on this subscription.
+
+        `proration_behavior` overrides the subscription's own for one call;
+        "none" for a change that leaves what the customer pays alone.
+        """
         if self.stripe_subscription:
             # A line sent without a `stripe_item_id` asks Stripe to *add* it,
             # which it refuses - the Price is already on the subscription.
@@ -926,7 +930,7 @@ class Subscription(Cancellable, models.Model):
                     days_until_due=(
                         30 if self.collection_method == "send_invoice" else None
                     ),
-                    proration_behavior=self.proration_behavior,
+                    proration_behavior=proration_behavior or self.proration_behavior,
                 )
             )
             if updated:
