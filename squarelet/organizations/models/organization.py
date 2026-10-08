@@ -548,18 +548,20 @@ class Organization(AvatarMixin, models.Model):
     ):
         """Add a new subscription to a plan.
 
-        Raises SubscriptionError if the org already holds a line for this
-        plan, cancelled or not.  A cancelled line still occupies it:
-        `unique_together` is (subscription, plan), so a second line for the
-        same plan on the same subscription cannot exist.  Reviving one is
-        `uncancel`'s job, reached through Resubscribe.
+        Raises SubscriptionError if the org already pays for this plan's tier,
+        cancelled or not.  A cancelled line still occupies it: `unique_together`
+        is (subscription, plan), so a second line for the same plan on the
+        same subscription cannot exist.  Reviving one is `uncancel`'s job,
+        reached through Resubscribe.  A free line holding the tier, such as a
+        comp, is replaced by the paid one.
         """
         # Lock this org row to serialize concurrent subscription attempts
         # (e.g. double form submit), preventing a race between the exists()
         # check and the INSERT.
         Organization.objects.select_for_update().filter(pk=self.pk).get()
 
-        if self.has_active_subscription(plan):
+        held = self.line_holding(plan)
+        if held is not None and held.subscription.kind != "free":
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
@@ -603,13 +605,20 @@ class Organization(AvatarMixin, models.Model):
             self.billing_anchor = anchor_date
             self.save(update_fields=["update_on", "billing_anchor"])
 
+        if held is not None:
+            # Free, so it comes off now with no credit to give.
+            held.cancel()
+
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
+            from_plan=held.plan if held else None,
             to_plan=item.plan,
             to_max_users=item.quantity,
         )
 
+        if held is not None and held.plan.wix and not item.plan.wix:
+            self._dispatch_wix_unsync(held.plan)
         if item.plan.wix:
             self._dispatch_wix_sync(item.plan)
 
@@ -831,7 +840,10 @@ class Organization(AvatarMixin, models.Model):
         return self.subscription_items.exists()
 
     def line_holding(self, plan):
-        """The line holding the tier a purchase of `plan` is sold as, if any."""
+        """The line holding this plan's tier, if any.
+
+        The tier itself or any plan that maps to it, comped included.
+        """
         return self.subscription_items.filter(
             plan__in=self.subscription_items.plans_of_tier(plan)
         ).first()

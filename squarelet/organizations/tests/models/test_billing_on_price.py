@@ -2,6 +2,9 @@
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
+# Standard Library
+from datetime import date
+
 # Third Party
 import pytest
 
@@ -511,6 +514,7 @@ class TestSellingAgainstThePrice:
             "Sunlight Essential (Annual)",
             "sunlight-essential-annual",
             annual=True,
+            base_price=6_800,
         )
         organization = organization_factory()
         held, _ = SubscriptionItem.objects.start(organization=organization, plan=picked)
@@ -558,3 +562,42 @@ class TestSellingAgainstThePrice:
         organization.add_subscription(picked, None, None, payment_method="card")
 
         assert organization.change_logs.get().to_plan == tier
+
+    @pytest.mark.parametrize("ends_on", [None, date(2027, 2, 1)])
+    # pylint: disable-next=too-many-positional-arguments
+    def test_buying_the_tier_replaces_its_comp(
+        self, organization_factory, plan_factory, plan_price_factory, mocker, ends_on
+    ):
+        """Paying for a tier ends the comp that held it, dated or not."""
+        mocker.patch("squarelet.organizations.models.Organization.customer")
+        professional = plan_with_slug(
+            plan_factory, "Professional", "professional", base_price=40
+        )
+        plan_price_factory(plan=professional, amount=4_000)
+        beta = plan_with_slug(plan_factory, "Beta", "beta", base_price=0)
+        organization = organization_factory()
+        comp, _ = SubscriptionItem.objects.start(organization=organization, plan=beta)
+        comp.ends_on = ends_on
+        comp.save()
+        assert comp.subscription.kind == "free"
+
+        organization.add_subscription(professional, None, None, payment_method="card")
+
+        assert [line.plan for line in organization.subscription_items.all()] == [
+            professional
+        ]
+        log = organization.change_logs.get()
+        assert (log.from_plan, log.to_plan) == (beta, professional)
+
+    def test_a_paid_line_of_the_tier_is_not_replaced(
+        self, organization_factory, plan_factory, plan_price_factory
+    ):
+        professional = plan_with_slug(
+            plan_factory, "Professional", "professional", base_price=40
+        )
+        plan_price_factory(plan=professional, amount=4_000)
+        organization = organization_factory()
+        SubscriptionItem.objects.start(organization=organization, plan=professional)
+
+        with pytest.raises(SubscriptionError, match="already has an active"):
+            organization.add_subscription(professional, None, None)
