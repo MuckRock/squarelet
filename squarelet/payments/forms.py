@@ -19,7 +19,7 @@ from crispy_forms.layout import Field as CrispyField, Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
-from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models import Organization, Plan, SubscriptionItem
 from squarelet.organizations.models.payment import get_payment_brand
 from squarelet.users.forms import NewOrganizationModelChoiceField
 
@@ -162,13 +162,15 @@ class PlanPurchaseForm(StripeForm):
                     Q(pk=individual_org.pk) | Q(pk__in=admin_orgs)
                 ).distinct()
 
-            # `add_subscription` refuses a duplicate plan, so offering the
-            # choice here only produces a SubscriptionError on submit.
+            # `add_subscription` refuses a tier already paid for, so offering
+            # the choice here only produces a SubscriptionError on submit.
             if self.plan:
-                subscribed_orgs = Organization.objects.filter(
-                    subscriptions__items__plan=self.plan,
+                paid_lines = SubscriptionItem.objects.filter(
+                    plan__in=SubscriptionItem.objects.plans_of_tier(self.plan)
+                ).exclude(subscription__kind="free")
+                base_queryset = base_queryset.exclude(
+                    pk__in=paid_lines.values("subscription__organization")
                 )
-                base_queryset = base_queryset.exclude(pk__in=subscribed_orgs)
 
             self.fields["organization"].queryset = base_queryset
         else:

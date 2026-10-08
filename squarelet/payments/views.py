@@ -228,7 +228,8 @@ class PlanDetailView(DetailView):
                 result = form.save(request.user)
                 organization = result["organization"]
 
-                if organization.has_active_subscription(result["plan"]):
+                held = organization.line_holding(result["plan"])
+                if held is not None and held.subscription.kind != "free":
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
 

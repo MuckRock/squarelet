@@ -177,6 +177,38 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         assert response.status_code == 302
         assert response.url == org.get_absolute_url()
 
+    def test_an_organization_on_a_comp_can_buy_its_tier(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        """`add_subscription` replaces the comp, so it is not already subscribed."""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(for_groups=True, public=True)
+        subscription_item_factory(
+            subscription__organization=org, plan=plan, subscription__kind="free"
+        )
+        mock_add_subscription = mocker.patch.object(
+            Organization, "add_subscription", return_value=None
+        )
+
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+        }
+
+        self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        mock_add_subscription.assert_called_once()
+
     def test_unauthenticated_user_redirected_to_login(self, rf, plan_factory):
         """Test that unauthenticated users are redirected to login"""
         plan = plan_factory(public=True)
