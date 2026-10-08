@@ -450,7 +450,11 @@ class Command(BaseCommand):
         Subscription.objects.filter(organization__in=orgs).delete()
         count = orgs.count()
         orgs.delete()
-        if actor is not None:
+        # The rehearsal migrates a review app's real comps too, naming it as
+        # their grantor; those lines aren't ours, and the next seed reuses it.
+        if SubscriptionItem.objects.filter(granted_by=actor).exists():
+            self.stdout.write("Kept mig-actor: real lines name it as their grantor.")
+        elif actor is not None:
             individual = actor.individual_organization
             actor.delete()
             individual.delete()
