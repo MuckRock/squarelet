@@ -543,28 +543,28 @@ class Organization(AvatarMixin, models.Model):
         return users_list
 
     @transaction.atomic
-    def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
+    def add_subscription(  # pylint: disable=too-many-positional-arguments
+        self, plan, max_users, user, token=None, payment_method=None, nonprofit=False
+    ):
         """Add a new subscription to a plan.
 
-        Raises SubscriptionError if the org already holds a line for this
-        plan, cancelled or not.  A cancelled line still occupies it:
-        `unique_together` is (subscription, plan), so a second line for the
-        same plan on the same subscription cannot exist.  Reviving one is
-        `uncancel`'s job, reached through Resubscribe.
+        Raises SubscriptionError if the org already pays for this plan's tier,
+        cancelled or not.  A cancelled line still occupies it: `unique_together`
+        is (subscription, plan), so a second line for the same plan on the
+        same subscription cannot exist.  Reviving one is `uncancel`'s job,
+        reached through Resubscribe.  A free line holding the tier, such as a
+        comp, is replaced by the paid one.
         """
         # Lock this org row to serialize concurrent subscription attempts
         # (e.g. double form submit), preventing a race between the exists()
         # check and the INSERT.
         Organization.objects.select_for_update().filter(pk=self.pk).get()
 
-        if self.subscription_items.filter(plan=plan).exists():
+        held = self.line_holding(plan)
+        if held is not None and held.subscription.kind != "free":
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
-
-        # max_users is absent from the PaymentForm for individual orgs
-        if max_users is None:
-            max_users = plan.minimum_users
 
         is_first = not self.subscription_items.exists()
 
@@ -582,11 +582,13 @@ class Organization(AvatarMixin, models.Model):
         # receives no billing_cycle_anchor (Stripe sets its own anchor). Only after
         # the subscription exists do we record the anchor for subsequent subscriptions
         # to align to.
-        _, stripe_subscription = self.subscription_items.start(
+        # `max_users` None lets `start` decide what one of the plan is.
+        item, stripe_subscription = self.subscription_items.start(
             organization=self,
             plan=plan,
             payment_method=payment_method,
             quantity=max_users,
+            nonprofit=nonprofit,
         )
 
         if is_first and stripe_subscription:
@@ -603,15 +605,22 @@ class Organization(AvatarMixin, models.Model):
             self.billing_anchor = anchor_date
             self.save(update_fields=["update_on", "billing_anchor"])
 
+        if held is not None:
+            # Free, so it comes off now with no credit to give.
+            held.cancel()
+
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
-            to_plan=plan,
-            to_max_users=max_users,
+            from_plan=held.plan if held else None,
+            to_plan=item.plan,
+            to_max_users=item.quantity,
         )
 
-        if plan.wix:
-            self._dispatch_wix_sync(plan)
+        if held is not None and held.plan.wix and not item.plan.wix:
+            self._dispatch_wix_unsync(held.plan)
+        if item.plan.wix:
+            self._dispatch_wix_sync(item.plan)
 
     def _resolve_payment_method(self, payment_method, token):
         """Normalize the payment_method value for a subscription."""
@@ -826,10 +835,18 @@ class Organization(AvatarMixin, models.Model):
 
     def has_active_subscription(self, plan=None):
         """Check if the organization has an active subscription"""
-        qs = self.subscription_items.all()
         if plan is not None:
-            qs = qs.filter(plan=plan)
-        return qs.exists()
+            return self.line_holding(plan) is not None
+        return self.subscription_items.exists()
+
+    def line_holding(self, plan):
+        """The line holding this plan's tier, if any.
+
+        The tier itself or any plan that maps to it, comped included.
+        """
+        return self.subscription_items.filter(
+            plan__in=self.subscription_items.plans_of_tier(plan)
+        ).first()
 
     def charge(
         self,

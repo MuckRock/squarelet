@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 # Squarelet
-from squarelet.organizations.models import Organization
+from squarelet.organizations.models import Organization, Plan
 from squarelet.payments.forms import PlanPurchaseForm
 
 
@@ -94,6 +94,49 @@ class TestPlanPurchaseFormInit:
         )
 
         form = PlanPurchaseForm(plan=plan, user=user)
+
+        assert org not in form.fields["organization"].queryset
+
+    def test_init_offers_orgs_whose_line_is_free(
+        self,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        """A comp gives way to a paid purchase of its tier."""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(public=True, for_groups=True)
+        subscription_item_factory(
+            subscription__organization=org, plan=plan, subscription__kind="free"
+        )
+
+        form = PlanPurchaseForm(plan=plan, user=user)
+
+        assert org in form.fields["organization"].queryset
+
+    def test_init_excludes_orgs_holding_the_tier_on_another_schedule(
+        self,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        # Migration-seeded rows when present, so the slugs map to one tier.
+        monthly, annual = (
+            Plan.objects.filter(slug=slug).first() or plan_factory(name=slug, slug=slug)
+            for slug in ("sunlight-essential", "sunlight-essential-annual")
+        )
+        Plan.objects.filter(pk=annual.pk).update(public=True, for_groups=True)
+        annual.refresh_from_db()
+        subscription_item_factory(subscription__organization=org, plan=monthly)
+
+        form = PlanPurchaseForm(plan=annual, user=user)
 
         assert org not in form.fields["organization"].queryset
 
@@ -412,6 +455,7 @@ class TestPlanPurchaseFormSave:
         assert result["plan"] == plan
         assert result["payment_method"] == "new-card"
         assert result["stripe_token"] == "tok_visa"
+        assert result["nonprofit"] is False
 
     def test_save_creates_new_organization(self, user_factory, plan_factory):
         """Save creates new organization when selected"""

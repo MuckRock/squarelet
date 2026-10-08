@@ -236,9 +236,7 @@ def test_premium_subscription_form_save(plan_factory, user, mocker):
     assert form.is_valid()
     form.save(user)
 
-    create_sub_mock.assert_called_once_with(
-        plan, plan.minimum_users, user, token="tok_visa"
-    )
+    create_sub_mock.assert_called_once_with(plan, None, user, token="tok_visa")
 
 
 @pytest.mark.django_db
@@ -407,9 +405,7 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
     org_create_mock.assert_called_once_with(name="New Test Organization", private=False)
     add_creator_mock.assert_called_once_with(user)
     set_billing_email_mock.assert_called_once_with("billing@example.com")
-    create_sub_mock.assert_called_once_with(
-        plan, plan.minimum_users, user, token="tok_visa"
-    )
+    create_sub_mock.assert_called_once_with(plan, None, user, token="tok_visa")
 
 
 @pytest.mark.django_db
