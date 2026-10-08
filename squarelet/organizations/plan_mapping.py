@@ -129,6 +129,9 @@ LEGACY_PLAN_MAP = {
 # Plans the migration leaves on their legacy rows.
 DEFERRED_SLUGS = set()
 
+# Bills at both cadences, which one map entry cannot say.
+COHORT_SLUG = "election-accountability-cohort"
+
 
 def tier_of(slug):
     """The canonical plan a plan slug lands on, comped included; itself if unmapped."""
