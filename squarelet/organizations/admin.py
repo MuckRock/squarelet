@@ -142,7 +142,7 @@ class StripeLinkMixin:
     stripe_link.short_description = "Stripe"
 
 
-class SubscriptionItemInline(admin.TabularInline):
+class SubscriptionItemInline(StripeLinkMixin, admin.TabularInline):
     """The plans billed on a subscription.
 
     The split moved plans off the organization and onto lines, and nothing
@@ -151,13 +151,37 @@ class SubscriptionItemInline(admin.TabularInline):
     """
 
     model = SubscriptionItem
-    fields = ("plan", "quantity", "cancelled", "cancel_at", "stripe_item_id")
+    stripe_resource = "prices"
+    fields = (
+        "plan",
+        "plan_price",
+        "bills_against",
+        "quantity",
+        "cancelled",
+        "cancel_at",
+        "stripe_item_id",
+    )
     readonly_fields = fields
     extra = 0
     can_delete = False
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("plan", "plan_price")
+
+    def _stripe_id(self, obj):
+        return obj.plan_price.stripe_price_id if obj.plan_price_id else ""
+
+    @admin.display(description="Bills against")
+    def bills_against(self, obj):
+        """Where to check that a line has moved onto the new pricing."""
+        if obj.is_free:
+            return self.get_empty_value_display()
+        if self._stripe_id(obj):
+            return self.render_stripe_id(obj)
+        return format_html("{} <em>(legacy)</em>", obj.stripe_price_id)
 
 
 class SubscriptionInline(admin.TabularInline):

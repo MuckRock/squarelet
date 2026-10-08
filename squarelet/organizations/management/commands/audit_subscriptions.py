@@ -122,7 +122,7 @@ class Command(BaseCommand):
         """Return (local_subs, id→sub map) for subscriptions with a Stripe ID."""
         qs = (
             Subscription.objects.select_related("organization")
-            .prefetch_related("items__plan")
+            .prefetch_related("items__plan", "items__plan_price")
             .exclude(subscription_id="")
         )
         if org_filter:
@@ -137,7 +137,7 @@ class Command(BaseCommand):
         """Print paid subscriptions with no subscription_id; return count."""
         qs = (
             Subscription.objects.select_related("organization")
-            .prefetch_related("items__plan")
+            .prefetch_related("items__plan", "items__plan_price")
             .filter(subscription_id="", items__plan__base_price__gt=0)
             .distinct()
         )
@@ -283,7 +283,7 @@ class Command(BaseCommand):
                 stripe_plan_id = getattr(stripe_item.price, "id", None)
             elif getattr(stripe_item, "plan", None):
                 stripe_plan_id = getattr(stripe_item.plan, "id", None)
-            local_plan_id = line.plan.stripe_id if line.plan else None
+            local_plan_id = line.stripe_price_id if line.plan else None
             if stripe_plan_id != local_plan_id:
                 diffs.append(
                     (f"item[{label}] plan_stripe_id", local_plan_id, stripe_plan_id)
