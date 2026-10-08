@@ -14,7 +14,10 @@ import pytest
 from freezegun import freeze_time
 
 # Squarelet
-from squarelet.organizations.management.commands.seed_migration_data import SUBSCRIBERS
+from squarelet.organizations.management.commands.seed_migration_data import (
+    SEEDED_ORGS,
+    SUBSCRIBERS,
+)
 from squarelet.organizations.models import (
     Organization,
     Plan,
@@ -186,6 +189,22 @@ class TestTheRehearsal:
 
         assert not Organization.objects.filter(slug__startswith="mig-").exists()
         assert not User.objects.filter(username="mig-actor").exists()
+
+    def test_teardown_keeps_its_actor_while_a_real_line_names_it(
+        self, subscription_item_factory
+    ):
+        """The rehearsal migrates a review app's real comps too, naming it."""
+        run("backfill_plan_prices", local_only=True, actor="mig-actor")
+        actor = User.objects.get(username="mig-actor")
+        real = subscription_item_factory(granted_by=actor)
+
+        out = run("seed_migration_data", teardown=True)
+
+        assert not Organization.objects.filter(slug__in=SEEDED_ORGS).exists()
+        real.refresh_from_db()
+        assert real.granted_by == actor
+        assert "Kept mig-actor" in out
+        run("seed_migration_data")
 
     def test_seeding_over_a_rehearsal_is_refused(self):
         run("backfill_plan_prices", local_only=True, actor="mig-actor")
