@@ -552,9 +552,13 @@ class Subscription(Cancellable, models.Model):
     @property
     def free(self):
         """A subscription costs nothing when every line does."""
-        return all(
-            item.is_free for item in self.items.select_related("plan", "plan_price")
-        )
+        # A related manager's select_related ignores a prefetch, so use it only
+        # when there is none.
+        if "items" in getattr(self, "_prefetched_objects_cache", {}):
+            items = self.items.all()
+        else:
+            items = self.items.select_related("plan", "plan_price")
+        return all(item.is_free for item in items)
 
     @property
     def auto_renew(self):
