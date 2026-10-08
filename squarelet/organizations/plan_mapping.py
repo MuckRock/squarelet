@@ -92,6 +92,15 @@ DEFERRED_SLUGS = {
 }
 
 
+def tier_of(slug):
+    """The canonical plan a plan slug lands on, comped included; itself if unmapped."""
+    for billing in (True, False):
+        target = LEGACY_PLAN_MAP.get((slug, billing))
+        if target is not None:
+            return target[0]
+    return slug
+
+
 def resolve_target(slug):
     """What a purchase of `slug` is sold as: (canonical slug, interval, label, code).
 

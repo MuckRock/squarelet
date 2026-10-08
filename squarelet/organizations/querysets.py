@@ -15,7 +15,11 @@ from fuzzywuzzy import fuzz, process
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.payments.factory import get_payment_provider
-from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP, resolve_target
+from squarelet.organizations.plan_mapping import (
+    LEGACY_PLAN_MAP,
+    resolve_target,
+    tier_of,
+)
 
 # pylint:disable=too-many-positional-arguments
 
@@ -455,22 +459,20 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return price.plan, price
 
     @staticmethod
-    def stored_under(plan):
-        """Every plan that holds the tier a purchase of `plan` is sold as.
+    def plans_of_tier(plan):
+        """Every plan row that holds the same tier as `plan`.
 
-        The tier itself once priced, and each variant row sold as it before
-        then; an organization holds a tier once, whatever its schedule or rate.
+        The tier itself and each plan mapped to it, comped ones included: an
+        organization holds a tier once, whatever its schedule, rate or comp.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.models.payment import Plan
 
-        tier = (resolve_target(plan.slug) or (plan.slug,))[0]
+        tier = tier_of(plan.slug)
         slugs = {tier, plan.slug} | {
-            slug
-            for slug, _billing in LEGACY_PLAN_MAP
-            if (resolve_target(slug) or (None,))[0] == tier
+            slug for slug, _billing in LEGACY_PLAN_MAP if tier_of(slug) == tier
         }
         return set(Plan.objects.filter(slug__in=slugs))
 
