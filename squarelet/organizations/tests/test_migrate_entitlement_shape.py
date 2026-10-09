@@ -230,6 +230,31 @@ class TestTheRun:
         assert fine.resources == TIER, "rolled back with the rest"
         assert broken.resources["requests_per_user"] == 10
 
+    def test_a_change_hidden_in_the_total_aborts(self, mocker):
+        """One resource up and another down by as much still changes both."""
+        two = {
+            "base_requests": 50,
+            "requests_per_user": 50,
+            "base_ai_credits": 500,
+            "ai_credits_per_user": 500,
+            "minimum_users": 1,
+        }
+        tier_entitlement(two)
+        mocker.patch(
+            "squarelet.organizations.management.commands."
+            "migrate_entitlement_shape.reshape",
+            return_value=dict(
+                two,
+                base_requests=60,
+                requests_per_user=60,
+                base_ai_credits=490,
+                ai_credits_per_user=490,
+            ),
+        )
+
+        with pytest.raises(CommandError, match="would change the grant"):
+            run()
+
     def test_dry_run_writes_nothing(self):
         entitlement = tier_entitlement()
 
@@ -264,5 +289,8 @@ class TestTheRun:
 
         out = run(dry_run=True)
 
-        assert "quantity 1: 50 today, 50 under the old formula, 50 under the new" in out
+        assert (
+            "quantity 1: 50 requests today, 50 requests under the old formula, "
+            "50 requests under the new" in out
+        )
         assert "CHANGED" not in out
