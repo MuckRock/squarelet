@@ -7,13 +7,21 @@ import collections
 
 # Squarelet
 from squarelet.organizations.entitlement_shape import (
-    grant_new,
-    grant_old,
+    BASE_PREFIX,
+    grants_new,
+    grants_old,
     reshape,
     scaling_pairs,
 )
 from squarelet.organizations.models.payment import Entitlement, SubscriptionItem
 from squarelet.organizations.plan_mapping import PACK_SLUGS
+
+
+def amounts(grants):
+    """`{"base_requests": 50}` as "50 requests"."""
+    return ", ".join(
+        f"{amount} {key[len(BASE_PREFIX):]}" for key, amount in sorted(grants.items())
+    )
 
 
 class Command(BaseCommand):
@@ -150,20 +158,22 @@ class Command(BaseCommand):
             .distinct()
         )
         for quantity in sorted(held | {1}):
-            before = grant_old(entitlement.resources, quantity)
-            after_old = grant_old(target, quantity)
-            after_new = grant_new(target, quantity)
+            # Per resource: a total can hide one going up as another goes down.
+            before = grants_old(entitlement.resources, quantity)
+            after_old = grants_old(target, quantity)
+            after_new = grants_new(target, quantity)
             agree = before == after_old == after_new
+            arithmetic = (
+                f"{amounts(before)} today, {amounts(after_old)} under the old "
+                f"formula, {amounts(after_new)} under the new"
+            )
             self.stdout.write(
-                f"      quantity {quantity}: {before} today, {after_old} "
-                f"under the old formula, {after_new} under the new"
+                f"      quantity {quantity}: {arithmetic}"
                 + ("" if agree else "  <-- CHANGED")
             )
             if not agree:
                 raise CommandError(
                     f"{entitlement.slug}: reshaping would change the grant "
-                    f"at quantity {quantity} - {before} today, {after_old} "
-                    f"under the old formula, {after_new} under the new.  "
-                    f"The transform is wrong for this shape; nothing was "
-                    f"written."
+                    f"at quantity {quantity} - {arithmetic}.  The transform "
+                    f"is wrong for this shape; nothing was written."
                 )
