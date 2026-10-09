@@ -15,27 +15,15 @@ from squarelet.organizations.entitlement_shape import (
 from squarelet.organizations.models.payment import Entitlement, SubscriptionItem
 from squarelet.organizations.plan_mapping import PACK_SLUGS
 
-# An entitlement attached to a pack holds a per-unit value; anything else
-# holds a tier's flat grant, and the two transform in opposite directions.
-# `PACK_SLUGS` is the canonical list, not the decomposition map: that only
-# names the packs legacy plans decompose into, which left two of the three
-# classified as tiers and transformed into granting nothing.
-
 
 class Command(BaseCommand):
     """Move every entitlement onto a shape both grant formulas agree on.
 
-    Clients compute `base + max(quantity - minimum_users, 0) * per_user`;
-    the target is `base * quantity`.  With `minimum_users = 1` and
-    `per_user = base` those are the same expression, so MuckRock and
-    DocumentCloud can switch formulas whenever they like, in either order,
-    and no number moves.  That is the whole point of this step: it removes
-    the need for anyone to deploy in step with anything.
-
-    Changes no prices.  `Entitlement.resources` is the only thing written.
-
-    Run after the pricing migration, which is what puts every tier line at
-    quantity 1 - the precondition below.
+    Clients compute `base + max(quantity - minimum_users, 0) * per_user` and
+    will move to `base * quantity`; with `minimum_users = 1` and
+    `per_user = base` they agree, so either client can switch at any time.
+    Writes only `Entitlement.resources`.  Needs the pricing migration first,
+    which puts every tier line at quantity 1.
     """
 
     help = "Move every entitlement onto a shape both grant formulas agree on"
@@ -69,22 +57,12 @@ class Command(BaseCommand):
         )
 
     def _preflight(self):
-        """Refuse while any tier line still carries a block count.
+        """Refuse while any line on a scaling tier is above quantity 1.
 
-        The identity this step relies on is exact at quantity 1 and at no
-        other quantity.  Applied to a line still holding 30 blocks, an
-        Organization grants 50 + 29 x 50 = 1,500 instead of 300 - silently,
-        and to every client at once.
-
-        Packs are exempt: their `base` carries the per-unit value, so
-        `base * q` is what they are supposed to mean.
-
-        So are lines whose plan does not scale at all.  The danger above
-        needs a per-unit rate to multiply; a Professional line at quantity
-        3 - a per-unit plan the backfill deliberately leaves at its
-        quantity - grants the same 20 requests at any quantity, and the
-        reshape is a no-op for it.  Refusing it blocked the whole run over
-        a number that changes nothing.
+        The formulas agree only at quantity 1: an Organization line at 30
+        would grant 1,500 instead of 300, to every client at once.  Packs
+        are meant to be `base * q`, and a plan with no per-unit rate grants
+        the same at any quantity, so neither is refused.
         """
         carrying = [
             item
@@ -125,6 +103,8 @@ class Command(BaseCommand):
 
     @staticmethod
     def _is_pack(entitlement):
+        # A pack holds a per-unit value, a tier a flat grant; they reshape in
+        # opposite directions.
         return any(plan.slug in PACK_SLUGS for plan in entitlement.plans.all())
 
     @staticmethod
@@ -159,22 +139,10 @@ class Command(BaseCommand):
     def _check_grants(self, entitlement, target):
         """Refuse a reshape that changes what anyone receives.
 
-        The arithmetic is the point of this step, so it is checked rather
-        than trusted: at every quantity a subscriber holds, and at quantity
-        1 whether or not anyone holds it, the grant today must equal the
-        grant after under *both* formulas.
-
-        Quantity 1 unconditionally, because an entitlement with no
-        subscription line is not exempt - an unsold pack is one, and so is
-        an entitlement reached only through an EntitlementGrant, which the
-        serializer sends at quantity 1.  This used to print a flag for the
-        held quantities and never abort, so an entitlement nobody held yet
-        printed nothing at all: the two packs the tier transform zeroed
-        went through with a clean-looking log.
-
-        Raises, so the surrounding transaction rolls every entitlement
-        back.  A single wrong number here means the transform is wrong for
-        that shape, and a partial run would be worse than none.
+        Checked at every quantity held and always at 1, which covers unsold
+        packs and EntitlementGrants (served at quantity 1).  Raising rolls
+        back every entitlement: one wrong number means the transform is
+        wrong for that shape.
         """
         held = set(
             SubscriptionItem.objects.filter(plan__entitlements=entitlement)
