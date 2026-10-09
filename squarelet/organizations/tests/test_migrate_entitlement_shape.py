@@ -230,6 +230,23 @@ class TestTheRun:
         assert fine.resources == TIER, "rolled back with the rest"
         assert broken.resources["requests_per_user"] == 10
 
+    def test_every_grant_that_would_change_is_named_in_one_run(self):
+        """So one production dry run finds them all."""
+        for slug in ("zero-minimum-a", "zero-minimum-b"):
+            entitlement = EntitlementFactory(
+                resources={
+                    "base_requests": 50,
+                    "minimum_users": 0,
+                    "requests_per_user": 10,
+                }
+            )
+            entitlement.plans.add(plan_named(slug, slug))
+
+        with pytest.raises(CommandError) as raised:
+            run(dry_run=True)
+
+        assert str(raised.value).count("would change the grant") == 2
+
     def test_a_change_hidden_in_the_total_aborts(self, mocker):
         """One resource up and another down by as much still changes both."""
         two = {
