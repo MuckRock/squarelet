@@ -27,12 +27,10 @@ def run(**kwargs):
 
 
 def plan_named(name, slug):
-    """One Plan per name.
+    """One Plan per name, at exactly `slug`.
 
-    PlanFactory get-or-creates on `name`, and `slug` is an AutoSlugField -
-    so building "Tier organization" and "Organization" separately gives two
-    rows, the second slugged `organization-2`, and an entitlement then
-    looks attached to a plan nobody subscribes to.
+    The factory gets-or-creates on name, so a second name for one slug would
+    land at `<slug>-2`, a plan nobody subscribes to.
     """
     return PlanFactory(name=name, slug=slug)
 
@@ -54,11 +52,7 @@ def pack_entitlement(resources=None):
 
 
 class TestTheTwoFormulasAgree:
-    """The identity this whole step exists to create.
-
-    `base + max(q - 1, 0) * base` is `base * q` for every q >= 1, so the
-    clients can switch whenever they like, in either order.
-    """
+    """`base + max(q - 1, 0) * base` is `base * q` for every q >= 1."""
 
     @pytest.mark.parametrize("quantity", [1, 2, 5, 25, 100])
     def test_a_reshaped_tier_reads_the_same_both_ways(self, quantity):
@@ -78,10 +72,7 @@ class TestTheTwoFormulasAgree:
         assert grant_old(PACK, 25) == grant_old(target, 25) == 250
 
     def test_a_decomposed_subscriber_is_whole(self):
-        """The case the pricing migration produces: tier at 1 plus 25 blocks.
-
-        300 requests before, 300 after, under either formula.
-        """
+        """A tier at 1 plus 25 blocks, as the pricing migration leaves it."""
         tier = reshape(TIER, is_pack=False)
         pack = reshape(PACK, is_pack=True)
 
@@ -90,12 +81,7 @@ class TestTheTwoFormulasAgree:
         assert grant_new(tier, 1) + grant_new(pack, 25) == 300
 
     def test_the_pack_transform_is_not_the_tier_transform(self):
-        """0082 wrote itself a note about this.
-
-        A pack's value lives in `per_user` with `base` at zero.  The tier
-        transform sets `per_user = base`, which for a pack is zero - it
-        would grant nothing at all, silently.
-        """
+        """A pack's value is in `per_user`; the tier transform would zero it."""
         wrong = reshape(PACK, is_pack=False)
         assert grant_new(wrong, 25) == 0
         assert grant_new(reshape(PACK, is_pack=True), 25) == 250
@@ -153,15 +139,8 @@ class TestPreflight:
         run()  # does not raise
 
     def test_a_line_on_a_plan_that_does_not_scale_is_fine_at_any_quantity(self):
-        """A Professional at quantity 3, as the backfill leaves per-unit plans.
-
-        Its entitlement is flat - 20 requests, no per-block rate - so the
-        multiplication the preflight guards against cannot happen, and the
-        reshape is a no-op.  This used to refuse the whole run over it.
-        """
-        # Not the real "professional" slug: get-or-create on name would
-        # adopt a row an earlier test module seeded with a *scaling*
-        # entitlement, and this test would then be about that row.
+        """A flat entitlement grants the same at any quantity."""
+        # Not "professional": an earlier module may have seeded it scaling.
         flat = plan_named("Flat Per-Unit Plan", "flat-per-unit")
         entitlement = EntitlementFactory(resources={"base_requests": 20})
         entitlement.plans.add(flat)
@@ -194,12 +173,8 @@ class TestTheRun:
             "requests_per_user": 50,
         }
 
-    # Every pack 0082 seeds, with its real resource shape.  The command
-    # used to derive its pack set from PACK_DECOMPOSITION, which names only
-    # the packs legacy plans decompose into - so the two below that nothing
-    # decomposes into yet were classified as tiers and transformed into
-    # granting nothing.  Silently: they had no subscribers, so the grant
-    # check printed no rows for them.
+    # Every pack 0082 seeds, with its real shape, including those no legacy
+    # plan decomposes into.
     @pytest.mark.parametrize(
         ("name", "slug", "resource_key", "per_unit"),
         [
@@ -236,15 +211,10 @@ class TestTheRun:
         assert grant_new(entitlement.resources, 25) == 25 * per_unit
 
     def test_a_reshape_that_would_change_a_grant_aborts_and_rolls_back(self):
-        """Checked at quantity 1 whether or not anyone holds it.
+        """`minimum_users: 0` with a rate changes at quantity 1, held or not.
 
-        A tier with `minimum_users: 0` and a nonzero per-user rate grants
-        `base + per_user` at quantity 1 today and `base` after the
-        reshape - the formulas do not agree for this shape.  With no
-        subscriber on it, the old grant check printed no rows at all and
-        the entitlement went through changed.  Now it aborts, and because
-        the run is one transaction, the entitlement reshaped *before* it
-        is rolled back too.
+        The run is one transaction, so the entitlement reshaped before it
+        rolls back too.
         """
         fine = tier_entitlement()
         broken = EntitlementFactory(
