@@ -51,11 +51,19 @@ class Command(BaseCommand):
         self._preflight()
 
         counts = collections.Counter()
+        # Collected rather than raised at the first, so one dry run names all.
+        changed_grants = []
         with transaction.atomic():
             for entitlement in Entitlement.objects.prefetch_related("plans").order_by(
                 "pk"
             ):
-                counts[self._migrate(entitlement)] += 1
+                counts[self._migrate(entitlement, changed_grants)] += 1
+            if changed_grants:
+                raise CommandError(
+                    "\n".join(changed_grants)
+                    + "\nThe transform is wrong for these shapes; nothing was "
+                    "written."
+                )
             if dry_run:
                 transaction.set_rollback(True)
 
@@ -119,7 +127,7 @@ class Command(BaseCommand):
     def _is_tier(entitlement):
         return any(plan.slug not in PACK_SLUGS for plan in entitlement.plans.all())
 
-    def _migrate(self, entitlement):
+    def _migrate(self, entitlement, changed_grants):
         is_pack = self._is_pack(entitlement)
         target = reshape(entitlement.resources, is_pack=is_pack)
 
@@ -139,19 +147,19 @@ class Command(BaseCommand):
                 f"{entitlement.resources} -> {target}"
             )
         )
-        self._check_grants(entitlement, target)
+        changed_grants.extend(self._check_grants(entitlement, target))
         entitlement.resources = target
         entitlement.save(update_fields=["resources"])
         return "reshaped"
 
     def _check_grants(self, entitlement, target):
-        """Refuse a reshape that changes what anyone receives.
+        """Where a reshape would change what anyone receives.
 
         Checked at every quantity held and always at 1, which covers unsold
-        packs and EntitlementGrants (served at quantity 1).  Raising rolls
-        back every entitlement: one wrong number means the transform is
-        wrong for that shape.
+        packs and EntitlementGrants (served at quantity 1).  Any one rolls
+        back every entitlement: it means the transform is wrong for that shape.
         """
+        changed = []
         held = set(
             SubscriptionItem.objects.filter(plan__entitlements=entitlement)
             .values_list("quantity", flat=True)
@@ -172,8 +180,8 @@ class Command(BaseCommand):
                 + ("" if agree else "  <-- CHANGED")
             )
             if not agree:
-                raise CommandError(
+                changed.append(
                     f"{entitlement.slug}: reshaping would change the grant "
-                    f"at quantity {quantity} - {arithmetic}.  The transform "
-                    f"is wrong for this shape; nothing was written."
+                    f"at quantity {quantity} - {arithmetic}."
                 )
+        return changed
