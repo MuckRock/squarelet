@@ -85,10 +85,15 @@ class UpdateForm(forms.ModelForm):
             "one of the organization's email domains."
         ),
     )
+    nonprofit = forms.BooleanField(
+        label=_("Non-profit"),
+        required=False,
+        help_text=_("This organization is a registered non-profit."),
+    )
 
     class Meta:
         model = Organization
-        fields = ["avatar", "about", "private", "allow_auto_join"]
+        fields = ["avatar", "about", "private", "allow_auto_join", "nonprofit"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -125,6 +130,7 @@ class UpdateForm(forms.ModelForm):
             CrispyField("avatar"),
             CrispyField("about"),
             CrispyField("private"),
+            CrispyField("nonprofit"),
         )
 
         if "allow_auto_join" in self.fields:
