@@ -19,7 +19,7 @@ from autoslug import AutoSlugField
 
 # Squarelet
 from squarelet.core.storage import private_storage
-from squarelet.core.utils import is_production_env, mailchimp_journey
+from squarelet.core.utils import file_path, is_production_env, mailchimp_journey
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -1417,6 +1417,10 @@ class SubscriptionItem(models.Model):
         )
 
 
+def plan_file_path(instance, filename):
+    return file_path("plan_icons", instance, filename)
+
+
 class Plan(models.Model):
     """Plans that organizations can subscribe to"""
 
@@ -1431,28 +1435,19 @@ class Plan(models.Model):
         help_text=_("A unique slug to identify the plan"),
     )
 
-    PRODUCT_CHOICES = [
-        ("muckrock", _("MuckRock")),
-        ("documentcloud", _("DocumentCloud")),
-        ("sunlight", _("Sunlight")),
-        ("scoutpost", _("Scoutpost")),
-    ]
-
-    product = models.CharField(
-        _("product"),
-        max_length=20,
-        choices=PRODUCT_CHOICES,
+    service = models.ForeignKey(
+        "services.Service",
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        default="",
+        related_name="plans",
+        verbose_name=_("service"),
         help_text=_(
-            "Which product this plan is marketed under, for grouping tiers on "
+            "Which service this plan is marketed under, for grouping tiers on "
             "the plan page.  This is a display label, not a description of "
-            "what the plan grants - most plans span more than one product "
-            "(Sunlight tiers grant MuckRock and DocumentCloud entitlements but "
-            "are still marketed as Sunlight).  Do NOT use this to decide "
-            "whether a plan switch is an upgrade or an unrelated addition; "
-            "compare the entitlement client sets instead.  Blank on legacy "
-            "plans not yet mapped to a tier."
+            "what the plan grants - most plans span more than one service.  "
+            "Do NOT use this to decide whether a plan switch is an upgrade; "
+            "compare the entitlement client sets instead."
         ),
     )
     stripe_product_id = models.CharField(
@@ -1572,6 +1567,12 @@ class Plan(models.Model):
         _("description"),
         blank=True,
         help_text=_("Detailed description of the plan, in Markdown"),
+    )
+    icon = models.ImageField(
+        _("icon"),
+        upload_to=plan_file_path,
+        blank=True,
+        help_text=_("Icon for the plan"),
     )
 
     class Meta:
