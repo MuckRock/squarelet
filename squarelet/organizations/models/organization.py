@@ -328,6 +328,12 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
+    nonprofit = models.BooleanField(
+        _("non-profit"),
+        default=False,
+        help_text=_("This organization is eligible for non-profit plan pricing."),
+    )
+
     client_stats = models.JSONField(
         _("client stats"),
         default=dict,
