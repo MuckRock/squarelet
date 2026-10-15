@@ -119,12 +119,9 @@ def tiered_plan(plan_factory, sandbox):
     which is the largest single risk in this migration and the reason these
     assert amounts rather than price ids.
 
-    Built against Stripe directly, because `make_stripe_plan` no longer
-    creates this shape - 3a replaced it with a Product and a flat Price.
-    Production is still full of them until the backfill has run, and
-    `legacy_bill_cents` computes what they charge, so the shape has to stay
-    covered by something that talks to Stripe.  The plan deliberately gets
-    no `PlanPrice`, which is what leaves the line billing the legacy id.
+    Built against Stripe directly, since `make_stripe_plan` no longer makes
+    this shape but production bills it until the backfill runs.  No
+    `PlanPrice`, so the line bills the legacy id.
     """
     name = f"Sandbox Tiered {uuid4().hex[:8]}"
     plan = plan_factory(
@@ -369,12 +366,8 @@ class TestRemovingOnePlan:
 class TestWhatTheCustomerIsCharged:
     """Identity is not enough: the amount is the thing that can be wrong.
 
-    The tiered cases below describe plans that already exist on Stripe, not
-    ones the app can still create: 3a replaced the legacy tiered Plan with
-    a Product and a flat Price.  They stay because production bills real
-    subscribers this way until the backfill has moved them, and
-    `legacy_bill_cents` - which the backfill's money check trusts - claims
-    to reproduce exactly these numbers.
+    The tiered cases cover plans production bills until the backfill, whose
+    money check trusts `legacy_bill_cents` to reproduce these numbers.
     """
 
     def test_a_tiered_plan_at_its_minimum_bills_the_flat_amount(

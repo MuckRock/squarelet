@@ -1721,22 +1721,12 @@ class Plan(models.Model):
     def make_stripe_plan(self):
         """Give a newly created plan a Stripe Product and a list Price.
 
-        Replaces the legacy Plan object this used to create.  A Stripe Plan
-        is the old API's combined product-and-price; the model here is one
-        Product per plan with a `PlanPrice` row per `(interval, label,
-        code)`, so a new plan gets its Product and its standard price.
-
-        The row is created whatever the amount.  A free plan simply gets a
-        price of zero and no Stripe Price at all, which is what
-        `ensure_stripe_price` does with a zero amount - and it means every
-        plan has a price to point a subscription at.
+        The price row is made even for a free plan, which gets no Stripe
+        Price, so every plan has a price a subscription can point at.
         """
         if self.price_per_user:
-            # The legacy tiered Price expressed this as a second tier above
-            # `minimum_users`.  A flat Price cannot, and in this model the
-            # blocks above a tier are a usage pack bought alongside it - so
-            # a per-user rate on a new plan is quietly dropped unless
-            # someone is told.
+            # A flat Price has no per-user tier; extra blocks are a pack now.
+            # Say so, or the rate is silently dropped.
             logger.warning(
                 "Plan %s was created with price_per_user=%s, which the "
                 "consolidated pricing model does not use - sell the extra "
@@ -1757,19 +1747,9 @@ class Plan(models.Model):
     def archive_stripe_plan(self):
         """Retire this plan's Stripe objects: every Price, then the Product.
 
-        Not a delete, because Stripe does not offer one for a Price: the
-        object is immutable and permanent once anything could have billed
-        against it.  Deactivating is the whole of what removal means.
-
-        Every active price goes, including the free and comped rows that
-        have no Stripe object of their own - those carry no Stripe state
-        but they do make the plan resolvable, and a retired plan should
-        not resolve.  The Product follows, because by then nothing is
-        left hanging off it.
-
-        Called when a plan is archived, and again if one is ever deleted.
-        Both are idempotent: an already-inactive Price answers
-        `InvalidRequestError`, and the second pass finds no active rows.
+        Stripe can't delete a Price, so retiring means deactivating.  Free and
+        comped rows go too, so a retired plan no longer resolves.  Safe to run
+        twice.
         """
         plan_service = get_payment_provider().get_plan_service()
 
@@ -1778,8 +1758,7 @@ class Plan(models.Model):
                 try:
                     plan_service.archive_price(price.stripe_price_id)
                 except stripe.InvalidRequestError:  # pragma: no cover
-                    # Already gone or already inactive; either way it is
-                    # not billing anything, which is the point.
+                    # Already inactive or gone: nothing bills it.
                     pass
             price.active = False
             price.save(update_fields=["active"])
@@ -2076,19 +2055,15 @@ class PlanPrice(models.Model):
         # itself a transaction that this cannot escape.
         replacement.ensure_stripe_price()
 
-        # Deactivate the Stripe Price this row was pointing at, so nothing
-        # new can be sold at the old rate.  Existing subscribers keep
-        # billing against it - Stripe only stops an inactive Price being
-        # attached to something new - which is what lets this happen here
-        # rather than waiting for callers to move anyone over.
+        # Nothing new sells at the old rate; existing subscribers keep
+        # billing on it, so this needn't wait for them to move.
         if self.stripe_price_id:
             try:
                 get_payment_provider().get_plan_service().archive_price(
                     self.stripe_price_id
                 )
             except stripe.InvalidRequestError:  # pragma: no cover
-                # Already inactive, or gone.  Either way nothing new can be
-                # sold at it, which is the whole point.
+                # Already inactive or gone: nothing new can sell at it.
                 pass
 
         return replacement
