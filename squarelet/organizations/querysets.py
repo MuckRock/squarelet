@@ -24,6 +24,10 @@ from squarelet.organizations.plan_mapping import (
 # pylint:disable=too-many-positional-arguments
 
 
+# `PlanPrice.billable` as a filter: free, or on Stripe.
+BILLABLE_PRICE = Q(amount=0) | ~Q(stripe_price_id="")
+
+
 class OrganizationQuerySet(models.QuerySet):
     def get_viewable(self, user):
         if user.is_staff:
@@ -431,25 +435,27 @@ class ChargeQuerySet(models.QuerySet):
 
 class SubscriptionItemQuerySet(models.QuerySet):
     @staticmethod
-    def resolve_purchase(plan, nonprofit=False):
+    def resolve_purchase(plan, nonprofit=False, interval=None):
         """The `(plan, price)` a purchase of `plan` is recorded as.
 
-        Annual and nonprofit are separate Plan rows today; both land on their
-        canonical tier's price, as the migration lands existing lines.
-        `(plan, None)` until `consolidate_stripe_products` has created the
-        price, which bills the legacy plan as before.
+        Legacy annual and nonprofit rows land on their canonical tier's price,
+        as the migration lands existing lines.  `interval` asks for a tier's
+        annual price directly; None takes the mapping's.  `(plan, None)` until
+        `consolidate_stripe_products` has created the price, which bills the
+        legacy plan as before.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.models.payment import PlanPrice
 
-        slug, interval, label, code = resolve_target(plan.slug) or (
+        slug, mapped_interval, label, code = resolve_target(plan.slug) or (
             plan.slug,
             "annual" if plan.annual else "monthly",
             "standard",
             "",
         )
+        interval = interval or mapped_interval
         if nonprofit and label == "standard":
             label = "nonprofit"
         price = (
@@ -466,6 +472,36 @@ class SubscriptionItemQuerySet(models.QuerySet):
         if price is None:
             return plan, None
         return price.plan, price
+
+    @staticmethod
+    def intervals_for_sale(plan):
+        """The intervals `plan` can be bought at, through its canonical tier.
+
+        At the rate the row sells: the list price, or a negotiated row's own
+        code.  Never a nonprofit rate, which is a discount on the list price.
+        A paid price with no Stripe Price yet can't be billed, so it doesn't
+        count.
+        """
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import PlanPrice
+
+        canonical_slug, _interval, _label, code = resolve_target(plan.slug) or (
+            plan.slug,
+            None,
+            "standard",
+            "",
+        )
+        return list(
+            PlanPrice.objects.filter(
+                plan__slug=canonical_slug, active=True, code=code, label="standard"
+            )
+            .filter(BILLABLE_PRICE)
+            .order_by("-interval")  # monthly before annual
+            .values_list("interval", flat=True)
+            .distinct()
+        )
 
     @staticmethod
     def plans_of_tier(plan):
@@ -486,7 +522,13 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return set(Plan.objects.filter(slug__in=slugs))
 
     def start(
-        self, organization, plan, payment_method="card", quantity=None, nonprofit=False
+        self,
+        organization,
+        plan,
+        payment_method="card",
+        quantity=None,
+        nonprofit=False,
+        interval=None,
     ):
         """Add a line for `plan` and make sure Stripe knows about it.
 
@@ -504,7 +546,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Squarelet
         from squarelet.organizations.models.payment import Subscription
 
-        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
+        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit, interval)
         if quantity is None:
             quantity = 1 if plan_price else plan.minimum_users
         if plan_price:
