@@ -64,10 +64,7 @@ def archive_stripe_plan_on_retire(sender, instance, raw=False, **kwargs):
     if raw or instance._state.adding or not instance.pk:
         return
     was_archived = (
-        Plan.objects.including_archived()
-        .filter(pk=instance.pk)
-        .values_list("archived", flat=True)
-        .first()
+        Plan.objects.filter(pk=instance.pk).values_list("archived", flat=True).first()
     )
     if was_archived is False and instance.archived:
         transaction.on_commit(instance.archive_stripe_plan)
