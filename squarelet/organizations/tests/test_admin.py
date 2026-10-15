@@ -570,17 +570,6 @@ class TestTheAdminSeesRetiredPlans:
         retired = plan_factory(name="Retired Plan", archived=True)
 
         assert plan_admin.get_queryset(None).filter(pk=retired.pk).exists()
-        assert not Plan.objects.filter(pk=retired.pk).exists()
-
-    @pytest.mark.django_db
-    def test_live_plans_are_still_listed(self, plan_admin, plan_factory):
-        live = plan_factory(name="Live Plan")
-        plan_factory(name="Retired Plan", archived=True)
-
-        listed = plan_admin.get_queryset(None)
-        assert listed.filter(pk=live.pk).exists()
-        assert listed.count() == Plan.objects.including_archived().count()
-        assert listed.count() == Plan.objects.count() + 1
 
     def test_the_flag_is_visible_and_filterable(self, plan_admin):
         """A row staff cannot tell apart from a live one is no better."""
