@@ -558,11 +558,7 @@ class TestOrganizationAdmin:
 class TestTheAdminSeesRetiredPlans:
     """Archiving hides a plan from customers, not from staff.
 
-    `Plan.objects` excludes archived rows so nothing offers one for sale,
-    and `ModelAdmin.get_queryset` reads that same default manager - which
-    hid retired plans from the admin too.  `archive_legacy_plans` only
-    ever archives, so the admin is the only way back, and it could not see
-    the row it needed to restore.
+    The admin is the only way to unarchive one.
     """
 
     @pytest.fixture(name="plan_admin")
