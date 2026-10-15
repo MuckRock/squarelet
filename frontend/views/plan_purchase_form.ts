@@ -34,15 +34,13 @@ interface OrgCards {
   [orgId: string]: OrgCard;
 }
 
+// What the form sells, from PlanPurchaseForm.get_plan_data: the resolved
+// price, not the plan's legacy columns.  Amounts are in dollars.
 interface PlanData {
-  annual: boolean;
-  is_sunlight_plan: boolean;
-  base_price: number;
-  price_per_user: number;
-  minimum_users: number;
+  interval?: 'monthly' | 'annual';
+  amount?: number;
   has_nonprofit_variant?: boolean;
-  nonprofit_base_price?: number;
-  nonprofit_price_per_user?: number;
+  nonprofit_amount?: number;
 }
 
 interface FormElements {
@@ -239,7 +237,7 @@ function initPlanPurchaseForm(container: HTMLElement): void {
       // Show discounted price from nonprofit plan variant
       originalPrice.style.textDecoration = 'line-through';
       originalPrice.style.opacity = '0.6';
-      discountedPrice.textContent = `$${formatPrice(planData.nonprofit_base_price || 0)}`;
+      discountedPrice.textContent = `$${formatPrice(planData.nonprofit_amount || 0)}`;
       discountedPrice.style.display = 'inline';
     } else {
       // Show normal price
