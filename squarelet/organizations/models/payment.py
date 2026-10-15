@@ -1492,9 +1492,8 @@ class Plan(models.Model):
         _("archived"),
         default=False,
         help_text=_(
-            "Retired: nobody is on it and it can no longer be bought.  The "
-            "row is kept because the change log references it - deleting it "
-            "would destroy the history of who used to be on what."
+            "Retired: nobody is on it and it can no longer be bought.  Kept "
+            "rather than deleted because the change log references it."
         ),
     )
     public = models.BooleanField(
