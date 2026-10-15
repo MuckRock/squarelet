@@ -57,7 +57,12 @@ def sandbox(settings):
     settings.STRIPE_SECRET_KEY = key
     stripe.api_key = key
 
-    created = {"subscriptions": [], "customers": [], "plans": []}
+    created = {
+        "subscriptions": [],
+        "customers": [],
+        "plans": [],
+        "legacy_plans": [],
+    }
     yield created
 
     # Subscriptions first: a customer cannot be deleted out from under one.
@@ -73,7 +78,12 @@ def sandbox(settings):
             pass
     for plan in created["plans"]:
         try:
-            plan.delete_stripe_plan()
+            plan.archive_stripe_plan()
+        except stripe.StripeError:
+            pass
+    for plan_id in created["legacy_plans"]:
+        try:
+            stripe.Plan.delete(plan_id)
         except stripe.StripeError:
             pass
 
@@ -100,7 +110,7 @@ def paid_plan(plan_factory, sandbox, price=25):
 
 
 def tiered_plan(plan_factory, sandbox):
-    """A legacy group plan, billed the way the real ones are.
+    """A legacy group plan, billed the way the real ones still are.
 
     `billing_scheme: tiered` with `tiers_mode: graduated`: a flat amount up
     to `minimum_users`, then per block beyond it.  Quantity *selects* a tier
@@ -108,6 +118,10 @@ def tiered_plan(plan_factory, sandbox):
     reading one as the other overcharges a five-seat subscriber fivefold,
     which is the largest single risk in this migration and the reason these
     assert amounts rather than price ids.
+
+    Built against Stripe directly: the app makes flat Prices, but production
+    bills this shape until the backfill runs.  No `PlanPrice`, so the line
+    bills the legacy id.
     """
     name = f"Sandbox Tiered {uuid4().hex[:8]}"
     plan = plan_factory(
@@ -118,8 +132,19 @@ def tiered_plan(plan_factory, sandbox):
         base_price=100,
         price_per_user=10,
     )
-    plan.make_stripe_plan()
-    sandbox["plans"].append(plan)
+    stripe.Plan.create(
+        id=plan.stripe_id,
+        currency="usd",
+        interval="month",
+        product={"name": name, "unit_label": "Seats"},
+        billing_scheme="tiered",
+        tiers_mode="graduated",
+        tiers=[
+            {"flat_amount": 100 * plan.base_price, "up_to": plan.minimum_users},
+            {"unit_amount": 100 * plan.price_per_user, "up_to": "inf"},
+        ],
+    )
+    sandbox["legacy_plans"].append(plan.stripe_id)
     return plan
 
 
@@ -189,12 +214,13 @@ class TestAddingASecondPlan:
         SubscriptionItem.objects.filter(pk=first.pk).update(stripe_item_id="")
 
         second_plan = paid_plan(plan_factory, sandbox, price=40)
-        start(organization, second_plan, sandbox)
+        second = start(organization, second_plan, sandbox)
 
         subscription_id = first.subscription.subscription_id
+        first.refresh_from_db()
         assert stripe_prices(subscription_id) == {
-            first.plan.stripe_id,
-            second_plan.stripe_id,
+            first.stripe_price_id,
+            second.stripe_price_id,
         }
 
     def test_a_new_subscription_starts_identified(
@@ -246,7 +272,9 @@ class TestChangingAPlan:
         item.modify(new_plan)
 
         assert item.subscription.subscription_id == subscription_id
-        assert stripe_prices(subscription_id) == {new_plan.stripe_id}
+        item.refresh_from_db()
+        assert stripe_prices(subscription_id) == {item.stripe_price_id}
+        assert item.plan == new_plan
 
     def test_moving_to_a_free_plan_is_refused_and_billing_carries_on(
         self, organization_factory, plan_factory, sandbox
@@ -292,7 +320,8 @@ class TestRemovingOnePlan:
         assert leaving.cancel(proration_date=moment) is True
 
         assert credit > 0
-        assert stripe_prices(subscription_id) == {staying.plan.stripe_id}
+        staying.refresh_from_db()
+        assert stripe_prices(subscription_id) == {staying.stripe_price_id}
         upcoming = stripe.Invoice.create_preview(
             customer=organization.customer().customer_id, subscription=subscription_id
         )
@@ -335,7 +364,11 @@ class TestRemovingOnePlan:
 
 
 class TestWhatTheCustomerIsCharged:
-    """Identity is not enough: the amount is the thing that can be wrong."""
+    """Identity is not enough: the amount is the thing that can be wrong.
+
+    The tiered cases cover plans production bills until the backfill, whose
+    money check trusts `legacy_bill_cents` to reproduce these numbers.
+    """
 
     def test_a_tiered_plan_at_its_minimum_bills_the_flat_amount(
         self, organization_factory, plan_factory, sandbox
@@ -468,7 +501,9 @@ class TestCancellingOnStripe:
             sandbox,
         )
 
-        assert stripe_prices(paid.subscription.subscription_id) == {paid.plan.stripe_id}
+        assert stripe_prices(paid.subscription.subscription_id) == {
+            paid.stripe_price_id
+        }
 
 
 class TestProratedInvoicing:
@@ -614,7 +649,12 @@ class TestAddingToAnAnnualSubscription:
 
         live = stripe.Subscription.retrieve(subscription_id)
         assert live["collection_method"] == "charge_automatically"
-        assert stripe_prices(subscription_id) == {annual.stripe_id, other.stripe_id}
+        annual_item = SubscriptionItem.objects.get(plan=annual)
+        other_item = SubscriptionItem.objects.get(plan=other)
+        assert stripe_prices(subscription_id) == {
+            annual_item.stripe_price_id,
+            other_item.stripe_price_id,
+        }
 
 
 class TestCollectionMethodComesFromStripe:

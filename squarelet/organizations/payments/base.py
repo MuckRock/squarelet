@@ -263,6 +263,14 @@ class PlanService(ABC):
         """
 
     @abstractmethod
+    def archive_price(self, price_id):
+        """Deactivate a Price; Stripe can't delete one."""
+
+    @abstractmethod
+    def archive_product(self, product_id):
+        """Deactivate a Product; Stripe can't delete one that has a Price."""
+
+    @abstractmethod
     def create_price(self, product_id, unit_amount, currency, interval, **kwargs):
         """Create a recurring Price under a Product.
 

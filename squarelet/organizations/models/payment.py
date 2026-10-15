@@ -1586,6 +1586,16 @@ class Plan(models.Model):
         ordering = ("slug",)
 
     def clean(self):
+        # A flat Price can't bill per user; extra units are a usage pack.
+        if self.price_per_user and not self.pk:
+            raise ValidationError(
+                {
+                    "price_per_user": _(
+                        "New plans are priced flat; sell extra units as a "
+                        "usage pack instead."
+                    )
+                }
+            )
         # Archiving under subscribers hides their plan from renewal choices.
         if self.archived and self.pk:
             lines = self.subscription_items.count()
@@ -1719,51 +1729,62 @@ class Plan(models.Model):
         return product.id
 
     def make_stripe_plan(self):
-        """Create the plan on stripe"""
-        if not self.free:
-            try:
-                # set up the pricing for groups and individuals
-                # convert dollar amounts to cents for stripe
-                if self.for_groups:
-                    kwargs = {
-                        "billing_scheme": "tiered",
-                        "tiers": [
-                            {
-                                "flat_amount": 100 * self.base_price,
-                                "up_to": self.minimum_users,
-                            },
-                            {"unit_amount": 100 * self.price_per_user, "up_to": "inf"},
-                        ],
-                        "tiers_mode": "graduated",
-                    }
-                else:
-                    kwargs = {
-                        "billing_scheme": "per_unit",
-                        "amount": 100 * self.base_price,
-                    }
-                get_payment_provider().get_plan_service().create(
-                    plan_id=self.stripe_id,
-                    currency="usd",
-                    interval="year" if self.annual else "month",
-                    product={"name": self.name, "unit_label": "Seats"},
-                    **kwargs,
-                )
-            except stripe.InvalidRequestError:  # pragma: no cover
-                # if the plan already exists, just skip
-                pass
+        """Give a newly created plan a Stripe Product and a list Price.
 
-    def delete_stripe_plan(self):
-        """Remove a stripe plan"""
-        try:
-            plan_service = get_payment_provider().get_plan_service()
-            plan = plan_service.retrieve(self.stripe_id)
-            # We also want to remove the associated product
-            product = plan_service.retrieve_product(plan.product)
-            plan_service.delete(plan)
-            plan_service.delete_product(product)
-        except stripe.InvalidRequestError:
-            # if the plan or product do not exist, just skip
-            pass
+        The price row is made even for a free plan, which gets no Stripe
+        Price, so every plan has a price a subscription can point at.
+        """
+        if self.price_per_user:
+            # A flat Price has no per-user tier; extra blocks are a pack now.
+            # Say so, or the rate is silently dropped.
+            logger.warning(
+                "Plan %s was created with price_per_user=%s, which the "
+                "consolidated pricing model does not use - sell the extra "
+                "units as a usage pack instead.",
+                self.slug,
+                self.price_per_user,
+            )
+
+        price, _ = self.prices.get_or_create(
+            interval="annual" if self.annual else "monthly",
+            label="standard",
+            code="",
+            defaults={"amount": 100 * self.base_price, "currency": "usd"},
+        )
+        price.ensure_stripe_price()
+        return price
+
+    def archive_stripe_plan(self):
+        """Retire this plan's Stripe objects: every Price, then the Product.
+
+        Stripe can't delete a Price, so retiring means deactivating.  Free and
+        comped rows go too, so a retired plan no longer resolves.  Safe to run
+        twice.
+        """
+        plan_service = get_payment_provider().get_plan_service()
+
+        for price in self.prices.filter(active=True):
+            if price.stripe_price_id:
+                _archive_on_stripe(plan_service.archive_price, price.stripe_price_id)
+            price.active = False
+            price.save(update_fields=["active"])
+
+        if self.stripe_product_id:
+            _archive_on_stripe(plan_service.archive_product, self.stripe_product_id)
+
+
+def _archive_on_stripe(archive, stripe_id):
+    """Archive one Stripe object, logging rather than raising a failure.
+
+    Runs after commit, often for many plans at once; one error must not stop
+    the rest.  The inactive local row already stops new sales.
+    """
+    try:
+        archive(stripe_id)
+    except stripe.InvalidRequestError:
+        pass  # Already inactive or gone.
+    except stripe.StripeError as exc:
+        logger.error("[PLAN] Could not archive %s on Stripe: %s", stripe_id, exc)
 
 
 class PlanPrice(models.Model):
