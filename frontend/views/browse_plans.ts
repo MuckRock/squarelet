@@ -1,6 +1,6 @@
 import "@/css/sidebar_layout.css";
 import "@/css/plan_card.css";
-import "@/css/organization_plans.css";
+import "@/css/browse_plans.css";
 
 document
   .querySelectorAll<HTMLButtonElement>(".plan-benefits-toggle")

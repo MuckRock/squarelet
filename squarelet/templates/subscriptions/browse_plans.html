@@ -6,10 +6,10 @@
 
 {% block vite %}
 {{ block.super }}
-{% vite_asset "frontend/views/organization_plans.ts" %}
+{% vite_asset "frontend/views/browse_plans.ts" %}
 {% endblock vite %}
 
-{% block layout_id %}organization_plans{% endblock %}
+{% block layout_id %}browse_plans{% endblock %}
 
 {% block header %}
   <header>
@@ -22,7 +22,11 @@
 {% block sidebar %}
   <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
     {% icon "chevron-left" %}
-    {% trans "Back to team overview" %}
+    {% if subject == "organizations" %}
+      {% trans "Back to team overview" %}
+    {% else %}
+      {% trans "Back to your account" %}
+    {% endif %}
   </a>
   <ul>
     {% for group in services %}
@@ -77,7 +81,7 @@
               {% if plan.held %}
                 <div class="plan-card-actions">
                   <p class="caption">{% trans "You are already subscribed to this plan." %}</p>
-                  <a href="{% url 'organizations:subscriptions' organization.slug %}" class="btn primary ghost small">
+                  <a href="{% url subject|add:':subscriptions' subject_slug %}" class="btn primary ghost small">
                     {% icon "gear" %}
                     {% trans "Manage subscription" %}
                   </a>
@@ -135,7 +139,13 @@
   {% empty %}
     <section>
       <div class="card card--stack">
-        <p class="empty empty--no-border">{% trans "There are no plans available to this organization." %}</p>
+        <p class="empty empty--no-border">
+          {% if subject == "organizations" %}
+            {% trans "There are no plans available to this organization." %}
+          {% else %}
+            {% trans "There are no plans available to you." %}
+          {% endif %}
+        </p>
       </div>
     </section>
   {% endfor %}
