@@ -9,7 +9,7 @@ describe("plan benefits toggle", () => {
       <button class="plan-benefits-toggle" aria-expanded="false" aria-controls="benefits">Benefits</button>
       <ul id="benefits" hidden><li>One</li></ul>
     `;
-    await import("./organization_plans");
+    await import("./browse_plans");
     toggle = document.querySelector(".plan-benefits-toggle");
     list = document.getElementById("benefits");
   });
