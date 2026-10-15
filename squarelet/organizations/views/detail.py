@@ -28,6 +28,7 @@ from squarelet.organizations.models import (
     consolidate_plan_benefits,
 )
 from squarelet.organizations.models.invitation import OrganizationInvitation
+from squarelet.organizations.plan_mapping import tier_of
 from squarelet.organizations.tasks import sync_wix
 
 # How much to paginate organizations list by
@@ -71,6 +72,12 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
             sub.plan for sub in subscriptions
         )
         context["upgrade_plan"] = upgrade_plan
+        held_tiers = {tier_of(sub.plan.slug) for sub in subscriptions}
+        context["private_plans"] = [
+            plan
+            for plan in org.private_plans.filter(public=False).order_by("name")
+            if tier_of(plan.slug) not in held_tiers
+        ]
         context["member_count"] = len(users)
         context["admin_count"] = len(admins)
 
