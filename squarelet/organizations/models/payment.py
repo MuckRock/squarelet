@@ -1755,19 +1755,26 @@ class Plan(models.Model):
 
         for price in self.prices.filter(active=True):
             if price.stripe_price_id:
-                try:
-                    plan_service.archive_price(price.stripe_price_id)
-                except stripe.InvalidRequestError:  # pragma: no cover
-                    # Already inactive or gone: nothing bills it.
-                    pass
+                _archive_on_stripe(plan_service.archive_price, price.stripe_price_id)
             price.active = False
             price.save(update_fields=["active"])
 
         if self.stripe_product_id:
-            try:
-                plan_service.archive_product(self.stripe_product_id)
-            except stripe.InvalidRequestError:  # pragma: no cover
-                pass
+            _archive_on_stripe(plan_service.archive_product, self.stripe_product_id)
+
+
+def _archive_on_stripe(archive, stripe_id):
+    """Archive one Stripe object, logging rather than raising a failure.
+
+    Runs after commit, often for many plans at once; one error must not stop
+    the rest.  The inactive local row already stops new sales.
+    """
+    try:
+        archive(stripe_id)
+    except stripe.InvalidRequestError:
+        pass  # Already inactive or gone.
+    except stripe.StripeError as exc:
+        logger.error("[PLAN] Could not archive %s on Stripe: %s", stripe_id, exc)
 
 
 class PlanPrice(models.Model):
