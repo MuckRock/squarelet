@@ -42,10 +42,14 @@ def should_sync_wix(org):
     dispatch_uid="squarelet.organizations.signals.make_stripe_plan",
 )
 def make_stripe_plan(sender, instance, created, raw, using, update_fields, **kwargs):
-    """Give a new plan its Stripe Product and list Price"""
+    """Give a new plan its Stripe Product and list Price.
+
+    On commit, so a price the admin saves alongside the plan is found rather
+    than collided with.
+    """
     # pylint: disable=unused-argument
     if created:
-        instance.make_stripe_plan()
+        transaction.on_commit(instance.make_stripe_plan)
 
 
 @receiver(
