@@ -1586,6 +1586,16 @@ class Plan(models.Model):
         ordering = ("slug",)
 
     def clean(self):
+        # A flat Price can't bill per user; extra units are a usage pack.
+        if self.price_per_user and not self.pk:
+            raise ValidationError(
+                {
+                    "price_per_user": _(
+                        "New plans are priced flat; sell extra units as a "
+                        "usage pack instead."
+                    )
+                }
+            )
         # Archiving under subscribers hides their plan from renewal choices.
         if self.archived and self.pk:
             lines = self.subscription_items.count()
