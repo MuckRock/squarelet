@@ -34,12 +34,7 @@ def legacy_plan(name="Dead Plan", slug="dead-plan"):
 def plan_with_slug(name, slug):
     """One row per slug, seeded or not.
 
-    The migration seeds the canonical tiers and the entry rows, and whether
-    they are present when a test runs depends on which transactional tests
-    ran before it.  `PlanFactory` on an existing slug makes a second row
-    slugged `<slug>-2`, which no mapping entry names - so a test about
-    `sunlight-essential-annual` would quietly be about a plan nothing
-    resolves through.
+    The factory on a seeded slug makes `<slug>-2`, which nothing maps.
     """
     existing = Plan.objects.including_archived().filter(slug=slug).first()
     if existing is not None:
@@ -66,17 +61,13 @@ class TestWhatGetsArchived:
 
         run()
 
-        # Hidden from the default manager, which is the point of archiving -
-        # but the row is there for the change log to reference.
+        # Hidden, but kept for the change log.
         assert not Plan.objects.filter(pk=plan.pk).exists()
         assert Plan.objects.including_archived().filter(pk=plan.pk).exists()
 
     def test_a_canonical_plan_is_untouched(self):
         slug = sorted(canonical_slugs())[0]
-        # Adopt the seeded row: PlanFactory get-or-creates on *name* and
-        # `slug` is an AutoSlugField, so asking for a slug the seeded data
-        # already holds yields `<slug>-2` - which is not canonical, and
-        # would be archived.
+        # The seeded row, not a `<slug>-2` that would be archived.
         plan = Plan.objects.filter(slug=slug).first() or PlanFactory(
             name=f"Canonical {slug}", slug=slug
         )
@@ -108,15 +99,7 @@ class TestWhatGetsArchived:
 
 @pytest.mark.django_db()
 class TestEntryRowsAreKeptWhilePurchasesGoThroughThem:
-    """`sunlight-essential-annual` holds no price of its own.
-
-    Purchases pick it and `resolve_purchase` maps it to
-    `sunlight-essential`'s annual price - so after 2d it has zero lines and
-    zero prices, and "no active price" archived the only way to buy annual.
-    Sellable means `resolve_target` names an active price.  When the UI
-    picks interval and label directly and these rows leave the mapping,
-    the same test archives them with no change.
-    """
+    """`sunlight-essential-annual` holds no price, but purchases resolve through it."""
 
     def test_an_entry_row_whose_target_is_priced_is_kept(self):
         canonical = plan_with_slug("Sunlight Essential", "sunlight-essential")
@@ -147,13 +130,7 @@ class TestEntryRowsAreKeptWhilePurchasesGoThroughThem:
 
 @pytest.mark.django_db()
 class TestEveryCanonicalPlanIsKept:
-    """The price matrix, not the mapping's targets.
-
-    Derived from the mapping, the keep set was its targets plus a local
-    copy of the pack list built from PACK_DECOMPOSITION - and missed two
-    packs nothing decomposes into yet and three tiers no legacy plan maps
-    onto.  They survived only because consolidation had given them prices.
-    """
+    """The price matrix, not the mapping's targets, which miss some."""
 
     @pytest.mark.parametrize(
         "slug",
@@ -173,25 +150,14 @@ class TestEveryCanonicalPlanIsKept:
 
         plan.refresh_from_db()
         assert not plan.archived, f"{slug} is in the price matrix"
-        # Kept as canonical - not "still in use", which is what it read as
-        # when only a price consolidation happened to have created saved it.
-        # Checked per plan rather than by the summary counts: the migration
-        # seeds other plans, and whether they are present when this runs
-        # depends on which transactional tests ran before it.
+        # Per plan, not by the counts, which depend on what else is seeded.
         assert f"{slug}: still in use" not in out
         assert canonical_slugs() >= {slug}
 
 
 @pytest.mark.django_db()
 class TestACancelledLineStillBlocksIt:
-    """A cancelled line is a subscriber leaving, not one who has left.
-
-    It still bills and still grants access until `cancel_at`, and its
-    subscriber can press Resubscribe and be live again.  This used to
-    archive a plan with only cancelled lines on it, which left one Sunlight
-    subscriber renewing on an archived plan.  The sweep deletes the line
-    when the date arrives; the plan becomes archivable on the run after.
-    """
+    """A cancelled line is served until `cancel_at` and can resubscribe."""
 
     def test_a_plan_with_only_a_cancelled_line_is_left_alone(self):
         plan = legacy_plan()
@@ -216,14 +182,7 @@ class TestACancelledLineStillBlocksIt:
 
 @pytest.mark.django_db()
 class TestArchivedPlansAreNotOffered:
-    """`Plan.objects` hides them, so every surface is safe by default.
-
-    Before the manager did this, the only place reading the flag was
-    `choices()`, whose one caller is a template tag no template invokes -
-    and the sign-up form, the Sunlight listings and purchase-by-slug all
-    queried `Plan.objects` directly.  Archiving changed nothing a customer
-    could see.  These test the real surfaces, not the tag.
-    """
+    """`Plan.objects` hides them; these test the real surfaces customers use."""
 
     def test_the_default_manager_hides_it(self):
         PlanFactory(name="Retired", slug="retired", public=True, archived=True)
@@ -259,12 +218,7 @@ class TestArchivedPlansAreNotOffered:
         assert plan not in Plan.objects.choices(organization)
 
     def test_even_for_an_organization_currently_on_it(self):
-        """A retired plan is retired for renewals too.
-
-        `choices()` also matches on the organization's own subscriptions,
-        which would otherwise offer the plan back to exactly the people
-        being moved off it.
-        """
+        """`choices()` also matches the organization's own plans; not this one."""
         item = SubscriptionItemFactory(
             plan=PlanFactory(name="Retired", slug="retired", archived=True)
         )

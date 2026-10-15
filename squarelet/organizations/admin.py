@@ -373,8 +373,7 @@ class PlanFilter(admin.SimpleListFilter):
     template = "admin/dropdown_filter.html"
 
     def lookups(self, request, model_admin):
-        # Archived ones too: support filters by the plan an organization
-        # *used* to be on as often as the one it is on.
+        # Archived too: support filters by the plan an organization used to be on.
         plans = (
             Plan.objects.including_archived().order_by("name").values_list("pk", "name")
         )
@@ -810,14 +809,7 @@ class PlanAdmin(StripeLinkMixin, VersionAdmin):
     inlines = [PlanPriceInline]
 
     def get_queryset(self, request):
-        """Staff see retired plans; customers do not.
-
-        `Plan.objects` excludes archived rows so that nothing offers one
-        for sale, and the admin reads the default manager - which hid
-        retired plans from staff too.  Since `archive_legacy_plans` only
-        ever archives, the admin is the only way back, and it could not
-        see the row it needed to restore.
-        """
+        """Staff see retired plans: the admin is the only way to unarchive one."""
         return Plan.objects.including_archived()
 
     def save_formset(self, request, form, formset, change):
