@@ -56,20 +56,9 @@ def make_stripe_plan(sender, instance, created, raw, using, update_fields, **kwa
 def archive_stripe_plan_on_retire(sender, instance, raw=False, **kwargs):
     """Retire a plan's Stripe objects when the plan is archived.
 
-    Archiving is how a plan is actually retired - `archive_legacy_plans`
-    and the admin both set the flag and neither deletes the row - so this
-    is the hook that has to work.  The `pre_delete` one below cannot:
-    `PlanPrice.plan` is PROTECT, and Django raises `ProtectedError` while
-    collecting, before any `pre_delete` receiver is called.  So it fires
-    only for a plan with no prices at all, which after 3a is only a plan
-    whose price rows were deleted by hand first.  Left in place for that
-    case; this receiver is the one that retires a plan's Stripe objects
-    in practice.
-
-    Deferred to commit so that Stripe is told only once the archive is
-    durable.  A rollback after a successful `archive_price` would
-    otherwise leave a live-looking row pointing at a dead Stripe Price,
-    which nothing repairs.
+    Archiving is how plans are retired; the delete hook below rarely fires,
+    since `PlanPrice.plan` is PROTECT.  Runs on commit: told before a
+    rollback, Stripe would leave a live row on a dead Price.
     """
     # pylint: disable=unused-argument,protected-access
     if raw or instance._state.adding or not instance.pk:
@@ -92,9 +81,7 @@ def archive_stripe_plan_on_retire(sender, instance, raw=False, **kwargs):
 def archive_stripe_plan(sender, instance, using, **kwargs):
     """Deactivate a plan's Stripe objects when the plan is deleted.
 
-    Reaches only plans with no `PlanPrice` rows - see above - which is why
-    archiving is hooked to the flag as well.  It still has to be right for
-    the plans that can be deleted.
+    Only a plan with no `PlanPrice` rows can be deleted.
     """
     # pylint: disable=unused-argument
     instance.archive_stripe_plan()
