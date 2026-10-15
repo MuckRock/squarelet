@@ -98,7 +98,7 @@ class TestWhatGetsArchived:
 
     def test_a_plan_with_a_live_line_is_left_alone(self):
         plan = legacy_plan()
-        SubscriptionItemFactory(plan=plan, cancelled=False)
+        SubscriptionItemFactory(plan=plan, subscription__cancelled=False)
 
         run()
 
@@ -195,7 +195,7 @@ class TestACancelledLineStillBlocksIt:
 
     def test_a_plan_with_only_a_cancelled_line_is_left_alone(self):
         plan = legacy_plan()
-        SubscriptionItemFactory(plan=plan, cancelled=True)
+        SubscriptionItemFactory(plan=plan, subscription__cancelled=True)
 
         out = run()
 
@@ -205,7 +205,7 @@ class TestACancelledLineStillBlocksIt:
 
     def test_once_the_sweep_has_removed_it_the_plan_is_archived(self):
         plan = legacy_plan()
-        item = SubscriptionItemFactory(plan=plan, cancelled=True)
+        item = SubscriptionItemFactory(plan=plan, subscription__cancelled=True)
         item.delete()  # what restore_organization does when cancel_at arrives
 
         run()

@@ -41,7 +41,7 @@ def sellable_through(plan):
     """
     if plan.prices.filter(active=True).exists():
         return True
-    target = resolve_target(plan.slug, allow_comped=False)
+    target = resolve_target(plan.slug)
     if target is None:
         return False
     slug, interval, label, code = target
