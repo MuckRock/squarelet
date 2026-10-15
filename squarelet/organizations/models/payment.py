@@ -1617,6 +1617,22 @@ class Plan(models.Model):
     def get_absolute_url(self):
         return reverse("plan_detail", kwargs={"pk": self.pk, "slug": self.slug})
 
+    def price_for(self, interval=None, nonprofit=False):
+        """The price a purchase of this plan would be sold at, or None.
+
+        Resolved the way a purchase is, so the pages show what is charged.
+        None means not for sale, at least not at that interval.
+        """
+        _canonical, price = SubscriptionItem.objects.resolve_purchase(
+            self, nonprofit=nonprofit, interval=interval
+        )
+        return price
+
+    @property
+    def list_price(self):
+        """`price_for()` with no arguments, for templates."""
+        return self.price_for()
+
     @property
     def free(self):
         return self.base_price == 0 and self.price_per_user == 0
@@ -1973,6 +1989,14 @@ class PlanPrice(models.Model):
                     for field in changed
                 }
             )
+
+    @property
+    def billable(self):
+        """Whether a purchase can be billed at this price: free, or on Stripe.
+
+        `BILLABLE_PRICE` is the same rule as a filter; keep the two in step.
+        """
+        return self.amount == 0 or bool(self.stripe_price_id)
 
     @property
     def amount_dollars(self):
