@@ -6,6 +6,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
 from django.core.signing import BadSignature, TimestampSigner
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -29,7 +30,7 @@ import stripe
 
 # Squarelet
 from squarelet.core.utils import format_stripe_error, new_action
-from squarelet.organizations.models import Charge, Organization, Plan
+from squarelet.organizations.models import Charge, Organization, Plan, PlanPrice
 from squarelet.organizations.models.payment import (
     ReceiptEmail,
     SubscriptionItem,
@@ -37,6 +38,7 @@ from squarelet.organizations.models.payment import (
 )
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.plan_mapping import tier_of
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import (
     CancelSubscriptionForm,
@@ -543,6 +545,70 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         context["payments"] = payments
 
         return context
+
+
+class BasePlans(SubscriptionObjectMixin, DetailView):
+    """Browse plans page."""
+
+    template_name = "subscriptions/browse_plans.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        organization = self.object
+        list_prices = PlanPrice.objects.filter(active=True, code="")
+        plans = (
+            Plan.objects.choices(organization)
+            .filter(service__isnull=False, prices__in=list_prices)
+            .distinct()
+            .select_related("service")
+            .prefetch_related(Prefetch("prices", queryset=list_prices), "entitlements")
+        )
+
+        held_tiers = {
+            tier_of(slug)
+            for slug in organization.subscription_items.values_list(
+                "plan__slug", flat=True
+            )
+        }
+
+        services = {}
+        for plan in plans:
+            plan.display_prices = self.get_display_prices(plan, organization.nonprofit)
+            plan.nonprofit = any(
+                price.label == "nonprofit" for price in plan.display_prices
+            )
+            plan.held = tier_of(plan.slug) in held_tiers
+            services.setdefault(plan.service, []).append(plan)
+        for service_plans in services.values():
+            service_plans.sort(
+                key=lambda p: (self.monthly_cost(p.display_prices), p.name)
+            )
+        context["services"] = [
+            {"service": service, "plans": services[service]}
+            for service in sorted(services, key=lambda s: s.name)
+        ]
+        return context
+
+    def get_display_prices(self, plan, nonprofit):
+        """Get a plan's prices based on its nonprofit status."""
+
+        by_variant = {
+            (price.interval, price.label): price for price in plan.prices.all()
+        }
+        labels = ("nonprofit", "standard") if nonprofit else ("standard",)
+        prices = []
+        for interval in ("annual", "monthly"):
+            for label in labels:
+                if (interval, label) in by_variant:
+                    prices.append(by_variant[interval, label])
+                    break
+        return prices
+
+    def monthly_cost(self, prices):
+        for price in prices:
+            if price.interval == "monthly":
+                return price.amount
+        return prices[0].amount / 12
 
 
 class BaseUpdateCard(SubscriptionObjectMixin, UpdateView):
