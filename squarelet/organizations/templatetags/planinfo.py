@@ -13,7 +13,7 @@ def planinfo(organization=None, field="pk"):
     if organization:
         plans = Plan.objects.choices(organization)
     else:
-        plans = Plan.objects.filter(public=True)
+        plans = Plan.objects.not_archived().filter(public=True)
     plan_info = {
         p[field]: p
         for p in plans.values(

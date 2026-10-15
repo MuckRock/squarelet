@@ -86,6 +86,9 @@ class PlanDetailView(DetailView):
     model = Plan
     template_name = "payments/plan.html"
 
+    def get_queryset(self):
+        return Plan.objects.not_archived()
+
     def get_template_names(self):
         """Override to use custom template for Enterprise plans"""
         plan = self.get_object()

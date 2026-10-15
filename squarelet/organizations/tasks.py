@@ -1114,8 +1114,7 @@ def sync_wix(org_id, plan_id, user_id):
         return
 
     org = Organization.objects.get(pk=org_id)
-    # The plan the organization is on or leaving; archived must resolve.
-    plan = Plan.objects.including_archived().get(pk=plan_id)
+    plan = Plan.objects.get(pk=plan_id)
     user = User.objects.get(pk=user_id)
     wix.sync_wix(org, plan, user)
 
@@ -1143,8 +1142,7 @@ def sync_wix_for_group_member(member_org_id, group_org_id, plan_id):
 
     member_org = Organization.objects.get(pk=member_org_id)
     group_org = Organization.objects.get(pk=group_org_id)
-    # The plan the organization is on or leaving; archived must resolve.
-    plan = Plan.objects.including_archived().get(pk=plan_id)
+    plan = Plan.objects.get(pk=plan_id)
 
     # Verify conditions still apply
     if not group_org.share_resources:
@@ -1188,8 +1186,7 @@ def unsync_wix(org_id, plan_id, user_id):
         return
 
     org = Organization.objects.get(pk=org_id)
-    # The plan the organization is on or leaving; archived must resolve.
-    plan = Plan.objects.including_archived().get(pk=plan_id)
+    plan = Plan.objects.get(pk=plan_id)
     user = User.objects.get(pk=user_id)
     wix.unsync_wix(org, plan, user)
 
@@ -1217,8 +1214,7 @@ def unsync_wix_for_group_member(member_org_id, group_org_id, plan_id):
 
     member_org = Organization.objects.get(pk=member_org_id)
     group_org = Organization.objects.get(pk=group_org_id)
-    # The plan the organization is on or leaving; archived must resolve.
-    plan = Plan.objects.including_archived().get(pk=plan_id)
+    plan = Plan.objects.get(pk=plan_id)
 
     if not group_org.share_resources:
         logger.info(
@@ -1264,7 +1260,6 @@ def add_to_waitlist(org_id, plan_id, user_id):
         return
 
     org = Organization.objects.get(pk=org_id)
-    # The plan the organization is on or leaving; archived must resolve.
-    plan = Plan.objects.including_archived().get(pk=plan_id)
+    plan = Plan.objects.get(pk=plan_id)
     user = User.objects.get(pk=user_id)
     wix.add_to_waitlist(org, plan, user)
