@@ -190,13 +190,7 @@ class Organization(AvatarMixin, models.Model):
         # Squarelet
         from squarelet.organizations.models.payment import Plan
 
-        # Archived too, or the billing page and entitlements of an
-        # organization still on a retired plan vanish.
-        return (
-            Plan.objects.including_archived()
-            .filter(subscriptions__organization=self)
-            .distinct()
-        )
+        return Plan.objects.filter(subscriptions__organization=self).distinct()
 
     def prefetched_plans(self):
         """The distinct plans on this organization's subscriptions.
