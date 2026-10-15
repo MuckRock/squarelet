@@ -76,12 +76,7 @@ class TestPlan:
 
     @pytest.mark.django_db
     def test_a_free_plan_still_gets_a_price(self, plan_factory, mocker):
-        """Zero, and no Stripe Price behind it.
-
-        Every plan having a price is what lets `plan_price` become non-null
-        in step 3d; `ensure_stripe_price` is what declines to create a
-        Stripe object for a zero amount.
-        """
+        """Zero, and no Stripe Price behind it."""
         ensure = mocker.patch(
             "squarelet.organizations.models.payment.PlanPrice.ensure_stripe_price"
         )
@@ -93,11 +88,7 @@ class TestPlan:
 
     @pytest.mark.django_db
     def test_a_per_user_rate_is_reported(self, organization_plan_factory, mocker):
-        """The consolidated model sells the extra units as a pack instead.
-
-        A flat Price cannot express the second tier the legacy Price used,
-        so dropping the rate silently would be a quiet mispricing.
-        """
+        """A flat Price has no per-user tier, so dropping it must be said."""
         mocker.patch(
             "squarelet.organizations.models.payment.PlanPrice.ensure_stripe_price"
         )
@@ -183,15 +174,7 @@ class TestArchivingAPlan:
 
 @pytest.mark.django_db
 class TestArchivingRetiresTheStripeObjects:
-    """Archiving the plan is what actually retires it.
-
-    `archive_legacy_plans` and the admin both set `Plan.archived` and
-    neither deletes the row, so the `pre_delete` hook this PR added could
-    not fire: `PlanPrice.plan` is PROTECT, and Django raises while
-    collecting, before any `pre_delete` receiver runs.  Every plan created
-    after 3a has a price, so every one of them was undeletable *and*
-    never had its Stripe objects retired.
-    """
+    """Archiving the plan is what retires it; a plan with prices can't be deleted."""
 
     @pytest.fixture(name="service")
     def service_fixture(self, mocker):
