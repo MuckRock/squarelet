@@ -58,6 +58,7 @@ urlpatterns = [
         view=views.ManageSubscriptions.as_view(),
         name="subscriptions",
     ),
+    path("<str:username>/plans/", view=views.Plans.as_view(), name="plans"),
     path(
         "<str:username>/cancel/<int:pk>/",
         view=views.CancelSubscription.as_view(),
