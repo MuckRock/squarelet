@@ -178,6 +178,7 @@ class TestPlanPurchaseFormInit:
         # Create a plan that looks like a Sunlight plan (slug starts with sunlight-)
         plan = plan_factory(
             slug="sunlight-test",
+            product="sunlight",
             public=True,
             for_individuals=True,
             for_groups=False,
@@ -195,6 +196,7 @@ class TestPlanPurchaseFormInit:
         """Ticking it would change nothing."""
         plan = plan_factory(
             slug="sunlight-test",
+            product="sunlight",
             public=True,
             for_individuals=True,
             for_groups=False,
@@ -584,7 +586,9 @@ class TestNonprofitPriceComesFromPlanPrice:
     def test_reads_the_nonprofit_price_of_the_tier(
         self, plan_factory, plan_price_factory
     ):
-        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan = plan_factory(
+            name="Sunlight Essential", slug="sunlight-essential", product="sunlight"
+        )
         plan_price_factory(
             plan=plan, interval="monthly", label="standard", amount=68_000
         )
@@ -599,7 +603,9 @@ class TestNonprofitPriceComesFromPlanPrice:
 
     def test_the_rate_shown_is_the_rate_sold(self, plan_factory, plan_price_factory):
         """Even with no active standard price beside it."""
-        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan = plan_factory(
+            name="Sunlight Essential", slug="sunlight-essential", product="sunlight"
+        )
         plan_price_factory(
             plan=plan, interval="monthly", label="standard", active=False
         )
@@ -610,7 +616,9 @@ class TestNonprofitPriceComesFromPlanPrice:
         assert self._form(plan)["nonprofit_base_price"] == 350.0
 
     def test_the_rate_is_looked_up_once(self, plan_factory, plan_price_factory):
-        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan = plan_factory(
+            name="Sunlight Essential", slug="sunlight-essential", product="sunlight"
+        )
         plan_price_factory(plan=plan, label="nonprofit", amount=35_000)
         form = PlanPurchaseForm(plan=plan)
 
