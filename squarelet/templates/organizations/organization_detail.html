@@ -1,6 +1,6 @@
 {% extends "layouts/sidebar_layout.html" %}
 {% load django_vite static thumbnail avatar i18n airtable rules %}
-{% load icon %}
+{% load icon profile_card %}
 
 {% block title %}{% trans 'Organization' %}: {{ organization.name }}{% endblock %}
 
@@ -125,40 +125,7 @@
         </div>
         {% endif %}
       </header>
-      <div class="card profile">
-        <div class="icon">
-          {% with avatar=organization.avatar %}
-          {% if avatar %}
-            {% thumbnail avatar "240x240" crop="center" as img %}
-            <img src="{{ img.url }}" />
-            {% endthumbnail %}
-          {% else %}
-            {% icon "people-24" %}
-          {% endif %}
-          {% endwith %}
-        </div>
-        <div class="details details-padded">
-          <h3>{{ organization.name }}</h3>
-          {% if organization.verified_journalist or organization.city or organization.state or organization.country %}
-          <div class="details">
-            {% if organization.verified_journalist %}
-              <div class="badge green">
-                {% icon "verification" %}
-                {% trans "Verified" %}
-              </div>
-            {% endif %}
-            {% if organization.city or organization.state or organization.country %}
-              <p class="user-detail">
-                {% if organization.city %}{{ organization.city }}{% endif %}{% if organization.city and organization.state %}, {% endif %}{% if organization.state %}{{ organization.get_state_display }}{% endif %}{% if organization.country and organization.country != 'US' %}, {{ organization.get_country_display }}{% endif %}
-              </p>
-            {% endif %}
-          </div>
-          {% endif %}
-          {% if organization.about %}
-            <p class="org-about">{{ organization.about }}</p>
-          {% endif %}
-        </div>
-      </div>
+      {% profile_card organization subject="organizations" verified=organization.verified_journalist show_stats=can_change_organization %}
     </section>
 
     {% if show_members_section %}

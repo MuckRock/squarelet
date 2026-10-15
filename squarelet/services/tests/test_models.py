@@ -19,8 +19,11 @@ class ServiceModelTest(TransactionTestCase):
         self.assertEqual(str(self.service), self.service.name)
 
     def test_service_fields(self):
-        self.assertEqual(self.service.name, f"Service {self.service.pk}")
-        self.assertEqual(self.service.slug, f"service-{self.service.pk}")
+        # The factory sequence is shared across the run, so it need not match the pk.
+        self.assertRegex(self.service.name, r"^Service \d+$")
+        self.assertEqual(
+            self.service.slug, f"service-{self.service.name.removeprefix('Service ')}"
+        )
         self.assertTrue(self.service.description)
         self.assertTrue(self.service.provider_name)
         self.assertTrue(self.service.base_url)

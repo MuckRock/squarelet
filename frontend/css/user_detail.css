@@ -2,68 +2,6 @@
  * Layout rules are in sidebar_layout.css
  */
 
-/* Profile */
-
-.content .profile {
-  display: flex;
-  align-items: stretch;
-  align-self: stretch;
-  overflow: hidden;
-  height: 100%;
-}
-
-.content .profile .icon {
-  flex: 0 1 auto;
-  border-right: 1px solid var(--gray-2, #d8dee2);
-  width: auto;
-  height: 5rem;
-  aspect-ratio: 1 / 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.content .profile .icon svg,
-.content .profile .icon img {
-  width: 3rem;
-  height: 3rem;
-  flex-shrink: 0;
-  fill: var(--gray-2, #d8dee2);
-}
-
-.content .profile .icon img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.content .profile .details {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1 0 0;
-  align-self: center;
-}
-
-.content .profile .details.details-padded {
-  padding: 0 0.75rem;
-}
-
-.content .profile .details h3 {
-  flex: 1 1 100%;
-  align-self: stretch;
-  margin: 0;
-  font-weight: 600;
-}
-
-.content .profile .user-detail {
-  font-size: var(--font-sm, 0.875rem);
-  color: var(--gray-4, #5c717c);
-  margin: 0;
-}
-
 /* Verification */
 
 .verification-status {
