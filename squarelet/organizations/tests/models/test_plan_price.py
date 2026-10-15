@@ -265,12 +265,7 @@ class TestSavedRowIsReadOnlyInTheAdmin:
 
 @pytest.mark.django_db()
 class TestSupersedeRetiresTheOldStripePrice:
-    """A superseded rate must stop being sellable.
-
-    Stripe Prices are immutable, so a rate change is a new Price - and
-    without deactivating the old one it stays attachable forever, which is
-    the old rate quietly still on sale.
-    """
+    """A superseded rate must stop being sellable, or it stays on sale."""
 
     def _service(self, mocker):
         service = mocker.patch(
@@ -283,11 +278,7 @@ class TestSupersedeRetiresTheOldStripePrice:
 
     @staticmethod
     def _with_product(price):
-        """Give the plan a Product so ensure_stripe_product short-circuits.
-
-        Otherwise it goes looking for one and stores the mock's `.id`,
-        which is not a string.
-        """
+        """Give the plan a Product, or the mock's `.id` is stored as one."""
         price.plan.stripe_product_id = "prod_1"
         price.plan.save(update_fields=["stripe_product_id"])
         return price
