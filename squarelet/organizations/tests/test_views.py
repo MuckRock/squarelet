@@ -183,6 +183,56 @@ class TestDetail(ViewTestMixin):
         # Verify pending_requests is a queryset with the correct count
         assert response.context_data["pending_requests"].count() == 3
 
+    def test_an_admin_is_invited_to_each_private_plan_offered_to_the_org(
+        self, rf, organization_factory, user_factory, plan_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        newsroom = plan_factory(name="Newsroom Deal", public=False)
+        lab = plan_factory(name="Lab Deal", public=False)
+        newsroom.private_organizations.add(organization)
+        lab.private_organizations.add(organization)
+        plan_factory(name="Someone Else's Deal", public=False)
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+
+        assert page.context_data["private_plans"] == [lab, newsroom]
+        content = page.content.decode()
+        assert content.count("You are eligible to subscribe to a private plan") == 2
+        assert "invited to subscribe to <strong>Newsroom Deal</strong>." in content
+        assert f'href="{lab.get_absolute_url()}"' in content
+
+    def test_a_private_plan_already_held_is_not_offered(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        deal = plan_factory(name="Newsroom Deal", public=False)
+        deal.private_organizations.add(organization)
+        subscription_item_factory(subscription__organization=organization, plan=deal)
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+
+        assert page.context_data["private_plans"] == []
+        assert b"eligible to subscribe to a private plan" not in page.content
+
+    def test_a_member_who_cannot_subscribe_sees_no_private_plan_banner(
+        self, rf, organization_factory, user_factory, plan_factory
+    ):
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        deal = plan_factory(name="Newsroom Deal", public=False)
+        deal.private_organizations.add(organization)
+
+        page = self.call_view(rf, member, slug=organization.slug).render()
+
+        assert b"eligible to subscribe to a private plan" not in page.content
+
     def test_get_staff_with_perm_can_see_invite_count(
         self, rf, organization_factory, user_factory, invitation_factory
     ):
