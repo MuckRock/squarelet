@@ -147,24 +147,15 @@
       </header>
       <div class="card orgs">
         {% if member_org_invitations and member_org_invitations.count > 0 %}
-          <div class="notification-banner blue">
-            <div class="banner-content">
-              <span class="icon">{% icon "network" %}</span>
-              <div class="banner-text">
-                <strong>
-                  {% blocktrans count count=member_org_invitations.count %}
-                    You have {{ count }} pending invitation
-                  {% plural %}
-                    You have {{ count }} pending invitations
-                  {% endblocktrans %}
-                </strong>
-                <p>{% trans "Resend or revoke invitations to affiliates" %}</p>
-              </div>
-              <a href="{% url 'organizations:manage-member-orgs' organization.slug %}#invite" class="btn primary">
-                {% trans "Manage invitations" %}
-              </a>
-            </div>
-          </div>
+          {% blocktrans count count=member_org_invitations.count asvar title trimmed %}
+            You have {{ count }} pending invitation
+          {% plural %}
+            You have {{ count }} pending invitations
+          {% endblocktrans %}
+          {% trans "Resend or revoke invitations to affiliates" as text %}
+          {% trans "Manage invitations" as action %}
+          {% url 'organizations:manage-member-orgs' organization.slug as url %}
+          {% include "core/component/notification_banner.html" with icon="network" title=title text=text url=url|add:"#invite" action=action %}
         {% endif %}
         <ul class="card-list">
           {% for member in members %}
@@ -328,44 +319,26 @@
       </header>
       <div class="card members">
         {% if pending_requests and pending_requests.count > 0 %}
-          <div class="notification-banner blue">
-            <div class="banner-content">
-              <span class="icon">{% icon "person-add" %}</span>
-              <div class="banner-text">
-                <strong>
-                  {% blocktrans count count=pending_requests.count %}
-                    You have {{ count }} pending join request
-                  {% plural %}
-                    You have {{ count }} pending join requests
-                  {% endblocktrans %}
-                </strong>
-                <p>{% trans "Review and approve requests to add new members to your organization." %}</p>
-              </div>
-              <a href="{% url 'organizations:manage-members' organization.slug %}#requests" class="btn primary">
-                {% trans "Review requests" %}
-              </a>
-            </div>
-          </div>
+          {% blocktrans count count=pending_requests.count asvar title trimmed %}
+            You have {{ count }} pending join request
+          {% plural %}
+            You have {{ count }} pending join requests
+          {% endblocktrans %}
+          {% trans "Review and approve requests to add new members to your organization." as text %}
+          {% trans "Review requests" as action %}
+          {% url 'organizations:manage-members' organization.slug as url %}
+          {% include "core/component/notification_banner.html" with icon="person-add" title=title text=text url=url|add:"#requests" action=action %}
         {% endif %}
         {% if pending_invitations and pending_invitations.count > 0 %}
-          <div class="notification-banner blue">
-            <div class="banner-content">
-              <span class="icon">{% icon "mail" %}</span>
-              <div class="banner-text">
-                <strong>
-                  {% blocktrans count count=pending_invitations.count %}
-                    You have {{ count }} pending invitation
-                  {% plural %}
-                    You have {{ count }} pending invitations
-                  {% endblocktrans %}
-                </strong>
-                <p>{% trans "Resend and revoke outstanding invitations." %}</p>
-              </div>
-              <a href="{% url 'organizations:manage-members' organization.slug %}#pending" class="btn primary">
-                {% trans "Review invitations" %}
-              </a>
-            </div>
-          </div>
+          {% blocktrans count count=pending_invitations.count asvar title trimmed %}
+            You have {{ count }} pending invitation
+          {% plural %}
+            You have {{ count }} pending invitations
+          {% endblocktrans %}
+          {% trans "Resend and revoke outstanding invitations." as text %}
+          {% trans "Review invitations" as action %}
+          {% url 'organizations:manage-members' organization.slug as url %}
+          {% include "core/component/notification_banner.html" with icon="mail" title=title text=text url=url|add:"#pending" action=action %}
         {% endif %}
         {% if users|length > 0 %}
           <ul class="card-list">
