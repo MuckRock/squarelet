@@ -1,5 +1,6 @@
 # Django
 from django.test import TransactionTestCase
+from django.utils.text import slugify
 
 # Squarelet
 from squarelet.services.models import Service
@@ -19,8 +20,7 @@ class ServiceModelTest(TransactionTestCase):
         self.assertEqual(str(self.service), self.service.name)
 
     def test_service_fields(self):
-        self.assertEqual(self.service.name, f"Service {self.service.pk}")
-        self.assertEqual(self.service.slug, f"service-{self.service.pk}")
+        self.assertEqual(self.service.slug, slugify(self.service.name))
         self.assertTrue(self.service.description)
         self.assertTrue(self.service.provider_name)
         self.assertTrue(self.service.base_url)
