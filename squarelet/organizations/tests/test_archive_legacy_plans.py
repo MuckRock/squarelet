@@ -1,4 +1,5 @@
 # Django
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import Client
 
@@ -210,6 +211,25 @@ class TestArchivedPlansAreNotOffered:
         organization = item.subscription.organization
 
         assert item.plan not in Plan.objects.choices(organization)
+
+
+@pytest.mark.django_db()
+class TestArchivingByHand:
+    """Staff archive through the admin form, which runs `Plan.clean`."""
+
+    def test_a_plan_with_subscribers_cannot_be_archived(self):
+        item = SubscriptionItemFactory(plan=PlanFactory(name="Busy", slug="busy"))
+        plan = item.plan
+        plan.archived = True
+
+        with pytest.raises(ValidationError, match="1 subscription line"):
+            plan.full_clean()
+
+    def test_a_plan_nobody_is_on_can_be(self):
+        plan = PlanFactory(name="Idle", slug="idle")
+        plan.archived = True
+
+        plan.full_clean()
 
 
 @pytest.mark.django_db()
