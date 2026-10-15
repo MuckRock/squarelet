@@ -1488,6 +1488,14 @@ class Plan(models.Model):
         help_text=_("The additional cost per month per user over the minimum"),
     )
 
+    archived = models.BooleanField(
+        _("archived"),
+        default=False,
+        help_text=_(
+            "Retired: nobody is on it and it can no longer be bought.  Kept "
+            "rather than deleted because the change log references it."
+        ),
+    )
     public = models.BooleanField(
         _("public"),
         default=False,
@@ -1576,6 +1584,21 @@ class Plan(models.Model):
 
     class Meta:
         ordering = ("slug",)
+
+    def clean(self):
+        # Archiving under subscribers hides their plan from renewal choices.
+        if self.archived and self.pk:
+            lines = self.subscription_items.count()
+            if lines:
+                raise ValidationError(
+                    {
+                        "archived": _(
+                            "%(count)d subscription line(s) are still on this "
+                            "plan; move or remove them before archiving it."
+                        )
+                        % {"count": lines}
+                    }
+                )
 
     def __str__(self):
         return self.name

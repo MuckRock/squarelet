@@ -121,12 +121,21 @@ class PlanQuerySet(models.QuerySet):
     def get_public(self):
         return self.get_viewable(AnonymousUser())
 
+    def not_archived(self):
+        """Plans that may still be offered; for customer-facing lookups."""
+        return self.filter(archived=False)
+
     def choices(self, organization):
-        """Return the plan choices for the given organization"""
+        """Return the plan choices for the given organization
+
+        Never an archived plan, even to an organization on one: retired is
+        retired for renewals too.
+        """
+        queryset = self.not_archived()
         if organization.individual:
-            queryset = self.filter(for_individuals=True)
+            queryset = queryset.filter(for_individuals=True)
         else:
-            queryset = self.filter(for_groups=True)
+            queryset = queryset.filter(for_groups=True)
 
         # show public plans, the organizations current plan, and any custom plan
         # to which they have been granted explicit access

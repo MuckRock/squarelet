@@ -38,7 +38,7 @@ class SignupForm(allauth.SignupForm):
 
     plan = forms.ModelChoiceField(
         label=_("Plan"),
-        queryset=Plan.objects.filter(public=True),
+        queryset=Plan.objects.not_archived().filter(public=True),
         empty_label=None,
         to_field_name="slug",
         widget=forms.HiddenInput(),
@@ -68,7 +68,9 @@ class SignupForm(allauth.SignupForm):
         if self.request and "plan" in self.request.GET:
             plan_slug = self.request.GET.get("plan")
             try:
-                plan = Plan.objects.filter(public=True).get(slug=plan_slug)
+                plan = (
+                    Plan.objects.not_archived().filter(public=True).get(slug=plan_slug)
+                )
                 self.initial["plan"] = plan.slug
             except Plan.DoesNotExist:
                 pass

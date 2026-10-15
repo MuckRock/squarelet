@@ -791,9 +791,11 @@ class PlanAdmin(StripeLinkMixin, VersionAdmin):
         "auto_renew",
         "for_individuals",
         "for_groups",
+        "archived",
         "stripe_id_display",
         "slack_webhook_url",
     )
+    list_filter = ("archived", "public", "wix")
     readonly_fields = ("stripe_link",)
     search_fields = ("name", "description")
     autocomplete_fields = ("private_organizations", "entitlements")
