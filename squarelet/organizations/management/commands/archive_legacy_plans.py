@@ -9,7 +9,7 @@ import collections
 from squarelet.organizations.management.commands.consolidate_stripe_products import (
     CANONICAL_SLUGS,
 )
-from squarelet.organizations.models.payment import Plan, PlanPrice
+from squarelet.organizations.models.payment import Plan, SubscriptionItem
 from squarelet.organizations.plan_mapping import resolve_target
 
 
@@ -25,20 +25,16 @@ def canonical_slugs():
 def sellable_through(plan):
     """Whether a purchase can still be made through this plan.
 
-    Purchases pick a row like `sunlight-essential-annual` that holds no price
-    of its own and resolve to the tier's, so ask whether its target has an
-    active price.  Once the UI picks interval and label directly and these
-    rows leave the mapping, the same test archives them.
+    When it holds an active price of its own, or is a private negotiated row
+    whose rate on its tier is for sale.  Plain entry rows such as
+    `sunlight-essential-annual` redirect to their tier's page instead.
     """
     if plan.prices.filter(active=True).exists():
         return True
     target = resolve_target(plan.slug)
-    if target is None:
-        return False
-    slug, interval, label, code = target
-    return PlanPrice.objects.filter(
-        plan__slug=slug, interval=interval, label=label, code=code, active=True
-    ).exists()
+    return bool(
+        target and target[3] and SubscriptionItem.objects.intervals_for_sale(plan)
+    )
 
 
 class Command(BaseCommand):
