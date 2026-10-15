@@ -12,6 +12,8 @@ Args:
   inherited_orgs      — deduped list of orgs the subject inherits benefits from.
   inherited_benefits  — deduped list of inherited plain-language benefit strings.
   upgrade_plan      — Plan to advertise when there is no own plan (optional).
+  private_plans     — private Plans the subject may subscribe to but has not;
+                      one banner each, shown only with can_edit_subscription.
   next_charge_date, card, cancelled — subscription details (optional, org only).
   can_edit_subscription — bool gating the CTA. Default True.
   subject           — "users" | "organizations". Controls copy and links
@@ -19,6 +21,16 @@ Args:
 
 {% if subscriptions or upgrade_plan or not inherited_benefits %}
 <div class="card card--stack plan-card{% if not subscriptions %} plan-card--no-subscription{% endif %}">
+  {% if can_edit_subscription %}
+    {% for plan in private_plans %}
+      {% trans "You are eligible to subscribe to a private plan" as title %}
+      {% blocktrans with name=plan.name asvar text %}
+        Your organization has been invited to subscribe to <strong>{{ name }}</strong>.
+      {% endblocktrans %}
+      {% trans "View plan" as action %}
+      {% include "core/component/notification_banner.html" with icon="note" title=title text=text url=plan.get_absolute_url action=action %}
+    {% endfor %}
+  {% endif %}
   {% if subscriptions %}
     <section class="card-section">
       <header class="card-section-label">
