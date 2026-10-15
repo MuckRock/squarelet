@@ -7,6 +7,8 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.models.payment import (
+    Plan,
+    PlanPrice,
     consolidate_plan_benefits,
     format_benefits,
     sum_resources,
@@ -170,6 +172,33 @@ class TestArchivingAPlan:
         plan.archive_stripe_plan()
 
         service.archive_price.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestANewPlansListPrice:
+    """The admin saves a new plan, then the prices typed in beside it."""
+
+    def test_a_price_added_with_the_plan_is_the_list_price(
+        self, mocker, django_capture_on_commit_callbacks
+    ):
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_plan_service.return_value
+        for call in ("find_product", "create_product", "find_price", "create_price"):
+            getattr(service, call).return_value = mocker.Mock(id=f"stripe_{call}")
+        with django_capture_on_commit_callbacks(execute=True):
+            plan = Plan.objects.create(
+                name="Admin Made", slug="admin-made", base_price=10
+            )
+            PlanPrice.objects.create(
+                plan=plan,
+                interval="monthly",
+                label="standard",
+                amount=5_000,
+                stripe_price_id="price_typed",
+            )
+
+        assert list(plan.prices.values_list("amount", flat=True)) == [5_000]
 
 
 @pytest.mark.django_db
