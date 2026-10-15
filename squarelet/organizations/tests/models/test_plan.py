@@ -1,4 +1,5 @@
 # Django
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.test import override_settings
 
@@ -173,6 +174,23 @@ class TestArchivingAPlan:
         plan.archive_stripe_plan()
 
         service.archive_price.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestANewPlanHasNoPerUserRate:
+    """A flat Price can't bill one; it would be dropped, or make the plan free."""
+
+    def test_the_admin_refuses_one(self):
+        plan = Plan(name="Per Seat", slug="per-seat", base_price=0, price_per_user=10)
+
+        with pytest.raises(ValidationError, match="usage pack"):
+            plan.full_clean()
+
+    def test_an_existing_plan_keeps_its_own(self, plan_factory):
+        """Legacy plans still bill a per-user tier until the migration."""
+        plan = plan_factory(name="Legacy Seats", price_per_user=10)
+
+        plan.full_clean()
 
 
 @pytest.mark.django_db
