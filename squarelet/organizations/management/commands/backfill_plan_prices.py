@@ -14,6 +14,7 @@ from squarelet.organizations.models.payment import (
     PlanPrice,
     Subscription,
     SubscriptionItem,
+    _stripe_price_id,
 )
 from squarelet.organizations.plan_mapping import (
     COHORT_SLUG,
@@ -95,6 +96,8 @@ class Command(BaseCommand):
 
     Needs `consolidate_stripe_products` to have created the prices.  A line
     whose price costs nothing moves to its organization's free subscription.
+    Stripe is updated per subscription with proration off, since the amounts
+    are checked to be unchanged.
     """
 
     help = "Move every subscription line onto its consolidated plan and price"
@@ -112,11 +115,23 @@ class Command(BaseCommand):
                 "Required unless --dry-run."
             ),
         )
+        parser.add_argument(
+            "--local-only",
+            action="store_true",
+            help=(
+                "Write local state without calling Stripe, to rehearse against "
+                "a database with no usable Stripe account.  Never for the real "
+                "run: Stripe would go on billing the old prices."
+            ),
+        )
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
+        local_only = options["local_only"]
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN - nothing written"))
+        elif local_only:
+            self.stdout.write(self.style.WARNING("LOCAL ONLY - Stripe untouched"))
 
         actor = self._resolve_actor(options["actor"], dry_run)
         pending = self._pending()
@@ -126,7 +141,7 @@ class Command(BaseCommand):
         # and a re-run picks it up.
         counts = collections.Counter()
         for item in pending:
-            counts[self._migrate(item, actor, dry_run)] += 1
+            counts[self._migrate(item, actor, dry_run, local_only)] += 1
 
         self.stdout.write(
             f"\n{counts['migrated']} migrated, {counts['done']} already done, "
@@ -309,7 +324,7 @@ class Command(BaseCommand):
 
     # -- per line ----------------------------------------------------------
 
-    def _migrate(self, item, actor, dry_run):
+    def _migrate(self, item, actor, dry_run, local_only):
         org = item.subscription.organization
         if item.plan.slug in DEFERRED_SLUGS:
             self.stdout.write(f"  ~ {org.slug}: {item.plan.slug} deferred")
@@ -321,6 +336,8 @@ class Command(BaseCommand):
         try:
             plan_price, packs = self._prices_for(item)
             note = self._check_grants(item, plan_price, packs)
+            if dry_run and is_billing(item) and not local_only:
+                _identify(item, write=False)
         except CommandError as exc:
             self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
             return "failed"
@@ -334,7 +351,7 @@ class Command(BaseCommand):
         if dry_run:
             return "migrated"
         try:
-            self._write(item, plan_price, packs, actor)
+            self._write(item, plan_price, packs, actor, local_only)
         except Exception as exc:  # pylint: disable=broad-except
             logger.exception("backfill_plan_prices failed for %s", org.slug)
             self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
@@ -433,7 +450,15 @@ class Command(BaseCommand):
         )
 
     @staticmethod
-    def _write(item, plan_price, packs, actor):
+    def _write(item, plan_price, packs, actor, local_only):
+        """Local rows, then Stripe, in one transaction.
+
+        A Stripe failure leaves no local trace, so a saved line's Stripe half
+        succeeded and a re-run need not touch Stripe.
+        """
+        stripe = is_billing(item) and not local_only
+        if stripe:
+            _identify(item, write=True)
         legacy_name = item.plan.name
         # Only the fields this sets: the row was read at the start of the run.
         fields = ["plan", "plan_price", "quantity"]
@@ -457,6 +482,11 @@ class Command(BaseCommand):
                     plan=pack_price.plan,
                     defaults=defaults,
                 )
+            if stripe:
+                # One call for the tier and its packs, so no invoice is ever
+                # half migrated.  Reloaded: it was read at the start of the run.
+                item.subscription.refresh_from_db()
+                item.subscription.stripe_modify(proration_behavior="none")
             # The line's plan, and so its entitlements, just changed.
             organization = item.subscription.organization
             transaction.on_commit(
@@ -524,6 +554,63 @@ def _lands_free(slug, billing):
         .first()
     )
     return Subscription.kind_for(price.plan, price) == "free"
+
+
+def _stripe_ids(subscription):
+    """Each paid line's Stripe item id, as Stripe holds it.
+
+    Matched by the line's current price or plan; a subscription holding one
+    paid line and one Stripe item pairs them whatever the price, which covers
+    the few items on a price no plan names.  Blank where nothing matches.
+    """
+    paid = [
+        line
+        for line in subscription.items.select_related("plan", "plan_price")
+        if not line.is_free
+    ]
+    stripe_sub = subscription.stripe_subscription
+    if stripe_sub is None:
+        return {line: line.stripe_item_id for line in paid}
+    stripe_items = stripe_sub["items"]["data"]
+    by_price = {
+        _stripe_price_id(stripe_item): stripe_item["id"] for stripe_item in stripe_items
+    }
+    # An id Stripe no longer holds is as good as none.
+    held = set(by_price.values())
+    ids = {
+        line: (line.stripe_item_id if line.stripe_item_id in held else "")
+        or by_price.get(line.stripe_price_id)
+        or by_price.get(line.plan.stripe_id, "")
+        for line in paid
+    }
+    if len(paid) == 1 and len(stripe_items) == 1 and not ids[paid[0]]:
+        ids[paid[0]] = stripe_items[0]["id"]
+    return ids
+
+
+def _identify(item, write):
+    """Make sure every paid line on the subscription has its Stripe item id.
+
+    Needed before the price changes: repointed, a line matches nothing, and
+    one sent without an id is added beside the old item: billed twice.  The
+    modify sends every paid line, so the others count too.  Saves the ids
+    found when `write`.
+    """
+    ids = _stripe_ids(item.subscription)
+    unidentified = sorted(
+        line.plan.slug for line, item_id in ids.items() if not item_id
+    )
+    if unidentified:
+        raise CommandError(
+            f"no Stripe item id for {', '.join(unidentified)}, so the new price "
+            f"would be added beside the old one.  Identify it first."
+        )
+    if write:
+        for line, item_id in ids.items():
+            if line.stripe_item_id != item_id:
+                line.stripe_item_id = item_id
+                line.save(update_fields=["stripe_item_id"])
+        item.refresh_from_db(fields=["stripe_item_id"])
 
 
 def _pack_label(label):
