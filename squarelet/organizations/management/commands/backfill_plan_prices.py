@@ -9,6 +9,7 @@ import logging
 
 # Squarelet
 from squarelet.oidc.middleware import send_cache_invalidations
+from squarelet.organizations.entitlement_shape import grants_old, scaling_pairs
 from squarelet.organizations.models.payment import (
     PlanPrice,
     Subscription,
@@ -17,10 +18,16 @@ from squarelet.organizations.models.payment import (
 from squarelet.organizations.plan_mapping import (
     COHORT_SLUG,
     DEFERRED_SLUGS,
+    DROPPED_WITH_BLOCKS,
+    EXPECTED_GRANT_CHANGES,
     LEGACY_PLAN_MAP,
+    PACK_DECOMPOSITION,
 )
 
 logger = logging.getLogger(__name__)
+
+# Pack lines are this command's output, never its input.
+PACK_SLUGS = {slug for packs in PACK_DECOMPOSITION.values() for slug in packs}
 
 
 def is_billing(item):
@@ -60,6 +67,27 @@ def target_quantity(item):
     if item.plan.for_groups:
         return 1
     return item.quantity
+
+
+def resource_totals(plan_quantities):
+    """What (plan, quantity) lines grant, per client and resource.
+
+    Keyed on client and resource, not entitlement: consolidation swaps one
+    plan's entitlements for another's, and it is the numbers that must hold.
+    """
+    totals = collections.Counter()
+    for plan, quantity in plan_quantities:
+        for entitlement in plan.entitlements.all():
+            for key, amount in grants_old(entitlement.resources, quantity).items():
+                totals[(entitlement.client_id, key)] += amount
+    return totals
+
+
+def blocks_grant(item):
+    """Whether this line's blocks grant anything beyond its plan's minimum."""
+    return resource_totals([(item.plan, item.quantity)]) != resource_totals(
+        [(item.plan, item.plan.minimum_users)]
+    )
 
 
 class Command(BaseCommand):
@@ -132,7 +160,10 @@ class Command(BaseCommand):
         return list(
             SubscriptionItem.objects.select_related(
                 "subscription__organization", "plan", "plan_price__plan"
-            ).order_by("plan__slug", "pk")
+            )
+            .prefetch_related("plan__entitlements")
+            .exclude(plan__slug__in=PACK_SLUGS)
+            .order_by("plan__slug", "pk")
         )
 
     def _preflight(self, pending):
@@ -153,7 +184,10 @@ class Command(BaseCommand):
             )
 
         missing = sorted(
-            {_target(*key) for key in keys if key[0] != COHORT_SLUG}
+            (
+                {_target(*key) for key in keys if key[0] != COHORT_SLUG}
+                | _pack_targets(pending)
+            )
             - set(
                 PlanPrice.objects.filter(active=True).values_list(
                     "plan__slug", "interval", "label", "code"
@@ -193,13 +227,21 @@ class Command(BaseCommand):
                 "them lapse or resubscribe them first: " + ", ".join(ending_comps)
             )
 
-        holding_blocks = sorted(
-            {item.plan.slug for item in pending if blocks_held(item)}
+        # Blocks need a pack when they bill or grant something; a comped
+        # plan's flat grant is the same at any count.
+        undecomposed = sorted(
+            {
+                item.plan.slug
+                for item in pending
+                if blocks_held(item)
+                and (is_billing(item) or blocks_grant(item))
+                and item.plan.slug not in PACK_DECOMPOSITION
+            }
         )
-        if holding_blocks:
+        if undecomposed:
             raise CommandError(
-                "These have subscribers holding resource blocks, which need "
-                "pack lines: " + ", ".join(holding_blocks)
+                "These have subscribers holding resource blocks but no entry "
+                "in PACK_DECOMPOSITION: " + ", ".join(undecomposed)
             )
 
         collisions = self._collisions(pending, free)
@@ -229,8 +271,8 @@ class Command(BaseCommand):
         """Lines that would land on one plan on one subscription.
 
         SubscriptionItem is unique on (subscription, plan); caught here, not as
-        an IntegrityError half way through the run.  A comped line lands on its
-        organization's free row, not the one it is on.
+        an IntegrityError or an overwritten pack half way through the run.  A
+        comped line lands on its organization's free row, not the one it is on.
         """
 
         landing = collections.defaultdict(list)
@@ -242,6 +284,8 @@ class Command(BaseCommand):
                 else item.subscription_id
             )
             landing[(place, _target(*key)[0])].append(item.plan.slug)
+            for pack_slug, *_rest in _pack_keys(item):
+                landing[(place, pack_slug)].append(f"{item.plan.slug} blocks")
 
         held = SubscriptionItem.objects.exclude(
             pk__in={item.pk for item in pending}
@@ -275,18 +319,22 @@ class Command(BaseCommand):
             return "done"
 
         try:
-            plan_price = self._price_for(item)
+            plan_price, packs = self._prices_for(item)
+            note = self._check_grants(item, plan_price, packs)
         except CommandError as exc:
             self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
             return "failed"
 
-        self.stdout.write(
-            self.style.SUCCESS(f"  + {org.slug}: {item.plan.slug} -> {plan_price}")
+        summary = f"{item.plan.slug} -> {plan_price}" + "".join(
+            f" + {quantity} x {price.plan.slug}" for price, quantity in packs
         )
+        self.stdout.write(self.style.SUCCESS(f"  + {org.slug}: {summary}"))
+        if note:
+            self.stdout.write(f"      {note}")
         if dry_run:
             return "migrated"
         try:
-            self._write(item, plan_price, actor)
+            self._write(item, plan_price, packs, actor)
         except Exception as exc:  # pylint: disable=broad-except
             logger.exception("backfill_plan_prices failed for %s", org.slug)
             self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
@@ -294,19 +342,35 @@ class Command(BaseCommand):
         return "migrated"
 
     @staticmethod
-    def _price_for(item):
-        """The line's target price; raises if it would change the bill."""
-        slug, interval, label, code = _target(item.plan.slug, is_billing(item))
-        if item.plan.slug == COHORT_SLUG:
-            # The one plan billing at two cadences: the line's own subscription
-            # says which.
-            interval = item.subscription.interval
+    def _prices_for(item):
+        """The line's target price and pack lines; raises if the bill changes."""
+        slug, _map_interval, label, code = _target(item.plan.slug, is_billing(item))
         plan_price = PlanPrice.objects.select_related("plan").get(
-            plan__slug=slug, interval=interval, label=label, code=code, active=True
+            plan__slug=slug,
+            interval=_interval(item),
+            label=label,
+            code=code,
+            active=True,
         )
+        blocks = blocks_held(item)
+        packs = [
+            (
+                PlanPrice.objects.select_related("plan").get(
+                    plan__slug=pack_slug,
+                    interval=interval,
+                    label=pack_label,
+                    code=pack_code,
+                    active=True,
+                ),
+                blocks,
+            )
+            for pack_slug, interval, pack_label, pack_code in _pack_keys(item)
+        ]
 
         if is_billing(item):
-            new = plan_price.amount * target_quantity(item)
+            new = plan_price.amount * target_quantity(item) + sum(
+                price.amount * quantity for price, quantity in packs
+            )
             old = legacy_bill_cents(item)
             if item.plan.slug == COHORT_SLUG and plan_price.interval == "monthly":
                 # The plan states the annual figure for every cohort line.
@@ -317,10 +381,59 @@ class Command(BaseCommand):
                     f"{item.quantity} bills ${old / 100:,.2f} today, "
                     f"${new / 100:,.2f} after"
                 )
-        return plan_price
+        return plan_price, packs
 
     @staticmethod
-    def _write(item, plan_price, actor):
+    def _check_grants(item, plan_price, packs):
+        """Refuse if the organization would receive a different amount.
+
+        Returns a note when the change is one decided on: listed in
+        EXPECTED_GRANT_CHANGES, or a block-holder's DROPPED_WITH_BLOCKS
+        resources falling to the tier's base.
+        """
+        before = resource_totals([(item.plan, item.quantity)])
+        after = resource_totals(
+            [(plan_price.plan, target_quantity(item))]
+            + [(price.plan, quantity) for price, quantity in packs]
+        )
+        if before == after:
+            return None
+        # The decided changes are all gains; a loss is never one of them.
+        gains_only = all(after[key] >= before[key] for key in before)
+        if item.plan.slug in EXPECTED_GRANT_CHANGES and gains_only:
+            return f"grant changes as decided: {EXPECTED_GRANT_CHANGES[item.plan.slug]}"
+
+        if packs:
+            carried = set()
+            for price, _quantity in packs:
+                carried |= set(resource_totals([(price.plan, 1)]))
+            at_base = resource_totals([(item.plan, item.plan.minimum_users)])
+            unexplained = {
+                key
+                for key in set(before) | set(after)
+                if after[key]
+                != (
+                    at_base[key]
+                    if key not in carried and key[1] in DROPPED_WITH_BLOCKS
+                    else before[key]
+                )
+            }
+            if not unexplained:
+                changed = {
+                    key: f"{before[key]} -> {after[key]}"
+                    for key in set(before) | set(after)
+                    if before[key] != after[key]
+                }
+                return f"block overage not carried by a pack, as decided: {changed}"
+
+        raise CommandError(
+            f"would change what this organization receives: {dict(before)} "
+            f"today, {dict(after)} after.  Add a pack that covers it, or record "
+            f"it in EXPECTED_GRANT_CHANGES."
+        )
+
+    @staticmethod
+    def _write(item, plan_price, packs, actor):
         legacy_name = item.plan.name
         # Only the fields this sets: the row was read at the start of the run.
         fields = ["plan", "plan_price", "quantity"]
@@ -334,6 +447,16 @@ class Command(BaseCommand):
                 fields += ["granted_reason", "granted_by", "subscription"]
                 _move_to_free_subscription(item)
             item.save(update_fields=fields)
+            for pack_price, quantity in packs:
+                defaults = {"plan_price": pack_price, "quantity": quantity}
+                if Subscription.kind_for(pack_price.plan, pack_price) == "free":
+                    defaults["granted_reason"] = item.granted_reason
+                    defaults["granted_by"] = actor
+                SubscriptionItem.objects.update_or_create(
+                    subscription=item.subscription,
+                    plan=pack_price.plan,
+                    defaults=defaults,
+                )
             # The line's plan, and so its entitlements, just changed.
             organization = item.subscription.organization
             transaction.on_commit(
@@ -361,6 +484,32 @@ class Command(BaseCommand):
             f"still without a price: {deferred} deferred, {other} unexpected"
         )
 
+        # What `migrate_entitlement_shape` refuses on, named in the run that
+        # can still fix it.
+        blocking = [
+            item
+            for item in SubscriptionItem.objects.select_related(
+                "subscription__organization", "plan"
+            )
+            .prefetch_related("plan__entitlements")
+            .exclude(plan__slug__in=PACK_SLUGS)
+            .filter(quantity__gt=1)
+            if any(
+                scaling_pairs(entitlement.resources)
+                for entitlement in item.plan.entitlements.all()
+            )
+        ]
+        if blocking:
+            self.stdout.write(
+                f"{len(blocking)} line(s) still above quantity 1, which blocks "
+                f"the entitlement shape migration:"
+            )
+            for item in blocking:
+                self.stdout.write(
+                    f"  - {item.subscription.organization.slug}: "
+                    f"{item.plan.slug} at quantity {item.quantity}"
+                )
+
 
 def _target(slug, billing):
     return LEGACY_PLAN_MAP[(slug, billing)]
@@ -375,6 +524,34 @@ def _lands_free(slug, billing):
         .first()
     )
     return Subscription.kind_for(price.plan, price) == "free"
+
+
+def _pack_label(label):
+    """A pack takes its tier's label, so a comped organization's costs nothing."""
+    return "comped" if label == "comped" else "standard"
+
+
+def _interval(item):
+    """The cadence a line is migrated at: the cohort's own, else the map's."""
+    if item.plan.slug == COHORT_SLUG:
+        return item.subscription.interval
+    return _target(item.plan.slug, is_billing(item))[1]
+
+
+def _pack_keys(item):
+    """The (slug, interval, label, code) of each pack the line's blocks become."""
+    if not blocks_held(item):
+        return []
+    label = _pack_label(_target(item.plan.slug, is_billing(item))[2])
+    return [
+        (pack_slug, _interval(item), label, "")
+        for pack_slug in PACK_DECOMPOSITION.get(item.plan.slug, ())
+    ]
+
+
+def _pack_targets(pending):
+    """The pack prices the pending lines' blocks decompose into."""
+    return {key for item in pending for key in _pack_keys(item)}
 
 
 def _move_to_free_subscription(item):
