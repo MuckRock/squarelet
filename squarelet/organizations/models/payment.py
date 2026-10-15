@@ -2054,18 +2054,6 @@ class PlanPrice(models.Model):
         # which matters under ATOMIC_REQUESTS, where the caller's request is
         # itself a transaction that this cannot escape.
         replacement.ensure_stripe_price()
-
-        # Nothing new sells at the old rate; existing subscribers keep
-        # billing on it, so this needn't wait for them to move.
-        if self.stripe_price_id:
-            try:
-                get_payment_provider().get_plan_service().archive_price(
-                    self.stripe_price_id
-                )
-            except stripe.InvalidRequestError:  # pragma: no cover
-                # Already inactive or gone: nothing new can sell at it.
-                pass
-
         return replacement
 
 
