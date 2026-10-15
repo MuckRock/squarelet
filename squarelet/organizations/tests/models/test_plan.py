@@ -4,6 +4,7 @@ from django.test import override_settings
 
 # Third Party
 import pytest
+import stripe
 
 # Squarelet
 from squarelet.organizations.models.payment import (
@@ -218,6 +219,30 @@ class TestArchivingRetiresTheStripeObjects:
         plan.save()
         plan_price_factory(plan=plan, stripe_price_id="price_1")
         return plan
+
+    def test_a_stripe_outage_does_not_stop_the_rest(
+        self,
+        plan_factory,
+        plan_price_factory,
+        service,
+        django_capture_on_commit_callbacks,
+    ):
+        """`archive_legacy_plans` archives many plans in one commit."""
+        service.archive_price.side_effect = stripe.APIConnectionError("down")
+        plans = [plan_factory(name=f"Retire {n}", base_price=0) for n in range(2)]
+        for n, plan in enumerate(plans):
+            plan.prices.all().delete()
+            plan.stripe_product_id = f"prod_{n}"
+            plan.save()
+            plan_price_factory(plan=plan, stripe_price_id=f"price_{n}")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            for plan in plans:
+                plan.archived = True
+                plan.save(update_fields=["archived"])
+
+        assert service.archive_product.call_count == 2
+        assert not PlanPrice.objects.filter(plan__in=plans, active=True).exists()
 
     def test_flipping_the_flag_retires_stripe(
         self,
