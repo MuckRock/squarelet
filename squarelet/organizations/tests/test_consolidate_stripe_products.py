@@ -7,6 +7,7 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.management.commands.consolidate_stripe_products import (
+    PRICE_MATRIX,
     Command,
 )
 from squarelet.organizations.models import PlanPrice
@@ -33,3 +34,15 @@ class TestCreatingAPrice:
             )
 
         assert not PlanPrice.objects.filter(plan=plan).exists()
+
+
+@pytest.mark.django_db()
+class TestTheMatrix:
+    def test_the_cohort_rate_is_one_deal_at_both_cadences(self):
+        cohort = {
+            interval: amount
+            for slug, interval, label, code, amount in PRICE_MATRIX
+            if code == "election-cohort"
+        }
+
+        assert cohort["monthly"] * 12 == cohort["annual"]
