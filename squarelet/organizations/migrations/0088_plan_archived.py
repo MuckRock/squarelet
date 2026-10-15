@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
             name="archived",
             field=models.BooleanField(
                 default=False,
-                help_text="Retired: nobody is on it and it can no longer be bought.  The row is kept because the change log references it - deleting it would destroy the history of who used to be on what.",
+                help_text="Retired: nobody is on it and it can no longer be bought.  Kept rather than deleted because the change log references it.",
                 verbose_name="archived",
             ),
         ),

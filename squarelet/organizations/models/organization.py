@@ -190,9 +190,8 @@ class Organization(AvatarMixin, models.Model):
         # Squarelet
         from squarelet.organizations.models.payment import Plan
 
-        # The plan this organization is *on*, which may since have been
-        # archived - and still has to resolve, or its billing page and
-        # entitlements vanish the day the plan is retired.
+        # Archived too, or the billing page and entitlements of an
+        # organization still on a retired plan vanish.
         return (
             Plan.objects.including_archived()
             .filter(subscriptions__organization=self)
