@@ -20,6 +20,7 @@ from allauth.account.models import EmailAddress
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.models import Invitation
 from squarelet.organizations.models.payment import Plan
+from squarelet.services.tests.factories import ServiceFactory
 from squarelet.users import forms, views
 from squarelet.users.models import User
 
@@ -3094,3 +3095,56 @@ class TestUserRequestsView(ViewTestMixin):
         assert response.context_data["target_user"] == target_user
         assert response.context_data["is_own_page"] is False
         assert len(response.context_data["requests"]) == 2
+
+
+@pytest.mark.django_db()
+class TestPlans(ViewTestMixin):
+    """The plans page for a member's own account."""
+
+    view = views.Plans
+    url = "/users/{username}/plans/"
+
+    def test_only_plans_for_individuals_are_offered(
+        self, rf, user_factory, plan_price_factory
+    ):
+        user = user_factory()
+        service = ServiceFactory()
+        solo = plan_price_factory(plan__name="Solo", plan__service=service).plan
+        plan_price_factory(
+            plan__name="Team", plan__service=service, plan__for_individuals=False
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["organization"] == user.individual_organization
+        (group,) = response.context_data["services"]
+        assert group["plans"] == [solo]
+
+    def test_a_held_plan_links_to_the_members_own_subscriptions(
+        self, rf, user_factory, plan_price_factory, subscription_item_factory
+    ):
+        user = user_factory()
+        held = plan_price_factory(plan__name="Held", plan__service=ServiceFactory())
+        subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=held.plan
+        )
+
+        page = self.call_view(rf, user, username=user.username).render()
+
+        assert f"/users/{user.username}/subscriptions/".encode() in page.content
+        assert held.plan.get_absolute_url().encode() not in page.content
+
+    def test_another_member_cannot_see_the_page(self, rf, user_factory):
+        user = user_factory()
+
+        with pytest.raises(Http404):
+            self.call_view(rf, user_factory(), username=user.username)
+
+    def test_staff_can_see_the_page(self, rf, user_factory):
+        user = user_factory()
+
+        response = self.call_view(
+            rf, user_factory(is_staff=True), username=user.username
+        )
+
+        assert response.status_code == 200
