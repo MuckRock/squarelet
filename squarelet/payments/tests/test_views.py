@@ -12,7 +12,22 @@ from squarelet.organizations.models import Organization, Plan
 from squarelet.payments import views
 from squarelet.services.models import Service
 
-# pylint: disable=too-many-positional-arguments
+# pylint: disable=too-many-positional-arguments,too-many-lines
+
+
+def plan_at_slug(plan_factory, name, slug, **kwargs):
+    """A plan at exactly `slug`, adopting the seeded row if there is one.
+
+    The factory on a seeded slug makes `<slug>-2`, which nothing resolves to.
+    """
+    plan = Plan.objects.filter(slug=slug).first()
+    if plan is None:
+        return plan_factory(name=name, slug=slug, **kwargs)
+    for field, value in kwargs.items():
+        setattr(plan, field, value)
+    plan.save()
+    plan.prices.all().delete()
+    return plan
 
 
 @pytest.mark.django_db()
@@ -23,11 +38,12 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
     url = "/plans/{pk}/{slug}/"
 
     def test_create_new_organization_with_subscription(
-        self, rf, user_factory, plan_factory, mocker
+        self, rf, user_factory, plan_factory, mocker, plan_price_factory
     ):
         """Test creating a new organization during plan subscription"""
         user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
 
         # Mock the add_subscription method to avoid Stripe calls
         mock_add_subscription = mocker.patch.object(
@@ -57,6 +73,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             token="tok_visa",
             payment_method="new-card",
             nonprofit=False,
+            interval="monthly",
         )
 
         # Should redirect to the organization
@@ -112,11 +129,12 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         mock_add_subscription.assert_not_called()
 
     def test_new_organization_adds_user_as_admin(
-        self, rf, user_factory, plan_factory, mocker
+        self, rf, user_factory, plan_factory, mocker, plan_price_factory
     ):
         """Test that user is added as admin when creating new organization"""
         user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
 
         # Mock add_subscription
         mocker.patch.object(Organization, "add_subscription", return_value=None)
@@ -141,13 +159,20 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             assert org.receipt_email.email == user.email
 
     def test_existing_organization_flow_still_works(
-        self, rf, user_factory, organization_factory, plan_factory, mocker
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        mocker,
+        plan_price_factory,
     ):
         """Test that existing organization subscription still works"""
         user = user_factory()
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
 
         # Mock add_subscription
         mock_add_subscription = mocker.patch.object(
@@ -171,6 +196,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             token="tok_visa",
             payment_method="new-card",
             nonprofit=False,
+            interval="monthly",
         )
 
         # Should redirect to the organization
@@ -185,12 +211,14 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         plan_factory,
         subscription_item_factory,
         mocker,
+        plan_price_factory,
     ):
         """`add_subscription` replaces the comp, so it is not already subscribed."""
         user = user_factory()
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
         subscription_item_factory(
             subscription__organization=org, plan=plan, subscription__kind="free"
         )
@@ -327,13 +355,20 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         assert response.status_code == 200
 
     def test_invoice_payment_for_annual_plan_succeeds(
-        self, rf, user_factory, organization_factory, plan_factory, mocker
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        plan_price_factory,
+        mocker,
     ):
-        """Test that invoice payment works correctly for annual plans"""
+        """Test that invoice payment works correctly for annual prices"""
         user = user_factory()
         org = organization_factory()
         org.add_creator(user)
-        plan = plan_factory(for_groups=True, public=True, annual=True)
+        plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan, interval="annual", amount=120_000)
 
         # Mock add_subscription
         mock_add_subscription = mocker.patch.object(
@@ -344,6 +379,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             "organization": str(org.pk),
             "payment_method": "invoice",
             "stripe_pk": "pk_test",
+            "price_interval": "annual",
         }
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
@@ -356,6 +392,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             token="",
             payment_method="invoice",
             nonprofit=False,
+            interval="annual",
         )
 
         # Should redirect to organization
@@ -371,7 +408,13 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
     url = "/plans/{pk}/{slug}/"
 
     def test_purchase_redirect_on_success(
-        self, rf, user_factory, organization_factory, plan_factory, mocker
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        mocker,
+        plan_price_factory,
     ):
         """After successful purchase, redirect to purchase_redirect URL
         instead of org page"""
@@ -379,6 +422,7 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
         mocker.patch.object(Organization, "add_subscription", return_value=None)
 
         # Register example.com as an allowed service host
@@ -403,13 +447,20 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         assert response.url == "https://example.com/callback"
 
     def test_unsafe_purchase_redirect_ignored(
-        self, rf, user_factory, organization_factory, plan_factory, mocker
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        mocker,
+        plan_price_factory,
     ):
         """Unsafe redirect URLs (javascript:, data:, etc.) should be ignored"""
         user = user_factory()
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
         mocker.patch.object(Organization, "add_subscription", return_value=None)
 
         data = {
@@ -425,7 +476,13 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         assert response.url == org.get_absolute_url()
 
     def test_unregistered_host_purchase_redirect_ignored(
-        self, rf, user_factory, organization_factory, plan_factory, mocker
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        mocker,
+        plan_price_factory,
     ):
         """Redirect URLs with hosts not in settings, services, or OIDC clients
         should be ignored"""
@@ -433,6 +490,7 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
         mocker.patch.object(Organization, "add_subscription", return_value=None)
 
         data = {
@@ -448,13 +506,20 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         assert response.url == org.get_absolute_url()
 
     def test_no_purchase_redirect_defaults_to_org(
-        self, rf, user_factory, organization_factory, plan_factory, mocker
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        mocker,
+        plan_price_factory,
     ):
         """Without purchase_redirect, redirect to org page as before"""
         user = user_factory()
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
         mocker.patch.object(Organization, "add_subscription", return_value=None)
 
         data = {
@@ -675,9 +740,9 @@ class TestPlanDetailViewWithSlug(ViewTestMixin):
         # Should return 200 OK (no redirect needed)
         assert response.status_code == 200
 
-        # Verify matching_plan is in context (should be None for non-Sunlight plans)
-        assert "matching_plan" in response.context_data
-        assert response.context_data["matching_plan"] is None
+        # A plan with no price has nothing to sell, and says so
+        assert response.context_data["price"] is None
+        assert response.context_data["other_interval"] is None
 
     def test_canonical_url_with_outdated_slug_still_works(
         self, rf, user_factory, plan_factory, mocker
@@ -740,29 +805,206 @@ class TestPlanDetailViewWithSlug(ViewTestMixin):
 
 
 @pytest.mark.django_db()
-class TestGetMatchingPlanTier:
-    """Test the get_matching_plan_tier helper function"""
+class TestTheOtherInterval(ViewTestMixin):
+    """A canonical tier is one row with both intervals; the page offers the
+    other one as a link, where it used to link to a separate plan row."""
 
-    def test_non_sunlight_plan_returns_none(self, plan_factory):
-        """Test that non-Sunlight plans return None"""
-        plan = plan_factory(name="Regular Plan", public=True)
+    view = views.PlanDetailView
+    url = "/plans/{pk}-{slug}/"
 
-        result = views.get_matching_plan_tier(plan)
-        assert result is None
+    def _get(self, rf, user, plan, **params):
+        return self.call_view(rf, user, pk=plan.pk, slug=plan.slug, params=params)
 
-    def test_finds_matching_sunlight_plan_if_exists(self):
-        """Test that it finds matching Sunlight plans from the database"""
-        # Try to find the actual Sunlight plans from the migration
-        monthly = Plan.objects.filter(slug="sunlight-essential").first()
-        annual = Plan.objects.filter(slug="sunlight-essential-annual").first()
+    def test_shows_the_asked_for_interval_and_links_the_other(
+        self, rf, user_factory, plan_price_factory, mocker
+    ):
+        user = user_factory()
+        mock_customer = mocker.MagicMock()
+        mock_customer.payment_details = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+        plan = plan_price_factory(interval="monthly", amount=10_000).plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
 
-        # Only test if both plans exist in the database
-        if monthly and annual:
-            result_from_monthly = views.get_matching_plan_tier(monthly)
-            assert result_from_monthly == annual
+        response = self._get(rf, user, plan, interval="annual")
 
-            result_from_annual = views.get_matching_plan_tier(annual)
-            assert result_from_annual == monthly
+        assert response.context_data["price"].amount == 100_000
+        assert response.context_data["interval"] == "annual"
+        assert response.context_data["other_interval"] == "monthly"
+        html = response.rendered_content
+        assert "$1,000" in html
+        assert "/&nbsp;year" in html
+        assert "interval=monthly" in html
+        assert 'name="price_interval" value="annual"' in html
+
+    def test_a_plan_with_nothing_to_sell_says_so(
+        self, rf, user_factory, plan_factory, mocker
+    ):
+        """Not a form around a blank amount - the failure mode the plan
+        warned about, since a template swallows a missing attribute."""
+        user = user_factory()
+        mock_customer = mocker.MagicMock()
+        mock_customer.payment_details = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+        plan = plan_factory(name="No Price Yet")
+
+        html = self._get(rf, user, plan).rendered_content
+
+        assert "not currently available" in html
+        assert "$" not in html
+
+    def test_defaults_to_monthly(self, rf, user_factory, plan_price_factory, mocker):
+        user = user_factory()
+        mock_customer = mocker.MagicMock()
+        mock_customer.payment_details = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+        plan = plan_price_factory(interval="monthly", amount=10_000).plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        response = self._get(rf, user, plan)
+
+        assert response.context_data["interval"] == "monthly"
+        assert response.context_data["other_interval"] == "annual"
+
+
+@pytest.mark.django_db()
+class TestLegacyEntryRowsRedirect(ViewTestMixin):
+    """Old entry-row URLs, which the Sunlight site links to, redirect to their
+    tier's page with the interval and rate in the query string."""
+
+    view = views.PlanDetailView
+    url = "/plans/{pk}-{slug}/"
+
+    def _canonical(self, plan_factory, plan_price_factory):
+        plan = plan_at_slug(plan_factory, "Sunlight Essential", "sunlight-essential")
+        plan_price_factory(plan=plan, interval="monthly", amount=68_000)
+        plan_price_factory(plan=plan, interval="annual", amount=800_000)
+        plan_price_factory(
+            plan=plan, interval="monthly", label="nonprofit", amount=35_000
+        )
+        return plan
+
+    def test_the_annual_row_redirects_to_the_annual_price(
+        self, rf, user_factory, plan_factory, plan_price_factory
+    ):
+        canonical = self._canonical(plan_factory, plan_price_factory)
+        annual = plan_at_slug(
+            plan_factory, "Sunlight Essential Annual", "sunlight-essential-annual"
+        )
+
+        response = self.call_view(rf, user_factory(), pk=annual.pk, slug=annual.slug)
+
+        assert response.status_code == 301
+        assert response.url == f"{canonical.get_absolute_url()}?interval=annual"
+
+    def test_a_purchase_posted_to_the_old_row_is_made_there(  # pylint: disable=too-many-arguments
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        plan_price_factory,
+        mocker,
+        django_capture_on_commit_callbacks,
+    ):
+        """A 301 turns a POST into a GET; an open tab's purchase would vanish."""
+        self._canonical(plan_factory, plan_price_factory)
+        annual = plan_at_slug(
+            plan_factory, "Sunlight Essential Annual", "sunlight-essential-annual"
+        )
+        Plan.objects.filter(pk=annual.pk).update(for_groups=True, public=True)
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        add_subscription = mocker.patch.object(
+            Organization, "add_subscription", return_value=None
+        )
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+        }
+
+        # A Wix Sunlight row subscribes on commit.
+        with django_capture_on_commit_callbacks(execute=True):
+            response = self.call_view(
+                rf, user, data=data, pk=annual.pk, slug=annual.slug
+            )
+
+        assert response.status_code == 302
+        assert add_subscription.call_args.kwargs["interval"] == "annual"
+
+    def test_the_nonprofit_row_pre_ticks_the_box(
+        self, rf, user_factory, plan_factory, plan_price_factory
+    ):
+        canonical = self._canonical(plan_factory, plan_price_factory)
+        nonprofit = plan_at_slug(
+            plan_factory,
+            "Sunlight Essential Nonprofit",
+            "sunlight-nonprofit-essential",
+        )
+
+        response = self.call_view(
+            rf, user_factory(), pk=nonprofit.pk, slug=nonprofit.slug
+        )
+
+        assert response.status_code == 301
+        assert (
+            response.url
+            == f"{canonical.get_absolute_url()}?interval=monthly&nonprofit=1"
+        )
+
+    def test_an_archived_alias_still_redirects(
+        self, rf, user_factory, plan_factory, plan_price_factory
+    ):
+        """The point of the redirect: the row can go and the link survives."""
+        canonical = self._canonical(plan_factory, plan_price_factory)
+        annual = plan_at_slug(
+            plan_factory,
+            "Sunlight Essential Annual",
+            "sunlight-essential-annual",
+            archived=True,
+        )
+
+        response = self.call_view(rf, user_factory(), pk=annual.pk, slug=annual.slug)
+
+        assert response.status_code == 301
+        assert response.url.startswith(canonical.get_absolute_url())
+
+    def test_an_archived_plan_that_is_not_an_alias_is_gone(
+        self, rf, user_factory, plan_factory
+    ):
+        plan = plan_factory(name="Old Custom Plan", archived=True)
+
+        with pytest.raises(Http404):
+            self.call_view(rf, user_factory(), pk=plan.pk, slug=plan.slug)
+
+    def test_a_negotiated_rate_does_not_redirect(
+        self, rf, user_factory, plan_factory, plan_price_factory, mocker
+    ):
+        """InsideClimate's page is its own until its row is archived - the
+        Organization page would show list price, not the deal."""
+        user = user_factory()
+        mock_customer = mocker.MagicMock()
+        mock_customer.payment_details = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+        plan_price_factory(
+            plan=plan_at_slug(plan_factory, "Organization", "organization"),
+            interval="monthly",
+        )
+        deal = plan_at_slug(plan_factory, "InsideClimate", "insideclimate-news-plan")
+
+        response = self.call_view(rf, user, pk=deal.pk, slug=deal.slug)
+
+        assert response.status_code == 200
 
 
 @pytest.mark.django_db()
@@ -777,10 +1019,8 @@ class TestEnterpriseTemplateSelection(ViewTestMixin):
     ):
         """Test that Enterprise plans use the plan_enterprise.html template"""
         user = user_factory()
-        plan = plan_factory(
-            name="Sunlight Enterprise",
-            slug="sunlight-enterprise",
-            public=True,
+        plan = plan_at_slug(
+            plan_factory, "Sunlight Enterprise", "sunlight-enterprise", public=True
         )
 
         # Mock Stripe customer to avoid API calls
@@ -798,32 +1038,25 @@ class TestEnterpriseTemplateSelection(ViewTestMixin):
         # Verify custom template is used
         assert response.template_name == ["payments/plan_enterprise.html"]
 
-    def test_enterprise_annual_plan_uses_custom_template(
-        self, rf, user_factory, plan_factory, mocker
+    def test_enterprise_annual_redirects_to_the_enterprise_page(
+        self, rf, user_factory, plan_factory
     ):
-        """Test that Enterprise annual plans use the plan_enterprise.html template"""
-        user = user_factory()
-        plan = plan_factory(
-            name="Sunlight Enterprise Annual",
-            slug="sunlight-enterprise-annual",
+        """The annual row is an alias of the canonical Enterprise row; it
+        lands on the same custom template by way of the redirect."""
+        canonical = plan_at_slug(
+            plan_factory, "Sunlight Enterprise", "sunlight-enterprise", public=True
+        )
+        annual = plan_at_slug(
+            plan_factory,
+            "Sunlight Enterprise Annual",
+            "sunlight-enterprise-annual",
             public=True,
-            annual=True,
         )
 
-        # Mock Stripe customer to avoid API calls
-        mock_customer = mocker.MagicMock()
-        mock_customer.payment_details = None
-        mocker.patch.object(
-            user.individual_organization, "customer", return_value=mock_customer
-        )
+        response = self.call_view(rf, user_factory(), pk=annual.pk, slug=annual.slug)
 
-        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
-
-        # Should return 200 OK
-        assert response.status_code == 200
-
-        # Verify custom template is used
-        assert response.template_name == ["payments/plan_enterprise.html"]
+        assert response.status_code == 301
+        assert response.url == f"{canonical.get_absolute_url()}?interval=annual"
 
     def test_non_enterprise_plan_uses_default_template(
         self, rf, user_factory, plan_factory, mocker

@@ -100,26 +100,12 @@ class TestWhatGetsArchived:
 
 
 @pytest.mark.django_db()
-class TestEntryRowsAreKeptWhilePurchasesGoThroughThem:
-    """`sunlight-essential-annual` holds no price, but purchases resolve through it."""
+class TestEntryRowsAreArchivedOnceNothingIsBoughtThroughThem:
+    """`sunlight-essential-annual` holds no price, and its URL now redirects."""
 
-    def test_an_entry_row_whose_target_is_priced_is_kept(self):
+    def test_an_entry_row_is_archived_even_though_its_target_is_priced(self):
         canonical = plan_with_slug("Sunlight Essential", "sunlight-essential")
         PlanPriceFactory(plan=canonical, interval="annual", label="standard")
-        entry = plan_with_slug(
-            "Sunlight Essential (Annual)", "sunlight-essential-annual"
-        )
-
-        out = run()
-
-        entry.refresh_from_db()
-        assert not entry.archived
-        assert "sunlight-essential-annual: still in use" in out
-        assert "still purchasable" in out
-
-    def test_an_entry_row_whose_target_has_no_price_is_archived(self):
-        """Nothing to resolve to, so nothing can be bought through it."""
-        plan_with_slug("Sunlight Essential", "sunlight-essential")
         entry = plan_with_slug(
             "Sunlight Essential (Annual)", "sunlight-essential-annual"
         )
@@ -128,6 +114,32 @@ class TestEntryRowsAreKeptWhilePurchasesGoThroughThem:
 
         entry.refresh_from_db()
         assert entry.archived
+        canonical.refresh_from_db()
+        assert not canonical.archived
+
+
+@pytest.mark.django_db()
+class TestNegotiatedRowsAreKept:
+    """A private row sold at a negotiated rate on its tier stays purchasable."""
+
+    def test_a_row_whose_negotiated_rate_is_priced_is_kept(self):
+        canonical = plan_with_slug("Sunlight Essential", "sunlight-essential")
+        PlanPriceFactory(plan=canonical, interval="annual", code="legacy-basic")
+        row = plan_with_slug("Sunlight Basic (Annual)", "sunlight-basic-annual")
+
+        run()
+
+        row.refresh_from_db()
+        assert not row.archived
+
+    def test_one_whose_rate_has_no_price_is_archived(self):
+        plan_with_slug("Sunlight Essential", "sunlight-essential")
+        row = plan_with_slug("Sunlight Basic (Annual)", "sunlight-basic-annual")
+
+        run()
+
+        row.refresh_from_db()
+        assert row.archived
 
 
 @pytest.mark.django_db()

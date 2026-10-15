@@ -43,8 +43,9 @@ function createOrgCardData(hasCard: boolean = false) {
 
 function createPlanData() {
   return JSON.stringify({
-    name: 'Professional',
-    price: 20
+    interval: 'monthly',
+    amount: 20,
+    has_nonprofit_variant: false
   });
 }
 

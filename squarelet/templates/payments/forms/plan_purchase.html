@@ -78,7 +78,7 @@
           </div>
         </label>
       </div>
-      {% if form.plan.annual %}
+      {% if form.interval == "annual" %}
       <div class="invoice-option">
         <label>
           <input type="radio" name="payment_method" value="invoice">
@@ -160,9 +160,9 @@
   {# Price and Subscribe button #}
   <div class="form-footer">
     <div class="price">
-      <span class="original-price">${{ form.plan.base_price|intcomma }}</span>
+      <span class="original-price">${{ form.price.amount_dollars|floatformat:"-2"|intcomma }}</span>
       <span class="discounted-price" style="display:none;"></span>
-      <span class="pay-period">/&nbsp;{% if form.plan.annual %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}</span>
+      <span class="pay-period">/&nbsp;{% if form.interval == "annual" %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}</span>
     </div>
     <button type="submit" class="btn premium" disabled>
       {% trans "Subscribe" %}

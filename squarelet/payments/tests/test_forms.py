@@ -170,88 +170,99 @@ class TestPlanPurchaseFormInit:
         assert user.individual_organization not in form.fields["organization"].queryset
         assert org in form.fields["organization"].queryset
 
-    def test_init_with_sunlight_plan_shows_nonprofit(
-        self, user_factory, plan_factory, plan_price_factory
+    def test_a_plan_with_a_nonprofit_rate_offers_the_box(
+        self, user_factory, plan_price_factory
     ):
-        """Nonprofit field shown for Sunlight plans with a nonprofit rate"""
+        """Whether the box appears is a fact about the plan's prices, not
+        about which product it is marketed under."""
         user = user_factory()
-        # Create a plan that looks like a Sunlight plan (slug starts with sunlight-)
-        plan = plan_factory(
-            slug="sunlight-test",
-            product="sunlight",
-            public=True,
-            for_individuals=True,
-            for_groups=False,
-        )
-        plan_price_factory(plan=plan, label="standard")
-        plan_price_factory(plan=plan, label="nonprofit", amount=5_000)
+        price = plan_price_factory(interval="monthly", label="standard")
+        plan_price_factory(plan=price.plan, interval="monthly", label="nonprofit")
 
-        form = PlanPurchaseForm(plan=plan, user=user)
+        form = PlanPurchaseForm(plan=price.plan, user=user)
 
         assert "is_nonprofit" in form.fields
+        assert form.nonprofit_price.label == "nonprofit"
 
-    def test_a_sunlight_plan_without_a_nonprofit_rate_hides_it(
-        self, user_factory, plan_factory, plan_price_factory
+    def test_a_plan_without_a_nonprofit_rate_hides_the_box(
+        self, user_factory, plan_price_factory
     ):
-        """Ticking it would change nothing."""
-        plan = plan_factory(
-            slug="sunlight-test",
-            product="sunlight",
-            public=True,
-            for_individuals=True,
-            for_groups=False,
-        )
-        plan_price_factory(plan=plan, label="standard")
+        user = user_factory()
+        price = plan_price_factory(interval="monthly", label="standard")
 
-        form = PlanPurchaseForm(plan=plan, user=user_factory())
+        form = PlanPurchaseForm(plan=price.plan, user=user)
 
         assert "is_nonprofit" not in form.fields
 
-    def test_init_with_non_sunlight_plan_hides_nonprofit(
-        self, user_factory, plan_factory
-    ):
-        """Nonprofit field hidden for non-Sunlight plans"""
+    def test_an_annual_price_offers_invoice(self, user_factory, plan_price_factory):
+        """Invoice payment option shown for annual prices"""
         user = user_factory()
-        plan = plan_factory(
-            slug="professional",
-            public=True,
-            for_individuals=True,
-            for_groups=False,
-        )
+        price = plan_price_factory(interval="annual")
 
-        form = PlanPurchaseForm(plan=plan, user=user)
+        form = PlanPurchaseForm(plan=price.plan, user=user)
 
-        assert "is_nonprofit" not in form.fields
-
-    def test_init_annual_plan_shows_invoice_option(self, user_factory, plan_factory):
-        """Invoice payment option shown for annual plans"""
-        user = user_factory()
-        plan = plan_factory(annual=True, public=True, for_individuals=True)
-
-        form = PlanPurchaseForm(plan=plan, user=user)
-
+        assert form.interval == "annual"
         choices = dict(form.fields["payment_method"].choices)
         assert "invoice" in choices
 
-    def test_init_monthly_plan_hides_invoice_option(self, user_factory, plan_factory):
-        """Invoice payment option hidden for monthly plans"""
+    def test_a_monthly_price_does_not(self, user_factory, plan_price_factory):
+        """Invoice payment option hidden for monthly prices"""
         user = user_factory()
-        plan = plan_factory(annual=False, public=True, for_individuals=True)
+        price = plan_price_factory(interval="monthly")
 
-        form = PlanPurchaseForm(plan=plan, user=user)
+        form = PlanPurchaseForm(plan=price.plan, user=user)
 
         choices = dict(form.fields["payment_method"].choices)
         assert "invoice" not in choices
+
+    def test_the_interval_asked_for_is_the_one_sold(
+        self, user_factory, plan_price_factory
+    ):
+        """A canonical tier is one row with both; the page names one and
+        the form carries it back."""
+        user = user_factory()
+        plan = plan_price_factory(interval="monthly", amount=10_000).plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        form = PlanPurchaseForm(plan=plan, user=user, interval="annual")
+
+        assert form.price.amount == 100_000
+        assert form.fields["price_interval"].initial == "annual"
+
+    def test_a_bound_form_reads_the_interval_it_posted(
+        self, user_factory, plan_price_factory
+    ):
+        user = user_factory()
+        plan = plan_price_factory(interval="monthly", amount=10_000).plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        form = PlanPurchaseForm({"price_interval": "annual"}, plan=plan, user=user)
+
+        assert form.price.amount == 100_000
+
+    def test_an_interval_the_plan_lacks_falls_back_to_its_first(
+        self, user_factory, plan_price_factory
+    ):
+        user = user_factory()
+        price = plan_price_factory(interval="monthly")
+
+        form = PlanPurchaseForm(plan=price.plan, user=user, interval="annual")
+
+        assert form.interval == "monthly"
+        assert form.price == price
 
 
 @pytest.mark.django_db
 class TestPlanPurchaseFormValidation:
     """Test PlanPurchaseForm validation"""
 
-    def test_valid_new_card_payment(self, user_factory, plan_factory):
+    def test_valid_new_card_payment(
+        self, user_factory, plan_factory, plan_price_factory
+    ):
         """Valid submission with new card"""
         user = user_factory()
         plan = plan_factory(public=True, for_individuals=True)
+        plan_price_factory(plan=plan)
 
         data = {
             "organization": str(user.individual_organization.pk),
@@ -263,10 +274,29 @@ class TestPlanPurchaseFormValidation:
         form = PlanPurchaseForm(data, plan=plan, user=user)
         assert form.is_valid(), f"Form errors: {form.errors}"
 
-    def test_new_card_requires_stripe_token(self, user_factory, plan_factory):
+    def test_a_plan_with_nothing_to_sell_is_refused(self, user_factory, plan_factory):
+        """The page says it isn't available; a stale tab can still post."""
+        user = user_factory()
+        plan = plan_factory(public=True, for_individuals=True)
+        data = {
+            "organization": str(user.individual_organization.pk),
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+        }
+
+        form = PlanPurchaseForm(data, plan=plan, user=user)
+
+        assert not form.is_valid()
+        assert "not currently available" in str(form.errors)
+
+    def test_new_card_requires_stripe_token(
+        self, user_factory, plan_factory, plan_price_factory
+    ):
         """New card payment requires stripe token"""
         user = user_factory()
         plan = plan_factory(public=True, for_individuals=True)
+        plan_price_factory(plan=plan)
 
         data = {
             "organization": str(user.individual_organization.pk),
@@ -280,11 +310,12 @@ class TestPlanPurchaseFormValidation:
         assert "stripe_token" in form.errors
 
     def test_existing_card_requires_card_on_file(
-        self, user_factory, plan_factory, mocker
+        self, user_factory, plan_factory, mocker, plan_price_factory
     ):
         """Existing card payment requires card on file"""
         user = user_factory()
         plan = plan_factory(public=True, for_individuals=True)
+        plan_price_factory(plan=plan)
 
         # Mock that organization has NO card
         mock_customer = mocker.MagicMock()
@@ -301,10 +332,10 @@ class TestPlanPurchaseFormValidation:
         assert not form.is_valid()
         assert "payment_method" in form.errors
 
-    def test_invoice_only_for_annual_plans(self, user_factory, plan_factory):
-        """Invoice payment only allowed for annual plans"""
+    def test_invoice_only_for_annual_plans(self, user_factory, plan_price_factory):
+        """Invoice payment only allowed for annual prices"""
         user = user_factory()
-        plan = plan_factory(annual=False, public=True, for_individuals=True)
+        plan = plan_price_factory(interval="monthly").plan
 
         data = {
             "organization": str(user.individual_organization.pk),
@@ -333,10 +364,13 @@ class TestPlanPurchaseFormValidation:
         assert not form.is_valid()
         assert "new_organization_name" in form.errors
 
-    def test_new_organization_requires_verified_email(self, user_factory, plan_factory):
+    def test_new_organization_requires_verified_email(
+        self, user_factory, plan_factory, plan_price_factory
+    ):
         """Creating a new organization requires a verified email address"""
         user = user_factory(email_verified=False)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
 
         data = {
             "organization": "new",
@@ -351,11 +385,12 @@ class TestPlanPurchaseFormValidation:
         assert "organization" in form.errors
 
     def test_new_organization_allowed_with_verified_email(
-        self, user_factory, plan_factory
+        self, user_factory, plan_factory, plan_price_factory
     ):
         """Verified users may create a new organization"""
         user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
 
         data = {
             "organization": "new",
@@ -369,12 +404,13 @@ class TestPlanPurchaseFormValidation:
         assert form.is_valid(), f"Form errors: {form.errors}"
 
     def test_existing_org_allowed_without_verified_email(
-        self, user_factory, plan_factory
+        self, user_factory, plan_factory, plan_price_factory
     ):
         """The verified-email constraint only applies to creating new orgs;
         an unverified user may still subscribe an existing organization."""
         user = user_factory(email_verified=False)
         plan = plan_factory(public=True, for_individuals=True)
+        plan_price_factory(plan=plan)
 
         data = {
             "organization": str(user.individual_organization.pk),
@@ -387,7 +423,7 @@ class TestPlanPurchaseFormValidation:
         assert form.is_valid(), f"Form errors: {form.errors}"
 
     def test_existing_card_valid_when_org_has_card(
-        self, user_factory, plan_factory, mocker
+        self, user_factory, plan_factory, mocker, plan_price_factory
     ):
         """Submitting existing-card should be valid when org has a card on file.
 
@@ -397,6 +433,7 @@ class TestPlanPurchaseFormValidation:
         """
         user = user_factory()
         plan = plan_factory(public=True, for_individuals=True)
+        plan_price_factory(plan=plan)
 
         # Mock that organization HAS a card on file
         mock_card = mocker.MagicMock()
@@ -460,10 +497,13 @@ class TestPlanPurchaseFormTemplate:
 class TestPlanPurchaseFormSave:
     """Test PlanPurchaseForm save method"""
 
-    def test_save_returns_subscription_data(self, user_factory, plan_factory):
+    def test_save_returns_subscription_data(
+        self, user_factory, plan_factory, plan_price_factory
+    ):
         """Save returns data needed for subscription"""
         user = user_factory()
         plan = plan_factory(public=True, for_individuals=True)
+        plan_price_factory(plan=plan)
 
         data = {
             "organization": str(user.individual_organization.pk),
@@ -483,10 +523,13 @@ class TestPlanPurchaseFormSave:
         assert result["stripe_token"] == "tok_visa"
         assert result["nonprofit"] is False
 
-    def test_save_creates_new_organization(self, user_factory, plan_factory):
+    def test_save_creates_new_organization(
+        self, user_factory, plan_factory, plan_price_factory
+    ):
         """Save creates new organization when selected"""
         user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
+        plan_price_factory(plan=plan)
 
         data = {
             "organization": "new",
@@ -546,27 +589,19 @@ class TestPlanPurchaseFormOrgCards:
 class TestPlanPurchaseFormPlanData:
     """Test get_plan_data method"""
 
-    def test_returns_plan_info(self, user_factory, plan_factory, mocker):
-        """Returns plan information for frontend"""
+    def test_returns_the_resolved_price(self, user_factory, plan_price_factory):
+        """What the page's script reads: the price, in dollars."""
         user = user_factory()
-        # Mock stripe to avoid API calls
-        mocker.patch("stripe.Plan.create")
-        plan = plan_factory(
-            public=True,
-            for_individuals=True,
-            annual=True,
-            base_price=1000,
-            price_per_user=100,
-            minimum_users=5,
-        )
+        price = plan_price_factory(interval="annual", amount=100_000)
 
-        form = PlanPurchaseForm(plan=plan, user=user)
+        form = PlanPurchaseForm(plan=price.plan, user=user)
         plan_data = form.get_plan_data()
 
-        assert plan_data["annual"] is True
-        assert plan_data["base_price"] == 1000
-        assert plan_data["price_per_user"] == 100
-        assert plan_data["minimum_users"] == 5
+        assert plan_data == {
+            "interval": "annual",
+            "amount": 1000.0,
+            "has_nonprofit_variant": False,
+        }
 
     def test_returns_empty_dict_without_plan(self, user_factory):
         """Returns empty dict when no plan provided"""
@@ -577,18 +612,50 @@ class TestPlanPurchaseFormPlanData:
 
 
 @pytest.mark.django_db()
+class TestANegotiatedRow:
+    """Sold at its own rate, on its tier, to the organizations it names."""
+
+    @staticmethod
+    def _row(plan_factory, plan_price_factory):
+        canonical = Plan.objects.filter(
+            slug="sunlight-essential"
+        ).first() or plan_factory(name="sunlight-essential", slug="sunlight-essential")
+        canonical.prices.all().delete()
+        plan_price_factory(plan=canonical, interval="monthly", amount=68_000)
+        plan_price_factory(plan=canonical, interval="annual", amount=800_000)
+        negotiated = plan_price_factory(
+            plan=canonical, interval="annual", code="legacy-basic", amount=300_000
+        )
+        row = Plan.objects.filter(slug="sunlight-basic-annual").first() or plan_factory(
+            name="sunlight-basic-annual", slug="sunlight-basic-annual"
+        )
+        return row, negotiated
+
+    def test_its_page_sells_the_negotiated_rate(self, plan_factory, plan_price_factory):
+        row, negotiated = self._row(plan_factory, plan_price_factory)
+
+        form = PlanPurchaseForm(plan=row)
+
+        assert form.price == negotiated
+        assert form.intervals == ["annual"]
+
+    def test_it_counts_toward_the_sunlight_cap(self, plan_factory, plan_price_factory):
+        row, _negotiated = self._row(plan_factory, plan_price_factory)
+
+        assert row.is_sunlight_plan
+
+
+@pytest.mark.django_db()
 class TestNonprofitPriceComesFromPlanPrice:
     """The nonprofit rate shown is the one a purchase is sold at."""
 
-    def _form(self, plan):
-        return PlanPurchaseForm(plan=plan).get_plan_data()
+    def _form(self, plan, **kwargs):
+        return PlanPurchaseForm(plan=plan, **kwargs).get_plan_data()
 
     def test_reads_the_nonprofit_price_of_the_tier(
         self, plan_factory, plan_price_factory
     ):
-        plan = plan_factory(
-            name="Sunlight Essential", slug="sunlight-essential", product="sunlight"
-        )
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
         plan_price_factory(
             plan=plan, interval="monthly", label="standard", amount=68_000
         )
@@ -599,30 +666,44 @@ class TestNonprofitPriceComesFromPlanPrice:
         data = self._form(plan)
 
         assert data["has_nonprofit_variant"]
-        assert data["nonprofit_base_price"] == 350.0
+        assert data["nonprofit_amount"] == 350.0
 
-    def test_the_rate_shown_is_the_rate_sold(self, plan_factory, plan_price_factory):
-        """Even with no active standard price beside it."""
-        plan = plan_factory(
-            name="Sunlight Essential", slug="sunlight-essential", product="sunlight"
-        )
-        plan_price_factory(
-            plan=plan, interval="monthly", label="standard", active=False
-        )
-        plan_price_factory(
-            plan=plan, interval="monthly", label="nonprofit", amount=35_000
-        )
+    def test_the_nonprofit_rate_follows_the_interval(
+        self, plan_factory, plan_price_factory
+    ):
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        for interval, standard, nonprofit in [
+            ("monthly", 68_000, 35_000),
+            ("annual", 800_000, 400_000),
+        ]:
+            plan_price_factory(plan=plan, interval=interval, amount=standard)
+            plan_price_factory(
+                plan=plan, interval=interval, label="nonprofit", amount=nonprofit
+            )
 
-        assert self._form(plan)["nonprofit_base_price"] == 350.0
+        assert self._form(plan, interval="annual")["nonprofit_amount"] == 4000.0
 
-    def test_the_rate_is_looked_up_once(self, plan_factory, plan_price_factory):
-        plan = plan_factory(
-            name="Sunlight Essential", slug="sunlight-essential", product="sunlight"
-        )
-        plan_price_factory(plan=plan, label="nonprofit", amount=35_000)
-        form = PlanPurchaseForm(plan=plan)
+    def test_no_nonprofit_rate_at_all(self, plan_price_factory):
+        plan = plan_price_factory(interval="monthly").plan
+
+        assert not self._form(plan)["has_nonprofit_variant"]
+
+    def test_the_rate_is_looked_up_once(self, plan_price_factory):
+        price = plan_price_factory(interval="monthly")
+        plan_price_factory(plan=price.plan, interval="monthly", label="nonprofit")
+        form = PlanPurchaseForm(plan=price.plan)
 
         with CaptureQueriesContext(connection) as queries:
             form.get_plan_data()
 
         assert not [q for q in queries.captured_queries if "planprice" in q["sql"]]
+
+    def test_a_plan_with_only_a_nonprofit_price_is_not_for_sale(
+        self, plan_factory, plan_price_factory
+    ):
+        """No list price means nothing to sell to a stranger; the nonprofit
+        rate is a discount on it, not a price of its own."""
+        plan = plan_factory(name="Organization", slug="organization")
+        plan_price_factory(plan=plan, interval="monthly", label="nonprofit", amount=1)
+
+        assert not self._form(plan)

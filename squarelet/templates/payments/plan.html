@@ -54,6 +54,10 @@
             </button>
           </form>
         </div>
+        {% elif not price %}
+          <div class="subscription-form">
+            <p class="plan-unavailable">{% trans "This plan is not currently available for purchase." %}</p>
+          </div>
         {% else %}
           {% if user.is_authenticated %}
             <!-- Subscription Form using PlanPurchaseForm -->
@@ -78,8 +82,8 @@
               <!-- Price display for unauthenticated users -->
               <div class="form-footer">
                 <div class="price">
-                  <span class="original-price">${{ plan.base_price|intcomma }}</span>
-                  <span class="pay-period">/&nbsp;{% if plan.annual %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}</span>
+                  <span class="original-price">${{ price.amount_dollars|floatformat:"-2"|intcomma }}</span>
+                  <span class="pay-period">/&nbsp;{% if interval == "annual" %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}</span>
                 </div>
                 <button type="submit" class="btn premium" disabled>
                   {% trans "Subscribe" %}
@@ -88,10 +92,10 @@
             </div>
           {% endif %}
         {% endif %}
-        {% if matching_plan %}
+        {% if other_interval %}
           <p class="plan-switch-link">
-            <a href="{% url 'plan_detail' pk=matching_plan.pk slug=matching_plan.slug %}{% pass_query %}">
-              {% if plan.annual %}
+            <a href="{% url 'plan_detail' pk=plan.pk slug=plan.slug %}{% pass_query interval=other_interval %}">
+              {% if other_interval == "monthly" %}
                 {% trans "Also available as a monthly subscription" %}
               {% else %}
                 {% trans "Also available as an annual subscription" %}
