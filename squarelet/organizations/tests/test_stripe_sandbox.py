@@ -119,9 +119,9 @@ def tiered_plan(plan_factory, sandbox):
     which is the largest single risk in this migration and the reason these
     assert amounts rather than price ids.
 
-    Built against Stripe directly, since `make_stripe_plan` no longer makes
-    this shape but production bills it until the backfill runs.  No
-    `PlanPrice`, so the line bills the legacy id.
+    Built against Stripe directly: the app makes flat Prices, but production
+    bills this shape until the backfill runs.  No `PlanPrice`, so the line
+    bills the legacy id.
     """
     name = f"Sandbox Tiered {uuid4().hex[:8]}"
     plan = plan_factory(
