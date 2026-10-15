@@ -40,9 +40,11 @@ class SelectPlanView(TemplateView):
         context["org_plans"] = org_plans
 
         # Add Sunlight plans structured by tier and payment schedule
-        sunlight_plans_list = Plan.objects.filter(
-            slug__startswith="sunlight-", wix=True
-        ).order_by("slug")
+        sunlight_plans_list = (
+            Plan.objects.not_archived()
+            .filter(slug__startswith="sunlight-", wix=True)
+            .order_by("slug")
+        )
 
         # Structure the plans as: tiers -> each tier has monthly and annual plans
         sunlight_tiers = {}
@@ -73,7 +75,9 @@ class SelectPlanView(TemplateView):
                     nonprofit_slug = standard_plan.nonprofit_variant_slug
                     if nonprofit_slug:
                         try:
-                            nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
+                            nonprofit_plan = Plan.objects.not_archived().get(
+                                slug=nonprofit_slug
+                            )
                             tier_data[payment_type] = {
                                 "standard": standard_plan,
                                 "nonprofit": nonprofit_plan,

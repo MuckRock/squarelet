@@ -373,10 +373,7 @@ class PlanFilter(admin.SimpleListFilter):
     template = "admin/dropdown_filter.html"
 
     def lookups(self, request, model_admin):
-        # Archived too: support filters by the plan an organization used to be on.
-        plans = (
-            Plan.objects.including_archived().order_by("name").values_list("pk", "name")
-        )
+        plans = Plan.objects.order_by("name").values_list("pk", "name")
         return [("none", "— No plan —"), *plans]
 
     def queryset(self, request, queryset):
@@ -807,10 +804,6 @@ class PlanAdmin(StripeLinkMixin, VersionAdmin):
         JSONField: {"widget": PrettyJSONWidget},
     }
     inlines = [PlanPriceInline]
-
-    def get_queryset(self, request):
-        """Staff see retired plans: the admin is the only way to unarchive one."""
-        return Plan.objects.including_archived()
 
     def save_formset(self, request, form, formset, change):
         """Give any newly added price its Stripe Price.

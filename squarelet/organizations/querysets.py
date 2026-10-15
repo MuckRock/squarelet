@@ -121,16 +121,21 @@ class PlanQuerySet(models.QuerySet):
     def get_public(self):
         return self.get_viewable(AnonymousUser())
 
+    def not_archived(self):
+        """Plans that may still be offered; for customer-facing lookups."""
+        return self.filter(archived=False)
+
     def choices(self, organization):
         """Return the plan choices for the given organization
 
         Never an archived plan, even to an organization on one: retired is
         retired for renewals too.
         """
+        queryset = self.not_archived()
         if organization.individual:
-            queryset = self.filter(for_individuals=True)
+            queryset = queryset.filter(for_individuals=True)
         else:
-            queryset = self.filter(for_groups=True)
+            queryset = queryset.filter(for_groups=True)
 
         # show public plans, the organizations current plan, and any custom plan
         # to which they have been granted explicit access
@@ -143,21 +148,6 @@ class PlanQuerySet(models.QuerySet):
     def free(self):
         """Free plans"""
         return self.filter(base_price=0, price_per_user=0)
-
-
-class PlanManager(models.Manager.from_queryset(PlanQuerySet)):
-    """`Plan.objects` hides archived plans; `including_archived()` does not.
-
-    Hidden here so every surface, including the next one added, never offers
-    a retired plan.  Callers that must resolve one, such as the plan an
-    organization is still on, ask with `including_archived()`.
-    """
-
-    def get_queryset(self):
-        return PlanQuerySet(self.model, using=self._db).exclude(archived=True)
-
-    def including_archived(self):
-        return PlanQuerySet(self.model, using=self._db)
 
 
 class EntitlementQuerySet(models.QuerySet):

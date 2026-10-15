@@ -27,7 +27,7 @@ from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementGrantQuerySet,
     EntitlementQuerySet,
-    PlanManager,
+    PlanQuerySet,
     SubscriptionItemQuerySet,
 )
 
@@ -1420,7 +1420,7 @@ class SubscriptionItem(models.Model):
 class Plan(models.Model):
     """Plans that organizations can subscribe to"""
 
-    objects = PlanManager()
+    objects = PlanQuerySet.as_manager()
 
     name = models.CharField(_("name"), max_length=255, help_text=_("The plan's name"))
     slug = AutoSlugField(

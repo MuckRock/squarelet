@@ -1,5 +1,6 @@
 # Django
 from django.core.management import call_command
+from django.test import Client
 
 # Standard Library
 from io import StringIO
@@ -11,13 +12,14 @@ import pytest
 from squarelet.organizations.management.commands.archive_legacy_plans import (
     canonical_slugs,
 )
-from squarelet.organizations.models import Plan
+from squarelet.organizations.models import Plan, SubscriptionItem
 from squarelet.organizations.tests.factories import (
     OrganizationFactory,
     PlanFactory,
     PlanPriceFactory,
     SubscriptionItemFactory,
 )
+from squarelet.users.forms import SignupForm
 
 
 def run(**kwargs):
@@ -36,7 +38,7 @@ def plan_with_slug(name, slug):
 
     The factory on a seeded slug makes `<slug>-2`, which nothing maps.
     """
-    existing = Plan.objects.including_archived().filter(slug=slug).first()
+    existing = Plan.objects.filter(slug=slug).first()
     if existing is not None:
         existing.archived = False
         existing.save(update_fields=["archived"])
@@ -61,9 +63,8 @@ class TestWhatGetsArchived:
 
         run()
 
-        # Hidden, but kept for the change log.
-        assert not Plan.objects.filter(pk=plan.pk).exists()
-        assert Plan.objects.including_archived().filter(pk=plan.pk).exists()
+        assert Plan.objects.filter(pk=plan.pk).exists()
+        assert not Plan.objects.not_archived().filter(pk=plan.pk).exists()
 
     def test_a_canonical_plan_is_untouched(self):
         slug = sorted(canonical_slugs())[0]
@@ -182,34 +183,18 @@ class TestACancelledLineStillBlocksIt:
 
 @pytest.mark.django_db()
 class TestArchivedPlansAreNotOffered:
-    """`Plan.objects` hides them; these test the real surfaces customers use."""
-
-    def test_the_default_manager_hides_it(self):
-        PlanFactory(name="Retired", slug="retired", public=True, archived=True)
-
-        assert not Plan.objects.filter(slug="retired").exists()
-        assert Plan.objects.including_archived().filter(slug="retired").exists()
+    """Customer-facing lookups hide archived plans."""
 
     def test_the_sign_up_form_does_not_offer_it(self):
-        """`Plan.objects.filter(public=True)` - the sign-up form's queryset."""
         PlanFactory(name="Retired", slug="retired", public=True, archived=True)
 
-        assert not Plan.objects.filter(public=True).filter(slug="retired").exists()
+        queryset = SignupForm.base_fields["plan"].queryset
+        assert not queryset.filter(slug="retired").exists()
 
-    def test_it_cannot_be_fetched_by_slug_to_buy(self):
-        """The purchase view's `Plan.objects.get(slug=...)`."""
-        PlanFactory(name="Retired", slug="retired", public=True, archived=True)
+    def test_its_purchase_page_is_gone(self):
+        plan = PlanFactory(name="Retired", slug="retired", public=True, archived=True)
 
-        with pytest.raises(Plan.DoesNotExist):
-            Plan.objects.get(slug="retired")
-
-    def test_an_organization_on_it_still_resolves_its_own_plan(self):
-        """Retired for new buyers, not vanished from the people on it."""
-        item = SubscriptionItemFactory(
-            plan=PlanFactory(name="Retired", slug="retired", archived=True)
-        )
-
-        assert item.plan in item.subscription.organization.get_plans()
+        assert Client().get(plan.get_absolute_url()).status_code == 404
 
     def test_an_archived_plan_is_not_a_choice(self):
         organization = OrganizationFactory(individual=False)
@@ -225,6 +210,34 @@ class TestArchivedPlansAreNotOffered:
         organization = item.subscription.organization
 
         assert item.plan not in Plan.objects.choices(organization)
+
+
+@pytest.mark.django_db()
+class TestArchivedPlansStillResolve:
+    """Everything that isn't selling a plan still sees archived ones."""
+
+    def test_an_organization_on_it_still_resolves_its_own_plan(self):
+        item = SubscriptionItemFactory(
+            plan=PlanFactory(name="Retired", slug="retired", archived=True)
+        )
+
+        assert item.plan in item.subscription.organization.get_plans()
+        assert item.plan in item.subscription.plans.all()
+
+    def test_a_new_plan_does_not_take_its_slug(self):
+        PlanFactory(name="Retired", slug="retired", archived=True)
+
+        plan = PlanFactory(name="Retired Again", slug="retired")
+
+        assert plan.slug != "retired"
+
+    def test_it_still_holds_its_tier(self):
+        """Or an organization on it could buy the tier a second time."""
+        professional = plan_with_slug("Professional", "professional")
+        beta = plan_with_slug("Beta", "beta")
+        Plan.objects.filter(pk=beta.pk).update(archived=True)
+
+        assert beta in SubscriptionItem.objects.plans_of_tier(professional)
 
 
 @pytest.mark.django_db()
