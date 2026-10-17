@@ -1,5 +1,12 @@
 .modal-layout {
   box-sizing: border-box;
+  width: calc(100% - 2rem);
+  max-width: 30rem;
+  margin: 1rem auto;
+}
+
+.modal-layout.wide {
+  max-width: 36rem;
 }
 
 .modal-layout header {
