@@ -550,9 +550,16 @@ class Organization(AvatarMixin, models.Model):
 
     @transaction.atomic
     def add_subscription(  # pylint: disable=too-many-positional-arguments
-        self, plan, max_users, user, token=None, payment_method=None, nonprofit=False
+        self,
+        plan,
+        max_users,
+        user,
+        token=None,
+        payment_method=None,
+        nonprofit=False,
+        interval=None,
     ):
-        """Add a new subscription to a plan.
+        """Add a new subscription to a plan, at `interval` if given.
 
         Raises SubscriptionError if the org already pays for this plan's tier,
         cancelled or not.  A cancelled line still occupies it: `unique_together`
@@ -595,6 +602,7 @@ class Organization(AvatarMixin, models.Model):
             payment_method=payment_method,
             quantity=max_users,
             nonprofit=nonprofit,
+            interval=interval,
         )
 
         if is_first and stripe_subscription:
