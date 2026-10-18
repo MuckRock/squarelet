@@ -60,6 +60,16 @@ urlpatterns = [
     ),
     path("<str:username>/plans/", view=views.Plans.as_view(), name="plans"),
     path(
+        "<str:username>/plans/<slug:plan_slug>/",
+        view=views.PlanCheckoutRedirect.as_view(),
+        name="plan",
+    ),
+    path(
+        "<str:username>/plans/<slug:plan_slug>/<str:interval>/",
+        view=views.PlanCheckout.as_view(),
+        name="plan-checkout",
+    ),
+    path(
         "<str:username>/cancel/<int:pk>/",
         view=views.CancelSubscription.as_view(),
         name="cancel-subscription",
