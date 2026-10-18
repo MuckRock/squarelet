@@ -20,6 +20,8 @@ from .subscription import (
     ManageSubscriptions,
     PaymentsList,
     PDFChargeDetail,
+    PlanCheckout,
+    PlanCheckoutRedirect,
     Plans,
     RemoveCard,
     Resubscribe,
@@ -36,6 +38,8 @@ __all__ = [
     # Subscription views
     "ManageSubscriptions",
     "Plans",
+    "PlanCheckout",
+    "PlanCheckoutRedirect",
     "Resubscribe",
     "UpdateCard",
     "RemoveCard",
