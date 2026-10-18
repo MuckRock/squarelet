@@ -441,25 +441,27 @@ class ChargeQuerySet(models.QuerySet):
 
 class SubscriptionItemQuerySet(models.QuerySet):
     @staticmethod
-    def resolve_purchase(plan, nonprofit=False):
+    def resolve_purchase(plan, nonprofit=False, interval=None):
         """The `(plan, price)` a purchase of `plan` is recorded as.
 
         Annual and nonprofit are separate Plan rows today; both land on their
         canonical tier's price, as the migration lands existing lines.
-        `(plan, None)` until `consolidate_stripe_products` has created the
-        price, which bills the legacy plan as before.
+        `interval` overrides the one the plan row implies.  `(plan, None)`
+        until `consolidate_stripe_products` has created the price, which bills
+        the legacy plan as before.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.models.payment import PlanPrice
 
-        slug, interval, label, code = resolve_target(plan.slug) or (
+        slug, plan_interval, label, code = resolve_target(plan.slug) or (
             plan.slug,
             "annual" if plan.annual else "monthly",
             "standard",
             "",
         )
+        interval = interval or plan_interval
         if nonprofit and label == "standard":
             label = "nonprofit"
         price = (
@@ -496,7 +498,13 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return set(Plan.objects.filter(slug__in=slugs))
 
     def start(
-        self, organization, plan, payment_method="card", quantity=None, nonprofit=False
+        self,
+        organization,
+        plan,
+        payment_method="card",
+        quantity=None,
+        nonprofit=False,
+        interval=None,
     ):
         """Add a line for `plan` and make sure Stripe knows about it.
 
@@ -514,7 +522,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Squarelet
         from squarelet.organizations.models.payment import Subscription
 
-        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
+        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit, interval)
         if quantity is None:
             quantity = 1 if plan_price else plan.minimum_users
         if plan_price:
