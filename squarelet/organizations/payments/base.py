@@ -125,6 +125,16 @@ class SubscriptionService(ABC):
         """Preview the next invoice as if `item_id` were removed at `proration_date`."""
 
     @abstractmethod
+    def preview_addition(
+        self, customer_id, price_id, subscription_id=None, anchor=None
+    ):
+        """Preview the invoice adding one of `price_id` raises now.
+
+        Added to `subscription_id` when given, else to a new subscription whose
+        first period ends at the `anchor` timestamp, or runs a full period.
+        """
+
+    @abstractmethod
     def get_current_period_end(self, stripe_subscription):
         """Return the current period end timestamp for a subscription.
 
