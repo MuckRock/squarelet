@@ -624,7 +624,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
             and plan_price.interval == "monthly"
             and organization.billing_anchor
         ):
-            # Stripe's proration preview API requires a timestamp, not a 
+            # Stripe's proration preview API requires a timestamp, not a
             # billing_cycle_anchor_config, so we convert the billing anchor
             # to a timestamp at the next billing day.
             anchor = int(

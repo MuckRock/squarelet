@@ -47,6 +47,8 @@ from squarelet.payments.forms import (
     UpdateReceiptEmailForm,
 )
 
+# pylint: disable=too-many-lines
+
 logger = logging.getLogger(__name__)
 
 
@@ -578,6 +580,7 @@ class BasePlans(SubscriptionObjectMixin, DetailView):
                 price.label == "nonprofit" for price in plan.display_prices
             )
             plan.held = tier_of(plan.slug) in held_tiers
+            plan.checkout_url = self.reverse_subject("plan", plan_slug=plan.slug)
             services.setdefault(plan.service, []).append(plan)
         for service_plans in services.values():
             service_plans.sort(
@@ -921,4 +924,217 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
         if self._is_ajax():
             return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
         messages.success(request, success_msg)
+        return redirect(redirect_url)
+
+
+def get_checkout_plan(organization, slug):
+    """The plan `organization` may buy at `slug`, or 404."""
+    return get_object_or_404(
+        Plan.objects.choices(organization).select_related("service"), slug=slug
+    )
+
+
+class BasePlanCheckoutRedirect(SubscriptionObjectMixin, RedirectView):
+    """Send a plan's checkout link on to its annual checkout, else monthly."""
+
+    def get_redirect_url(self, *args, **kwargs):
+        organization = self.get_organization()
+        plan = get_checkout_plan(organization, self.kwargs["plan_slug"])
+        interval = plan.default_interval(organization.nonprofit)
+        if interval is None:
+            raise Http404("This plan is not available")
+        return self.reverse_subject(
+            "plan-checkout", plan_slug=plan.slug, interval=interval
+        )
+
+
+class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
+    """Buy one plan at one interval with the payment method on file."""
+
+    template_name = "subscriptions/plan_checkout.html"
+
+    def _is_ajax(self):
+        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    def get_plan(self):
+        return get_checkout_plan(self.object, self.kwargs["plan_slug"])
+
+    def get_prices(self, plan, interval):
+        return plan.checkout_prices(interval, self.object.nonprofit)
+
+    def get_price(self, plan):
+        """The price this page sells, or 404."""
+        interval = self.kwargs["interval"]
+        if interval not in Plan.CHECKOUT_INTERVALS:
+            raise Http404("No such billing interval")
+        price, list_price = self.get_prices(plan, interval)
+        if price is None:
+            raise Http404("This plan is not sold at that interval")
+        return price, list_price
+
+    def is_held(self, plan):
+        held = self.object.line_holding(plan)
+        return held is not None and held.subscription.kind != "free"
+
+    def get_organization_choices(self, plan, interval):
+        """`(organization, checkout url)` for each account the user may switch to.
+
+        The page's own organization comes first, so staff acting on someone
+        else's account still see it selected.
+        """
+        if self.individual:
+            return []
+
+        user = self.request.user
+        choices = [(self.object, self.request.path)]
+        admin_orgs = (
+            user.organizations.filter(memberships__admin=True)
+            .exclude(pk=self.object.pk)
+            .order_by("name")
+        )
+        for organization in admin_orgs:
+            if not Plan.objects.choices(organization).filter(pk=plan.pk).exists():
+                continue
+            held = organization.line_holding(plan)
+            if held is not None and held.subscription.kind != "free":
+                continue
+            if organization.individual:
+                url = reverse(
+                    "users:plan-checkout",
+                    kwargs={
+                        "username": user.username,
+                        "plan_slug": plan.slug,
+                        "interval": interval,
+                    },
+                )
+            else:
+                url = reverse(
+                    "organizations:plan-checkout",
+                    kwargs={
+                        "slug": organization.slug,
+                        "plan_slug": plan.slug,
+                        "interval": interval,
+                    },
+                )
+            choices.append((organization, url))
+        return choices
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        organization = self.object
+        plan = self.get_plan()
+        price, list_price = self.get_price(plan)
+        context["organization_choices"] = self.get_organization_choices(
+            plan, price.interval
+        )
+
+        other_interval = next(i for i in Plan.CHECKOUT_INTERVALS if i != price.interval)
+        if self.get_prices(plan, other_interval)[0] is not None:
+            context["other_interval_url"] = self.reverse_subject(
+                "plan-checkout", plan_slug=plan.slug, interval=other_interval
+            )
+
+        held = self.is_held(plan)
+        due_today = (
+            None
+            if held
+            else SubscriptionItem.objects.due_on_start(organization, price) / 100
+        )
+        customer = organization.customer()
+        context.update(
+            plan=plan,
+            benefits=plan.get_benefits(),
+            price=price,
+            # Struck through beside a nonprofit rate.
+            list_price=(
+                list_price if list_price and list_price.amount > price.amount else None
+            ),
+            due_today=due_today,
+            prorated=due_today != price.amount,
+            held=held,
+            available=plan.has_available_slots(),
+            card_brand=customer.payment_brand,
+            card_last4=customer.payment_last4,
+            card_form=CardForm(),
+        )
+        return context
+
+    def _error(self, message):
+        """Return the error as JSON for AJAX callers, else flash and redirect."""
+        if self._is_ajax():
+            return JsonResponse({"error": str(message)}, status=400)
+        messages.error(self.request, message)
+        return redirect(self.request.path)
+
+    def join_waitlist(self, plan):
+        """Put the organization on a full plan's waitlist and return to checkout."""
+        organization, user = self.object, self.request.user
+        redirect_url = self.reverse_subject("plans")
+        # Wix must not hear of a waitlist entry the request then rolls back.
+        transaction.on_commit(
+            lambda: add_to_waitlist.delay(organization.pk, plan.pk, user.pk)
+        )
+        message = _("This plan is full. You have been added to its waitlist.")
+        messages.success(self.request, message)
+        if self._is_ajax():
+            return JsonResponse(
+                {"redirect": redirect_url, "message": str(message)}
+            )
+        return redirect(redirect_url)
+
+    def post(self, request, *args, **kwargs):
+        # pylint: disable=too-many-return-statements
+        self.object = organization = self.get_object()
+        plan = self.get_plan()
+        price, _list_price = self.get_price(plan)
+        redirect_url = self.reverse_subject("subscriptions")
+
+        if self.is_held(plan):
+            return self._error(_("You are already subscribed to this plan."))
+        # Locked so two purchases cannot both take the last slot.
+        if (
+            plan.is_sunlight_plan
+            and plan.wix
+            and SubscriptionItem.objects.select_for_update().sunlight_active_count()
+            >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS
+        ):
+            return self.join_waitlist(plan)
+        if organization.customer().default_payment_method_obj() is None:
+            return self._error(_("Add a payment method before subscribing."))
+
+        try:
+            organization.add_subscription(
+                plan,
+                None,
+                request.user,
+                payment_method="card",
+                nonprofit=price.label == "nonprofit",
+                interval=price.interval,
+            )
+        except PaymentActionRequired as exc:
+            if self._is_ajax():
+                return JsonResponse(
+                    {
+                        "client_secret": exc.client_secret,
+                        "payment_intent_id": exc.payment_intent_id,
+                        "redirect": redirect_url,
+                    },
+                    status=402,
+                )
+            return self._error(
+                _("Your card requires additional authentication. Please try again.")
+            )
+        except SubscriptionError as exc:
+            return self._error(str(exc))
+        except stripe.StripeError as exc:
+            logger.error(
+                "Stripe error during checkout: %s", exc, exc_info=sys.exc_info()
+            )
+            return self._error(f"Payment error: {format_stripe_error(exc)}")
+
+        self.log_staff_action("subscribed to a plan", description=plan.name)
+        success_msg = _(f"Subscribed to {plan.name}")
+        messages.success(request, success_msg)
+        if self._is_ajax():
+            return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
         return redirect(redirect_url)
