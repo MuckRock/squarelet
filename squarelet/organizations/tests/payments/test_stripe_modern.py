@@ -288,6 +288,40 @@ class TestModernSubscriptionService:
             },
         )
 
+    def test_preview_addition_to_a_live_subscription_invoices_the_proration(
+        self, subscription_service, mocker
+    ):
+        preview = mocker.patch("stripe.Invoice.create_preview")
+
+        subscription_service.preview_addition(
+            "cus_1", "price_1", subscription_id="sub_1"
+        )
+
+        preview.assert_called_once_with(
+            customer="cus_1",
+            subscription="sub_1",
+            subscription_details={
+                "items": [{"price": "price_1", "quantity": 1}],
+                "proration_behavior": "always_invoice",
+            },
+        )
+
+    def test_preview_addition_on_a_new_subscription_runs_to_the_anchor(
+        self, subscription_service, mocker
+    ):
+        preview = mocker.patch("stripe.Invoice.create_preview")
+
+        subscription_service.preview_addition("cus_1", "price_1", anchor=1_700_000_000)
+
+        preview.assert_called_once_with(
+            customer="cus_1",
+            subscription_details={
+                "items": [{"price": "price_1", "quantity": 1}],
+                "billing_cycle_anchor": 1_700_000_000,
+                "proration_behavior": "create_prorations",
+            },
+        )
+
     def test_create_uses_collection_method(self, subscription_service, mocker):
         mock_customer = mocker.MagicMock(id="cus_123")
         mock_create = mocker.patch("stripe.Subscription.create")

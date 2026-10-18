@@ -21,6 +21,7 @@ from django.utils.text import slugify
 
 # Standard Library
 import time
+from datetime import date, timedelta
 from uuid import uuid4
 
 # Third Party
@@ -121,6 +122,16 @@ def tiered_plan(plan_factory, sandbox):
     plan.make_stripe_plan()
     sandbox["plans"].append(plan)
     return plan
+
+
+def priced_plan(plan_price_factory, amount=4_000):
+    """A plan sold against a Stripe Price, named uniquely for this run."""
+    name = f"Sandbox Priced {uuid4().hex[:8]}"
+    price = plan_price_factory(
+        plan__name=name, plan__slug=slugify(name), amount=amount, stripe_price_id=""
+    )
+    price.ensure_stripe_price()
+    return price
 
 
 def invoice_total(subscription_id):
@@ -538,6 +549,43 @@ class TestProratedInvoicing:
         start(organization, second, sandbox, payment_method="invoice")
 
         assert stripe_invoice_ids(subscription_id) == before
+
+
+class TestWhatIsDueToday:
+    """The amount the checkout page quotes is the amount the card is charged.
+
+    Within a cent: the preview and the purchase are seconds apart.
+    """
+
+    def test_joining_a_live_subscription_charges_the_quoted_proration(
+        self, organization_factory, plan_factory, plan_price_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        subscription_id = item.subscription.subscription_id
+        before = stripe_invoice_ids(subscription_id)
+        price = priced_plan(plan_price_factory)
+
+        quoted = SubscriptionItem.objects.due_on_start(organization, price)
+        start(organization, price.plan, sandbox)
+
+        (invoice_id,) = stripe_invoice_ids(subscription_id) - before
+        assert abs(stripe.Invoice.retrieve(invoice_id)["total"] - quoted) <= 1
+
+    def test_a_subscription_anchored_to_the_billing_day_charges_the_quoted_stub(
+        self, organization_factory, plan_price_factory, sandbox
+    ):
+        anchor = date.today() + timedelta(days=10)
+        organization = organization_factory(billing_anchor=anchor)
+        with_card(organization, sandbox)
+        price = priced_plan(plan_price_factory)
+
+        quoted = SubscriptionItem.objects.due_on_start(organization, price)
+        item = start(organization, price.plan, sandbox)
+
+        assert quoted < price.amount
+        assert abs(invoice_total(item.subscription.subscription_id) - quoted) <= 1
 
 
 class TestAnnualInvoicing:
