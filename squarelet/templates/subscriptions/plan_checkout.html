@@ -1,0 +1,229 @@
+{% extends "layouts/modal_layout.html" %}
+{% load humanize django_vite i18n %}
+{% load icon %}
+
+{% block title %}{{ organization.name }} | {{ plan.name }}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/plan_checkout.ts" %}
+{% endblock vite %}
+
+{% block layout_id %}plan_checkout{% endblock %}
+
+{% block header %}
+  <h1>{{ organization.name }}</h1>
+  <span class="arrow">{% icon "chevron-right" %}</span>
+  <h2>{% trans "New subscription" %}</h2>
+{% endblock header %}
+
+{% block layout_class %}wide{% endblock %}
+{% block main_class %}checkout-cards{% endblock %}
+
+{% block main %}
+  <section class="card card--stack plan-card"{% if plan.service.theme_color %} style="--service-color: var({{ plan.service.theme_color }})"{% endif %}>
+    <div class="plan-card-heading">
+      {% if plan.icon %}
+        <img class="plan-icon" src="{{ plan.icon.url }}" alt="" />
+      {% elif plan.service.icon %}
+        <img class="plan-icon" src="{{ plan.service.icon.url }}" alt="" />
+      {% endif %}
+      <div class="plan-info">
+        <div class="plan-title">
+          <h3>{{ plan.name }}</h3>
+        </div>
+        {% if plan.short_description %}
+          <p class="plan-description">{{ plan.short_description }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if benefits %}
+      <ul class="plan-benefits checklist card-subsection">
+        {% for benefit in benefits %}
+          <li class="checklist-item">
+            <span class="icon">{% icon "checkmark" %}</span>
+            <span class="text">{{ benefit }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if held %}
+      <div class="checkout-actions">
+        <p class="caption">{% trans "You are already subscribed to this plan." %}</p>
+        <a href="{% url subject|add:':subscriptions' subject_slug %}" class="btn primary ghost small">
+          {% icon "gear" %}
+          {% trans "Manage subscription" %}
+        </a>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if not held %}
+    <section class="card card--stack">
+      <h3>{% trans "Billing information" %}</h3>
+      <dl class="checkout-rows">
+        {% if not organization.individual %}
+          <div class="checkout-row">
+            <div class="checkout-data">
+              <dt>{% trans "Your organization" %}</dt>
+              <dd>
+                {{ organization.name }}
+                {% if organization.nonprofit %}
+                  <span class="badge">{% trans "Non-profit" %}</span>
+                {% endif %}
+              </dd>
+            </div>
+            {% if organization_choices|length > 1 %}
+              <label class="btn primary ghost small checkout-select">
+                {% icon "chevron-down" %}
+                {% trans "Change organization" %}
+                <select id="organization-select">
+                  {% for choice, url in organization_choices %}
+                    <option value="{{ url }}"{% if choice == organization %} selected{% endif %}>
+                      {{ choice.name }}{% if choice.individual %} ({% trans "Personal" %}){% endif %}
+                    </option>
+                  {% endfor %}
+                </select>
+              </label>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        <div class="checkout-row">
+          <div class="checkout-data">
+            <dt>{% trans "Billing interval" %}</dt>
+            <dd>
+              {% if price.interval == "annual" %}{% trans "Annual" %}{% else %}{% trans "Monthly" %}{% endif %}
+            </dd>
+          </div>
+          {% if other_interval_url %}
+            <a href="{{ other_interval_url }}" class="btn ghost primary small">
+              {% if price.interval == "annual" %}
+                {% trans "Switch to monthly" %}
+              {% else %}
+                {% trans "Switch to annual" %}
+              {% endif %}
+            </a>
+          {% endif %}
+        </div>
+
+        <div class="checkout-row">
+          <div class="checkout-data">
+            <dt>{% trans "Payment method" %}</dt>
+            <dd>
+              <span class="account-card">
+                {% if card_last4 %}
+                  <span>
+                    {% blocktrans with brand=card_brand last4=card_last4 %}
+                      <span class="account-card-brand">{{ brand }}</span> ending in <strong>{{ last4 }}</strong>
+                    {% endblocktrans %}
+                  </span>
+                {% else %}
+                  <span>{% trans "No card on file" %}</span>
+                {% endif %}
+              </span>
+            </dd>
+          </div>
+          {% if card_last4 %}
+            <button type="button" class="btn ghost primary small" id="card-form-toggle" aria-expanded="false" aria-controls="card-form"{% if not card_last4 %} hidden{% endif %}>
+              {% trans "Change card" %}
+            </button>
+          {% endif %}
+        </div>
+      </dl>
+
+      <form id="card-form" class="card-form" method="post" action="{% url subject|add:':update-card' subject_slug %}"{% if card_last4 %} hidden{% endif %}>
+        {% csrf_token %}
+        {{ card_form.stripe_pk }}
+        {{ card_form.stripe_token }}
+        <div class="card-field">
+          <div class="card-element" id="card-element"></div>
+          <div class="card-actions">
+            <button type="submit" class="btn ghost premium small">
+              {% icon "check" %}
+              {% trans "Save" %}
+            </button>
+            {% if card_last4 %}
+              <button type="button" class="btn ghost danger small" id="card-form-cancel">
+                {% icon "x" %}
+                {% trans "Cancel" %}
+              </button>
+            {% endif %}
+          </div>
+        </div>
+        <div id="card-errors" class="error" role="alert"></div>
+      </form>
+    </section>
+
+    <section class="card card--stack">
+      {% if price.label == "nonprofit" %}
+        <p class="nonprofit">
+          {% trans "Through generous philanthropic support, non-profit newsrooms receive subsidized pricing. Standard pricing reflects our full cost of service." %}
+        </p>
+      {% endif %}
+      <dl class="checkout-rows">
+        <div class="checkout-row">
+          <dt>{% trans "Plan cost" %}</dt>
+          <dd>
+            <span class="checkout-price">
+              {% if list_price %}
+                <s>${{ list_price.amount_dollars|floatformat:"-2"|intcomma }}</s>
+              {% endif %}
+              <strong>${{ price.amount_dollars|floatformat:"-2"|intcomma }}</strong>
+              <span>/ {% if price.interval == "annual" %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}</span>
+            </span>
+          </dd>
+        </div>
+
+        <div class="checkout-row">
+          <dt>
+            {% trans "Due today" %}
+            {% if prorated %}
+              <span class="caption">{% trans "Prorated to your current billing period" %}</span>
+            {% endif %}
+          </dt>
+          <dd class="checkout-price">
+            {% if due_today is None %}
+              <span>{% trans "Calculated at payment" %}</span>
+            {% else %}
+              {% if list_price and not prorated %}
+                <s>${{ list_price.amount_dollars|floatformat:"-2"|intcomma }}</s>
+              {% endif %}
+              <strong>${{ due_today|floatformat:"2"|intcomma }}</strong>
+            {% endif %}
+          </dd>
+        </div>
+      </dl>
+
+      <form id="subscribe-form" method="post">
+        {% csrf_token %}
+        <div id="subscribe-errors" class="error" role="alert"></div>
+        {% if not available %}
+          <p class="caption">
+            {% trans "This plan is at capacity. Join the waitlist to be notified when a place opens." %}
+          </p>
+        {% endif %}
+        <div class="checkout-actions">
+          {% if available %}
+            <button type="submit" class="btn premium" id="subscribe-button"{% if not card_last4 %} disabled{% endif %}>
+              {% icon "check" %}
+              {% trans "Subscribe to this plan" %}
+            </button>
+          {% else %}
+            <button type="submit" class="btn premium" id="subscribe-button">
+              {% trans "Join the waitlist" %}
+            </button>
+          {% endif %}
+          <a href="{% url subject|add:':plans' subject_slug %}" class="btn ghost primary">
+            {% trans "Cancel" %}
+          </a>
+          <a href="https://www.muckrock.com/tos/#payments" class="btn ghost small">
+            {% trans "Cancellation policy" %}
+          </a>
+        </div>
+      </form>
+    </section>
+  {% endif %}
+{% endblock main %}
