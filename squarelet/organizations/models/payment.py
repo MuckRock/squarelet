@@ -389,8 +389,9 @@ def _stripe_price_id(stripe_item):
     return None
 
 
-def _proration_for(line, item_id):
-    """Whether an invoice line is a proration for Stripe subscription item `item_id`.
+def _proration_for(line, item_id=None):
+    """Whether an invoice line is a proration for Stripe subscription item `item_id`. 
+    If item_id is none, check if the line is a proration for any item.
 
     Newer API versions nest this under `parent`; older ones put it on the line.
     Subscript access: a StripeObject refuses `.get`.
@@ -398,13 +399,13 @@ def _proration_for(line, item_id):
     parent = line["parent"] if "parent" in line else None
     if parent and "subscription_item_details" in parent:
         details = parent["subscription_item_details"]
-        return bool(details["proration"]) and details["subscription_item"] == item_id
-    return (
-        "proration" in line
-        and bool(line["proration"])
-        and "subscription_item" in line
-        and line["subscription_item"] == item_id
-    )
+        proration, item = details["proration"], details["subscription_item"]
+    elif "proration" in line:
+        proration = line["proration"]
+        item = line["subscription_item"] if "subscription_item" in line else None
+    else:
+        return False
+    return bool(proration) and (item_id is None or item == item_id)
 
 
 class Cancellable:

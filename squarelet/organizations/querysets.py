@@ -6,10 +6,13 @@ from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
+import calendar
+import logging
 from datetime import datetime, timedelta
 from uuid import uuid4
 
 # Third Party
+import stripe
 from fuzzywuzzy import fuzz, process
 
 # Squarelet
@@ -21,7 +24,23 @@ from squarelet.organizations.plan_mapping import (
     tier_of,
 )
 
+logger = logging.getLogger(__name__)
+
 # pylint:disable=too-many-positional-arguments
+
+
+def next_billing_day(day, now):
+    """The first moment after `now` on `day` of a month, at `now`'s time of day.
+
+    Clamped to a short month's last day, as Stripe clamps `day_of_month`.
+    """
+    year, month = now.year, now.month
+    while True:
+        last = calendar.monthrange(year, month)[1]
+        candidate = now.replace(year=year, month=month, day=min(day, last))
+        if candidate > now:
+            return candidate
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
 
 
 class OrganizationQuerySet(models.QuerySet):
@@ -561,6 +580,75 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # drop free signups that carry `organization`.
         item.notify_started()
         return item, stripe_subscription
+
+    def due_on_start(self, organization, plan_price):
+        """What `start` charges a card for `plan_price` at once, in cents.
+
+        Prorated when the line joins a live subscription or one anchored to
+        the billing day.
+        """
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import Subscription, _proration_for
+
+        kind = Subscription.kind_for(plan_price.plan, plan_price)
+        if kind == "free":
+            return 0
+        if kind != "renewing" or not plan_price.stripe_price_id:
+            return plan_price.amount
+
+        # Must pick the subscription `start` would.
+        joining = (
+            Subscription.objects.filter(
+                organization=organization,
+                interval=plan_price.interval,
+                collection_method="charge_automatically",
+                kind=kind,
+                cancelled=False,
+            )
+            .exclude(subscription_id="")
+            .first()
+        )
+        anchor = None
+        if (
+            joining is None
+            and plan_price.interval == "monthly"
+            and organization.billing_anchor
+        ):
+            # Stripe's proration preview API requires a timestamp, not a 
+            # billing_cycle_anchor_config, so we convert the billing anchor
+            # to a timestamp at the next billing day.
+            anchor = int(
+                next_billing_day(
+                    organization.billing_anchor.day, timezone.now()
+                ).timestamp()
+            )
+        if joining is None and anchor is None:
+            return plan_price.amount
+
+        customer_id = organization.customer().customer_id
+        if not customer_id:
+            return None
+        try:
+            preview = (
+                get_payment_provider()
+                .get_subscription_service()
+                .preview_addition(
+                    customer_id,
+                    plan_price.stripe_price_id,
+                    subscription_id=joining.subscription_id if joining else None,
+                    anchor=anchor,
+                )
+            )
+        except stripe.StripeError as exc:
+            logger.warning("[SUBSCRIPTION-ITEM] Addition preview failed: %s", exc)
+            return None
+        lines = preview["lines"]["data"]
+        # A live subscription's preview may carry its next period too.
+        return sum(
+            line["amount"] for line in lines if joining is None or _proration_for(line)
+        )
 
     def sunlight_active_count(self):
         """Count active Sunlight subscriptions across all variants"""
