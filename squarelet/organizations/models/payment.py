@@ -390,7 +390,7 @@ def _stripe_price_id(stripe_item):
 
 
 def _proration_for(line, item_id=None):
-    """Whether an invoice line is a proration for Stripe subscription item `item_id`. 
+    """Whether an invoice line is a proration for Stripe subscription item `item_id`.
     If item_id is none, check if the line is a proration for any item.
 
     Newer API versions nest this under `parent`; older ones put it on the line.
@@ -1425,6 +1425,8 @@ def plan_file_path(instance, filename):
 class Plan(models.Model):
     """Plans that organizations can subscribe to"""
 
+    CHECKOUT_INTERVALS = ("annual", "monthly")
+
     objects = PlanQuerySet.as_manager()
 
     name = models.CharField(_("name"), max_length=255, help_text=_("The plan's name"))
@@ -1633,6 +1635,47 @@ class Plan(models.Model):
             current_count = SubscriptionItem.objects.sunlight_active_count()
             return current_count < settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         return True
+
+    def checkout_prices(self, interval, nonprofit):
+        """The price buying this plan at `interval` bills, and its list price.
+
+        Resolved as `add_subscription` resolves them, so checkout quotes what is
+        billed. `(None, None)` when the plan has no price at `interval`.
+        """
+        resolve = SubscriptionItem.objects.resolve_purchase
+        _plan, standard = resolve(self, interval=interval)
+        if nonprofit:
+            _plan, discounted = resolve(self, nonprofit=True, interval=interval)
+            if discounted is not None:
+                return discounted, standard
+        return standard, standard
+
+    def default_interval(self, nonprofit):
+        """Annual where this plan is sold annually, else monthly; None if neither."""
+        for interval in self.CHECKOUT_INTERVALS:
+            if self.checkout_prices(interval, nonprofit)[0] is not None:
+                return interval
+        return None
+
+    def get_checkout_url(self, organization):
+        """The checkout link for `organization`, which picks its interval on arrival.
+
+        None when `organization` may not buy this plan or it is sold at neither
+        interval; callers keep the plan page.
+        """
+        if not Plan.objects.choices(organization).filter(pk=self.pk).exists():
+            return None
+        if self.default_interval(organization.nonprofit) is None:
+            return None
+        if organization.individual:
+            return reverse(
+                "users:plan",
+                kwargs={"username": organization.user.username, "plan_slug": self.slug},
+            )
+        return reverse(
+            "organizations:plan",
+            kwargs={"slug": organization.slug, "plan_slug": self.slug},
+        )
 
     def cost(self, users):
         """Total monthly cost for a given number of resource blocks
