@@ -23,6 +23,16 @@ urlpatterns = [
     ),
     path("<slug:slug>/plans/", view=views.Plans.as_view(), name="plans"),
     path(
+        "<slug:slug>/plans/<slug:plan_slug>/",
+        view=views.PlanCheckoutRedirect.as_view(),
+        name="plan",
+    ),
+    path(
+        "<slug:slug>/plans/<slug:plan_slug>/<str:interval>/",
+        view=views.PlanCheckout.as_view(),
+        name="plan-checkout",
+    ),
+    path(
         "<slug:slug>/subscriptions/<int:pk>/cancel",
         view=views.CancelSubscription.as_view(),
         name="cancel-subscription",
