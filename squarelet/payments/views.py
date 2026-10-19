@@ -10,6 +10,7 @@ from django.db.models import Prefetch
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
@@ -235,7 +236,7 @@ class PlanDetailView(DetailView):
                 held = organization.line_holding(result["plan"])
                 if held is not None and held.subscription.kind != "free":
                     messages.warning(request, _("Already subscribed"))
-                    return redirect(plan)
+                    return redirect(request.path)
 
                 early_response = self._subscribe(request, plan, result)
                 if early_response is not None:
@@ -263,7 +264,7 @@ class PlanDetailView(DetailView):
         if self._is_ajax():
             return JsonResponse({"error": str(_("Something went wrong"))}, status=400)
         messages.error(request, _("Something went wrong"))
-        return redirect(plan)
+        return redirect(request.path)
 
     def _subscribe(self, request, plan, result):
         """
@@ -274,7 +275,7 @@ class PlanDetailView(DetailView):
         """
         if plan.slug.startswith("sunlight-") and plan.wix:
             return self._handle_sunlight_subscription(request, plan, result)
-        return self._handle_regular_subscription(request, plan, result)
+        return self._handle_regular_subscription(request, result)
 
     def _handle_sunlight_subscription(self, request, plan, result):
         """Rate-limit with row locking; add to waitlist or defer subscription."""
@@ -291,7 +292,7 @@ class PlanDetailView(DetailView):
                 lambda: add_to_waitlist.delay(organization.pk, plan.pk, request.user.pk)
             )
             messages.success(request, _("You have been added to the waitlist."))
-            return redirect(plan)
+            return redirect(request.path)
         transaction.on_commit(
             lambda: organization.add_subscription(
                 selected_plan,
@@ -304,7 +305,7 @@ class PlanDetailView(DetailView):
         )
         return None
 
-    def _handle_regular_subscription(self, request, plan, result):
+    def _handle_regular_subscription(self, request, result):
         """Call add_subscription directly; return error response or None on success."""
         # pylint: disable=too-many-return-statements
         organization = result["organization"]
@@ -338,13 +339,13 @@ class PlanDetailView(DetailView):
                 request,
                 _("Your card requires additional authentication. Please try again."),
             )
-            return redirect(plan)
+            return redirect(request.path)
         except SubscriptionError as exc:
             logger.error("Duplicate subscription attempt: %s", exc)
             if self._is_ajax():
                 return JsonResponse({"error": str(exc)}, status=400)
             messages.error(request, str(exc))
-            return redirect(plan)
+            return redirect(request.path)
         except stripe.StripeError as exc:
             logger.error(
                 "Stripe error during subscription: %s",
@@ -354,12 +355,12 @@ class PlanDetailView(DetailView):
             if self._is_ajax():
                 return JsonResponse({"error": str(exc)}, status=400)
             messages.error(request, str(exc))
-            return redirect(plan)
+            return redirect(request.path)
 
 
 class PlanRedirectView(RedirectView):
     """
-    Redirects ID-only or slug-only plan URLs to the canonical ID+slug format
+    Redirects legacy plan URLs to new org-scoped URL
     """
 
     permanent = True
@@ -379,9 +380,36 @@ class PlanRedirectView(RedirectView):
             else:
                 raise Http404("Invalid plan URL")
 
-            protect_private_plan(plan, self.request.user)
+            user = self.request.user
+            protect_private_plan(plan, user)
 
-            url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+            if user.is_anonymous:
+                # A cached 301 would keep sending the user to log in after they had.
+                self.permanent = False
+                query = urlencode({"next": self.request.get_full_path()})
+                return f"{reverse('account_login')}?{query}"
+            if plan.for_individuals:
+                url = reverse(
+                    "users:plan",
+                    kwargs={"username": user.username, "plan_slug": plan.slug},
+                )
+            else:
+                # Redirect to checkout for the first org the user admins
+                organization = (
+                    Organization.objects.filter(
+                        memberships__user=user,
+                        memberships__admin=True,
+                        individual=False,
+                    )
+                    .order_by("name")
+                    .first()
+                )
+                if organization is None:
+                    raise Http404("No organization found for this plan")
+                url = reverse(
+                    "organizations:plan",
+                    kwargs={"slug": organization.slug, "plan_slug": plan.slug},
+                )
             if self.request.META.get("QUERY_STRING"):
                 url = f"{url}?{self.request.META['QUERY_STRING']}"
             return url
@@ -1067,7 +1095,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         return redirect(self.request.path)
 
     def join_waitlist(self, plan):
-        """Put the organization on a full plan's waitlist and return to checkout."""
+        """Put the organization on a full plan's waitlist and return to its plans."""
         organization, user = self.object, self.request.user
         redirect_url = self.reverse_subject("plans")
         # Wix must not hear of a waitlist entry the request then rolls back.
@@ -1077,9 +1105,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         message = _("This plan is full. You have been added to its waitlist.")
         messages.success(self.request, message)
         if self._is_ajax():
-            return JsonResponse(
-                {"redirect": redirect_url, "message": str(message)}
-            )
+            return JsonResponse({"redirect": redirect_url, "message": str(message)})
         return redirect(redirect_url)
 
     def post(self, request, *args, **kwargs):
