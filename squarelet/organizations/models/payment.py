@@ -1662,7 +1662,10 @@ class Plan(models.Model):
         """
         if not Plan.objects.choices(organization).filter(pk=self.pk).exists():
             return None
-        if self.default_interval(organization.nonprofit) is None:
+        if (
+            not self.is_enterprise
+            and self.default_interval(organization.nonprofit) is None
+        ):
             return None
         if organization.individual:
             return reverse(
@@ -1686,6 +1689,11 @@ class Plan(models.Model):
         return (
             self.base_price + max(users - self.minimum_users, 0) * self.price_per_user
         )
+
+    @property
+    def is_enterprise(self):
+        """Enterprise page offers contact in place of checkout."""
+        return self.slug.startswith("sunlight-enterprise")
 
     @property
     def is_sunlight_plan(self):

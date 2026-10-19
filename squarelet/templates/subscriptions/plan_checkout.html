@@ -1,6 +1,6 @@
 {% extends "layouts/modal_layout.html" %}
 {% load humanize django_vite i18n %}
-{% load icon %}
+{% load icon markdown %}
 
 {% block title %}{{ organization.name }} | {{ plan.name }}{% endblock %}
 
@@ -57,10 +57,25 @@
           {% trans "Manage subscription" %}
         </a>
       </div>
+    {% elif plan.is_enterprise %}
+      <div class="checkout-actions">
+        <a href="https://calendar.app.google/fAWZF635MY89Sp5J9" class="btn premium">
+          {% trans "Contact us to tailor your plan" %}
+        </a>
+        <a href="https://sunlightresearch.net/launch" class="btn ghost primary" target="_blank" rel="noopener">
+          {% trans "Learn more" %}
+        </a>
+      </div>
     {% endif %}
   </section>
 
-  {% if not held %}
+  {% if plan.is_enterprise %}
+    {% if plan.description %}
+      <section class="card card--stack plan-long-description">
+        {{ plan.description|markdown }}
+      </section>
+    {% endif %}
+  {% elif not held %}
     <section class="card card--stack">
       <h3>{% trans "Billing information" %}</h3>
       <dl class="checkout-rows">
