@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load django_vite i18n %}
+
+{% block title %}{% trans "Account KPIs" %}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/kpi_dashboard.ts" %}
+{% endblock vite %}
+
+{% block content %}
+<article id="kpi_dashboard">
+  <header>
+    <h1>{% trans "Account KPIs" %}</h1>
+    <p>{% trans "Logins to MuckRock services through Squarelet. Charts show complete months; refreshed hourly." %}</p>
+  </header>
+  {{ activity|json_script:"kpi-activity" }}
+  <div id="kpi-dashboard"></div>
+</article>
+{% endblock content %}

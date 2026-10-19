@@ -1,0 +1,33 @@
+#kpi_dashboard {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+#kpi_dashboard > header {
+  margin-bottom: 1.5rem;
+}
+
+#kpi_dashboard > header h1 {
+  margin: 0;
+  color: var(--gray-5);
+  font-size: var(--font-xl);
+}
+
+#kpi_dashboard > header p {
+  margin: 0.25rem 0 0;
+  color: var(--gray-4);
+}
+
+/* LayerChart reads these; the tooltip is portaled outside the chart. */
+.lc-root-container,
+.lc-tooltip-root {
+  --color-primary: var(--primary);
+  --color-surface-100: var(--white);
+  --color-surface-200: var(--gray-1);
+  --color-surface-300: var(--gray-2);
+  --color-surface-content: var(--gray-5);
+  font-family: var(--font-sans);
+}
