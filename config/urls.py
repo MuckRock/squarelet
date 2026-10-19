@@ -19,7 +19,7 @@ from squarelet.organizations.fe_api.viewsets import (
     OrganizationViewSet as FEOrganizationViewSet,
 )
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
-from squarelet.payments.views import PaymentsHubView, PlanDetailView, PlanRedirectView
+from squarelet.payments.views import PaymentsHubView, PlanRedirectView
 from squarelet.users.fe_api.viewsets import UserViewSet as FEUserViewSet
 from squarelet.users.views import (
     LoginView,
