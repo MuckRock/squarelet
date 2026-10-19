@@ -8,7 +8,7 @@ const LEGACY_PLAN_URL = `/plans/organization/?purchase_redirect=${encodeURICompo
   PURCHASE_REDIRECT,
 )}`;
 const CHECKOUT_URL =
-  /\/organizations\/e2e-[^/]+\/plans\/organization\/monthly\/\?purchase_redirect=https/;
+  /\/organizations\/e2e-[^/]+\/plans\/organization\/annual\/\?purchase_redirect=https/;
 
 test.describe("Plan purchase redirects", () => {
   test.describe("Org admin", () => {
@@ -82,5 +82,50 @@ test.describe("Enterprise plan page", () => {
 
   test("shows the full description", async ({ page }) => {
     await expect(page.locator("section.plan-long-description")).toBeVisible();
+  });
+});
+
+test.describe("Paying by invoice", () => {
+  // e2e-public-org has no card on file, so only an invoice lets it subscribe.
+  const checkout = (interval: string) =>
+    `/organizations/e2e-public-org/plans/organization/${interval}/`;
+
+  test.beforeEach(async ({ page }) => {
+    await login(page, "e2e-admin");
+  });
+
+  test("choosing invoice on an annual plan enables subscribing without a card", async ({
+    page,
+  }) => {
+    await page.goto(checkout("annual"));
+    const subscribe = page.locator("#subscribe-button");
+    await expect(subscribe).toBeDisabled();
+
+    await page.locator('input[name="payment_method"][value="invoice"]').check();
+
+    await expect(subscribe).toBeEnabled();
+    await expect(page.locator("#card-form")).toBeHidden();
+  });
+
+  test("choosing invoice swaps the card charge for the invoice terms", async ({
+    page,
+  }) => {
+    await page.goto(checkout("annual"));
+    const cardRow = page.locator('.checkout-row[data-payment-label="card"]');
+    const invoiceRow = page.locator('.checkout-row[data-payment-label="invoice"]');
+    await expect(cardRow).toBeVisible();
+    await expect(invoiceRow).toBeHidden();
+
+    await page.locator('input[name="payment_method"][value="invoice"]').check();
+
+    await expect(cardRow).toBeHidden();
+    await expect(invoiceRow).toBeVisible();
+  });
+
+  test("a monthly plan offers no invoice", async ({ page }) => {
+    await page.goto(checkout("monthly"));
+    await expect(
+      page.locator('input[name="payment_method"][value="invoice"]'),
+    ).toHaveCount(0);
   });
 });

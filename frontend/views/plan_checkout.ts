@@ -136,6 +136,35 @@ function initSubscribeForm() {
   });
 }
 
+function initPaymentMethod() {
+  const radios = document.querySelectorAll<HTMLInputElement>(
+    'input[name="payment_method"]',
+  );
+  const button = document.getElementById(
+    "subscribe-button",
+  ) as HTMLButtonElement | null;
+  if (!radios.length || !button) return;
+  const hasCard = button.hasAttribute("data-has-card");
+  const cardForm = document.getElementById("card-form");
+  const cardToggle = document.getElementById("card-form-toggle");
+
+  const update = () => {
+    const method =
+      Array.from(radios).find((radio) => radio.checked)?.value ?? "card";
+    // An invoice needs no card on file.
+    button.disabled = method === "card" && !hasCard;
+    if (cardForm) cardForm.hidden = method === "invoice" || hasCard;
+    if (cardToggle) cardToggle.hidden = method === "invoice";
+    document
+      .querySelectorAll<HTMLElement>("[data-payment-label]")
+      .forEach((label) => {
+        label.hidden = label.dataset.paymentLabel !== method;
+      });
+  };
+  radios.forEach((radio) => radio.addEventListener("change", update));
+  update();
+}
+
 function initOrganizationSelect() {
   const select = document.getElementById(
     "organization-select",
@@ -147,4 +176,5 @@ function initOrganizationSelect() {
 
 initCardForm();
 initSubscribeForm();
+initPaymentMethod();
 initOrganizationSelect();
