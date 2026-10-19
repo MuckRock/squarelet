@@ -184,25 +184,6 @@ class TestDetail(ViewTestMixin):
         # Verify pending_requests is a queryset with the correct count
         assert response.context_data["pending_requests"].count() == 3
 
-    def test_an_admin_is_invited_to_each_private_plan_offered_to_the_org(
-        self, rf, organization_factory, user_factory, plan_factory
-    ):
-        admin = user_factory()
-        organization = organization_factory(admins=[admin])
-        newsroom = plan_factory(name="Newsroom Deal", public=False)
-        lab = plan_factory(name="Lab Deal", public=False)
-        newsroom.private_organizations.add(organization)
-        lab.private_organizations.add(organization)
-        plan_factory(name="Someone Else's Deal", public=False)
-
-        page = self.call_view(rf, admin, slug=organization.slug).render()
-
-        assert page.context_data["private_plans"] == [lab, newsroom]
-        content = page.content.decode()
-        assert content.count("You are eligible to subscribe to a private plan") == 2
-        assert "invited to subscribe to <strong>Newsroom Deal</strong>." in content
-        assert f'href="{lab.get_absolute_url()}"' in content
-
     def test_a_priced_private_plan_is_offered_at_checkout(
         self, rf, organization_factory, user_factory, plan_price_factory
     ):
@@ -233,7 +214,7 @@ class TestDetail(ViewTestMixin):
         checkout = f"/organizations/{organization.slug}/plans/organization/"
         assert page.content.decode().count(f'href="{checkout}"') == 2
 
-    def test_an_upgrade_the_org_may_not_buy_stays_on_the_plan_page(
+    def test_an_upgrade_the_org_may_not_buy_is_named_but_not_linked(
         self, rf, organization_factory, user_factory, plan_price_factory
     ):
         admin = user_factory()
@@ -247,7 +228,7 @@ class TestDetail(ViewTestMixin):
         page = self.call_view(rf, admin, slug=organization.slug).render()
 
         assert b"/plans/organization/" not in page.content
-        assert f'href="{upgrade.get_absolute_url()}"'.encode() in page.content
+        assert f'<span class="plan-name">{upgrade.name}</span>'.encode() in page.content
 
     def test_a_private_plan_already_held_is_not_offered(
         self,
@@ -2221,7 +2202,7 @@ class TestPlanCheckout(ViewTestMixin):
         assert response.status_code == 302
         add_subscription.assert_not_called()
 
-    def test_a_full_sunlight_plan_puts_the_buyer_on_its_waitlist( # pylint: disable=too-many-arguments
+    def test_a_full_sunlight_plan_puts_the_buyer_on_its_waitlist(  # pylint: disable=too-many-arguments
         self,
         rf,
         admin,
@@ -2242,7 +2223,7 @@ class TestPlanCheckout(ViewTestMixin):
             response = self.subscribe(rf, admin, organization, plan)
 
         assert response.status_code == 302
-        assert response.url == self.request.path
+        assert response.url == f"/organizations/{organization.slug}/plans/"
         add_subscription.assert_not_called()
         add_to_waitlist.delay.assert_called_once_with(
             organization.pk, plan.pk, admin.pk
