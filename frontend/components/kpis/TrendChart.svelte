@@ -1,10 +1,12 @@
 <script lang="ts">
   import { LineChart } from "layerchart";
+  import ChartLegend from "./ChartLegend.svelte";
   import type { ChartRow } from "./activity";
 
   interface Series {
     key: string;
     color: string;
+    width?: number;
   }
 
   interface Props {
@@ -25,6 +27,18 @@
     value === null ? "—" : format(value);
 
   let width = $state(0);
+  let highlighted: string | null = $state(null);
+
+  const active = $derived(
+    series.some((s) => s.key === highlighted) ? highlighted : null,
+  );
+
+  function lineProps(s: Series) {
+    const base = s.width ?? 2;
+    if (active === null) return { strokeWidth: base };
+    if (active === s.key) return { strokeWidth: base + 1 };
+    return { strokeWidth: base, opacity: 0.15 };
+  }
 </script>
 
 <figure class="trend" aria-label={label} bind:clientWidth={width}>
@@ -36,13 +50,13 @@
       label: s.key,
       value: (d: ChartRow) => d[s.key] as number | null,
       color: s.color,
+      props: lineProps(s),
     }))}
     yDomain={[0, null]}
     yNice
     props={{
       xAxis: { format: formatMonth, ticks: width < 600 ? 3 : 6 },
       yAxis: { format },
-      spline: { strokeWidth: 2 },
       tooltip: {
         header: { format: formatMonth },
         item: { format: formatValue },
@@ -53,34 +67,12 @@
   />
 </figure>
 {#if series.length > 1}
-  <ul class="legend">
-    {#each series as s (s.key)}
-      <li><span class="swatch" style:background={s.color}></span>{s.key}</li>
-    {/each}
-  </ul>
+  <ChartLegend {series} bind:highlighted />
 {/if}
 
 <style>
   .trend {
     height: 20rem;
     margin: 0;
-  }
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.25rem 1rem;
-    margin: 0.75rem 0 0;
-    padding: 0;
-    list-style: none;
-    font-size: var(--font-sm);
-    color: var(--gray-5);
-  }
-  .swatch {
-    display: inline-block;
-    width: 0.625rem;
-    height: 0.625rem;
-    border-radius: 2px;
-    margin-right: 0.375rem;
   }
 </style>

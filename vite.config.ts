@@ -35,6 +35,12 @@ export default defineConfig({
       },
     },
   },
+  experimental: {
+    // Production serves static files from S3, not `base`; lazy chunks must
+    // resolve next to the module importing them or their preloads 404.
+    renderBuiltUrl: (_, { hostType }) =>
+      hostType === "js" ? { relative: true } : undefined,
+  },
   plugins: [svelte({})],
   resolve: {
     alias: {

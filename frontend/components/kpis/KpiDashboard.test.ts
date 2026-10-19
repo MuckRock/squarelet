@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { flushSync, mount } from "svelte";
 import KpiDashboard from "./KpiDashboard.svelte";
-import { type Activity, chartRows, completeMonths } from "./activity";
+import {
+  type Activity,
+  type MonthActivity,
+  completeMonths,
+  trailingShare,
+  userRows,
+} from "./activity";
 
 vi.mock("./TrendChart.svelte", async () => ({
   default: (await import("./TrendChart.stub.test.svelte")).default,
@@ -86,6 +92,16 @@ describe("KpiDashboard", () => {
     expect(target.querySelector(".tile")?.textContent).toContain("-100.0%");
   });
 
+  it("charts multi-service usage in total only", () => {
+    const target = document.createElement("div");
+    mount(KpiDashboard, { target, props: { activity } });
+
+    const section = target
+      .querySelector('figure[aria-label="Multi-service usage"]')!
+      .closest("section")!;
+    expect(section.querySelector(".toggle")).toBeNull();
+  });
+
   it("says so when nobody has logged in", () => {
     const target = document.createElement("div");
     const empty = {
@@ -104,25 +120,52 @@ describe("KpiDashboard", () => {
   });
 });
 
-describe("chartRows", () => {
+describe("userRows", () => {
   it("plots a month without a service's users as zero users", () => {
-    const march = chartRows(activity.months, activity.services, "users").at(
-      -1,
-    )!;
+    const march = userRows(activity.months, activity.services).at(-1)!;
 
     expect(march.DocumentCloud).toBe(0);
   });
 
-  it("leaves a gap where a service had no users to take a share of", () => {
-    const march = chartRows(activity.months, activity.services, "pct").at(-1)!;
+  it("charts complete months only", () => {
+    const rows = userRows(completeMonths(activity), activity.services);
 
-    expect(march.DocumentCloud).toBeNull();
-    expect(march.MuckRock).toBe(0);
+    expect(rows.map((r) => r["All services"])).toEqual([4, 5]);
+  });
+});
+
+describe("trailingShare", () => {
+  const months = (counts: [number, number][]): MonthActivity[] =>
+    counts.map(([users, multi], i) => ({
+      month: `2026-0${i + 1}`,
+      users,
+      multi,
+      services: {},
+    }));
+
+  it("pools the window rather than averaging monthly shares", () => {
+    // 10/12 pooled, where averaging 50%, 90% and 0/0 would give 70%.
+    const share = trailingShare(
+      months([
+        [2, 1],
+        [10, 9],
+        [0, 0],
+      ]),
+    );
+
+    expect(share[2]).toBeCloseTo((10 / 12) * 100);
   });
 
-  it("charts complete months only", () => {
-    const rows = chartRows(completeMonths(activity), activity.services, "pct");
+  it("leaves months before a full window blank", () => {
+    const share = trailingShare(
+      months([
+        [4, 1],
+        [4, 2],
+        [4, 3],
+        [4, 4],
+      ]),
+    );
 
-    expect(rows.map((r) => r["All services"])).toEqual([25, 40]);
+    expect(share).toEqual([null, null, 50, 75]);
   });
 });

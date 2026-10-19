@@ -6,8 +6,9 @@ straight from `LoginLog` instead of CSV exports.
 ## Scope
 
 - Monthly active users: total and per service.
-- Multi-service usage: users who logged in to 2+ services in a month, total and,
-  per service, the share of that service's users who also used another.
+- Multi-service usage: share of users who logged in to 2+ services in a month,
+  in total, with a 3-month trailing average (pooled, so busy months weigh more).
+  The per-service table keeps each service's "also used another" count.
 - Out of scope: paid/free split, FOIA, DocumentCloud and revenue tabs.
 
 ## Decisions
@@ -15,6 +16,11 @@ straight from `LoginLog` instead of CSV exports.
 - **Charts: LayerChart 2.** Svelte 5-native and built on D3; gives axes,
   tooltips and responsive sizing without hand-rolled D3. The prototype already
   used it. Imported only by the `kpi_dashboard` Vite entry.
+- **Lazy chunks load relative to their importer.** LayerChart lazy-loads its
+  tooltip and other pieces; Vite's default preload URLs use `base` (`/static/`),
+  which 404s where `STATIC_URL` is S3. `experimental.renderBuiltUrl` makes them
+  relative in `vite.config.ts`.
+- **Legend entries are buttons** that highlight one line and dim the rest.
 - **Service = OIDC client name.** Clients sharing a name count as one service.
 - **Months are local (America/New_York)** and the window is the trailing 24
   months. Charts and headline tiles use complete months; the table can show

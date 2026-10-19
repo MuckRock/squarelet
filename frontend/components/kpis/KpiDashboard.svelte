@@ -3,12 +3,15 @@
   import TrendChart from "./TrendChart.svelte";
   import {
     type Activity,
+    AVERAGE,
+    MONTHLY,
     TOTAL,
     change,
-    chartRows,
     completeMonths,
     monthDate,
     pct,
+    shareRows,
+    userRows,
   } from "./activity";
 
   interface Props {
@@ -45,11 +48,14 @@
     charted.map((key, i) => ({ key, color: PALETTE[i] })),
   );
   const totalSeries = [{ key: TOTAL, color: TOTAL_COLOR }];
+  const shareSeries = [
+    { key: MONTHLY, color: "var(--gray-3)", width: 1.5 },
+    { key: AVERAGE, color: "var(--blue-4)", width: 2.5 },
+  ];
 
   let mauView: "total" | "services" = $state("total");
-  let multiView: "total" | "services" = $state("total");
-  const mauRows = $derived(chartRows(months, charted, "users"));
-  const multiRows = $derived(chartRows(months, charted, "pct"));
+  const mauRows = $derived(userRows(months, charted));
+  const multiRows = $derived(shareRows(months));
 
   let picked: string | undefined = $state();
   const selected = $derived(picked ?? latest?.month ?? activity.current_month);
@@ -115,21 +121,15 @@
         <div>
           <h3>Multi-service usage</h3>
           <p>
-            {#if multiView === "total"}
-              Share of monthly active users who logged in to two or more
-              services.
-            {:else}
-              Share of each service's monthly users who also logged in to
-              another service.
-            {/if}
+            Share of monthly active users who logged in to two or more services,
+            with its 3-month trailing average.
           </p>
         </div>
-        {@render toggle("multi", multiView, (v) => (multiView = v))}
       </header>
       <TrendChart
         label="Multi-service usage"
         data={multiRows}
-        series={multiView === "total" ? totalSeries : serviceSeries}
+        series={shareSeries}
         format={formatPct}
       />
     </section>
