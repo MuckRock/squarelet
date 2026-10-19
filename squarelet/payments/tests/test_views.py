@@ -11,8 +11,6 @@ from autoslug.utils import slugify
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.payments import views
 
-# pylint: disable=too-many-positional-arguments
-
 
 @pytest.mark.django_db()
 class TestPlanRedirectViewQueryString(ViewTestMixin):
@@ -21,10 +19,12 @@ class TestPlanRedirectViewQueryString(ViewTestMixin):
     view = views.PlanRedirectView
     url = "/plans/{pk}/"
 
-    def test_redirect_preserves_query_string(self, rf, user_factory, plan_factory):
+    def test_redirect_preserves_query_string(
+        self, rf, user_factory, plan_price_factory
+    ):
         """PlanRedirectView should preserve purchase_redirect query parameter"""
         user = user_factory()
-        plan = plan_factory(name="Test Plan", public=True)
+        plan = plan_price_factory(plan__name="Test Plan", plan__public=True).plan
 
         response = self.call_view(
             rf,
@@ -36,10 +36,10 @@ class TestPlanRedirectViewQueryString(ViewTestMixin):
         assert response.status_code == 301
         assert "purchase_redirect=https" in response.url
 
-    def test_redirect_without_query_string(self, rf, user_factory, plan_factory):
+    def test_redirect_without_query_string(self, rf, user_factory, plan_price_factory):
         """PlanRedirectView without query string should work as before"""
         user = user_factory()
-        plan = plan_factory(name="Test Plan", public=True)
+        plan = plan_price_factory(plan__name="Test Plan", plan__public=True).plan
 
         response = self.call_view(rf, user, pk=plan.pk)
 
@@ -58,10 +58,10 @@ class TestPlanRedirectView(ViewTestMixin):
     view = views.PlanRedirectView
     url = "/plans/{pk}/"
 
-    def test_redirect_with_id_only(self, rf, user_factory, plan_factory):
+    def test_redirect_with_id_only(self, rf, user_factory, plan_price_factory):
         """Accessing an individual plan by ID redirects to the user's checkout"""
         user = user_factory()
-        plan = plan_factory(name="Test Plan", public=True)
+        plan = plan_price_factory(plan__name="Test Plan", plan__public=True).plan
 
         # Access plan using ID only
         response = self.call_view(rf, user, pk=plan.pk)
@@ -74,10 +74,10 @@ class TestPlanRedirectView(ViewTestMixin):
         )
         assert response.url == expected_url
 
-    def test_redirect_with_slug_only(self, rf, user_factory, plan_factory):
+    def test_redirect_with_slug_only(self, rf, user_factory, plan_price_factory):
         """Accessing an individual plan by slug redirects to the user's checkout"""
         user = user_factory()
-        plan = plan_factory(name="Test Plan", public=True)
+        plan = plan_price_factory(plan__name="Test Plan", plan__public=True).plan
 
         # Access plan using slug only
         self.url = "/plans/{slug}/"
@@ -95,7 +95,7 @@ class TestPlanRedirectView(ViewTestMixin):
         self.url = "/plans/{pk}/"
 
     def test_redirect_with_id_returns_current_slug(
-        self, rf, user_factory, plan_factory
+        self, rf, user_factory, plan_price_factory
     ):
         """Test that ID-based access returns current slug after name change
 
@@ -104,7 +104,9 @@ class TestPlanRedirectView(ViewTestMixin):
         """
         user = user_factory()
         # Create plan with original name
-        plan = plan_factory(name="Sunlight Research Center - Premium", public=True)
+        plan = plan_price_factory(
+            plan__name="Sunlight Research Center - Premium", plan__public=True
+        ).plan
         plan_id = plan.pk
 
         # Manually update slug to simulate migration changing the name
@@ -155,9 +157,28 @@ class TestPlanRedirectView(ViewTestMixin):
         self.url = "/plans/{pk}/"
 
     @pytest.fixture
-    def group_plan(self, plan_factory):
-        return plan_factory(
+    def group_plan(self, plan_factory, plan_price_factory):
+        plan = plan_factory(
             name="Group Plan", public=True, for_individuals=False, for_groups=True
+        )
+        plan_price_factory(plan=plan)
+        return plan
+
+    def test_an_org_plan_goes_to_an_organization_that_may_buy_it(
+        self, rf, user_factory, organization_factory, group_plan
+    ):
+        user = user_factory()
+        organization_factory(admins=[user], name="Alpha")
+        beta = organization_factory(admins=[user], name="Beta")
+        group_plan.public = False
+        group_plan.save()
+        group_plan.private_organizations.add(beta)
+
+        response = self.call_view(rf, user, pk=group_plan.pk)
+
+        assert response.url == reverse(
+            "organizations:plan",
+            kwargs={"slug": beta.slug, "plan_slug": group_plan.slug},
         )
 
     def test_an_org_plan_goes_to_an_organization_the_user_runs(

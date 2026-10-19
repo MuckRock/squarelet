@@ -5,7 +5,7 @@ from django.views.generic.base import RedirectView, TemplateView
 
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
-from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models import Plan
 
 
 class HomeView(RedirectView):
@@ -94,29 +94,9 @@ class SelectPlanView(TemplateView):
             for tier in context["sunlight_tiers"]:
                 prices = tier["annual"] or tier["monthly"]
                 plan = prices["standard"] if isinstance(prices, dict) else prices
-                tier["checkout_url"] = plan and self.get_checkout_url(plan)
+                tier["checkout_url"] = plan and plan.get_checkout_url_for(user)
 
         return context
-
-    def get_checkout_url(self, plan):
-        """The user's checkout link for `plan`,
-        or None if no account of theirs may buy it.
-
-        Their own account for a plan sold to individuals, else the first
-        organization they administer that may buy it.
-        """
-        user = self.request.user
-        if plan.for_individuals:
-            accounts = [user.individual_organization]
-        else:
-            accounts = Organization.objects.filter(
-                memberships__user=user, memberships__admin=True, individual=False
-            ).order_by("name")
-        for organization in accounts:
-            url = plan.get_checkout_url(organization)
-            if url:
-                return url
-        return None
 
 
 def page_not_found(request, exception, template_name="404.html"):

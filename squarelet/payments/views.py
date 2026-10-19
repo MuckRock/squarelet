@@ -43,8 +43,6 @@ from squarelet.payments.forms import (
     UpdateReceiptEmailForm,
 )
 
-# pylint: disable=too-many-lines
-
 logger = logging.getLogger(__name__)
 
 
@@ -91,28 +89,9 @@ class PlanRedirectView(RedirectView):
                 self.permanent = False
                 query = urlencode({"next": self.request.get_full_path()})
                 return f"{reverse('account_login')}?{query}"
-            if plan.for_individuals:
-                url = reverse(
-                    "users:plan",
-                    kwargs={"username": user.username, "plan_slug": plan.slug},
-                )
-            else:
-                # Redirect to checkout for the first org the user admins
-                organization = (
-                    Organization.objects.filter(
-                        memberships__user=user,
-                        memberships__admin=True,
-                        individual=False,
-                    )
-                    .order_by("name")
-                    .first()
-                )
-                if organization is None:
-                    raise Http404("No organization found for this plan")
-                url = reverse(
-                    "organizations:plan",
-                    kwargs={"slug": organization.slug, "plan_slug": plan.slug},
-                )
+            url = plan.get_checkout_url_for(user)
+            if url is None:
+                raise Http404("No account of yours may buy this plan")
             if self.request.META.get("QUERY_STRING"):
                 url = f"{url}?{self.request.META['QUERY_STRING']}"
             return url
@@ -307,6 +286,8 @@ class BasePlans(SubscriptionObjectMixin, DetailView):
         services = {}
         for plan in plans:
             plan.display_prices = self.get_display_prices(plan, organization.nonprofit)
+            if not plan.display_prices:
+                continue
             plan.nonprofit = any(
                 price.label == "nonprofit" for price in plan.display_prices
             )
@@ -638,9 +619,9 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
     def post(self, request, *args, **kwargs):
         organization = self.get_object()
         redirect_url = self.reverse_subject("subscriptions")
-        subscription = organization.subscription_items.filter(
-            id=self.kwargs["pk"]
-        ).first()
+        subscription = get_object_or_404(
+            organization.subscription_items, id=self.kwargs["pk"]
+        )
         try:
             subscription.uncancel()
         except ValidationError as exc:
@@ -796,11 +777,11 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             )
 
         held = self.is_held(plan)
-        due_today = (
-            None
-            if held
-            else SubscriptionItem.objects.due_on_start(organization, price) / 100
+        # None when held, or when Stripe could not preview the charge.
+        due_cents = (
+            None if held else SubscriptionItem.objects.due_on_start(organization, price)
         )
+        due_today = None if due_cents is None else due_cents / 100
         customer = organization.customer()
         context.update(
             plan=plan,
@@ -811,7 +792,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
                 list_price if list_price and list_price.amount > price.amount else None
             ),
             due_today=due_today,
-            prorated=due_today != price.amount_dollars,
+            prorated=due_today is not None and due_today != price.amount_dollars,
             held=held,
             available=plan.has_available_slots(),
             invoice_available=price.interval == "annual",
