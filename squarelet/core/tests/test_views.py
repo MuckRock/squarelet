@@ -8,7 +8,8 @@ import pytest
 
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
-from squarelet.core.views import page_not_found
+from squarelet.core.tests.mixins import ViewTestMixin
+from squarelet.core.views import SelectPlanView, page_not_found
 
 
 def _request(rf, user=None):
@@ -78,3 +79,58 @@ class TestPageNotFoundRendering:
         assert "Were you looking for one of these organizations?" in content
         assert "Test Newsroom" in content
         assert organization.get_absolute_url() in content
+
+
+@pytest.mark.django_db()
+class TestSelectPlan(ViewTestMixin):
+    """The public pricing page's Sunlight subscribe buttons."""
+
+    view = SelectPlanView
+    url = "/selectplan/"
+
+    @pytest.fixture
+    def essential(self, plan_factory, plan_price_factory):
+        """The legacy annual row the page links, priced on its canonical tier."""
+        groups_only = {"wix": True, "for_individuals": False, "for_groups": True}
+        plan_price_factory(
+            plan=plan_factory(name="Sunlight Essential", **groups_only),
+            interval="annual",
+            amount=100_000,
+        )
+        return plan_factory(name="Sunlight Essential Annual", **groups_only)
+
+    def tier(self, response, name="Essential"):
+        return next(
+            tier
+            for tier in response.context_data["sunlight_tiers"]
+            if tier["name"] == name
+        )
+
+    def test_a_tier_links_to_checkout_for_an_organization_the_user_runs(
+        self, rf, user_factory, organization_factory, essential
+    ):
+        user = user_factory()
+        organization = organization_factory(admins=[user], name="Acme")
+
+        response = self.call_view(rf, user)
+
+        checkout = f"/organizations/{organization.slug}/plans/{essential.slug}/"
+        assert self.tier(response)["checkout_url"] == checkout
+        assert f'href="{checkout}"' in response.render().content.decode()
+
+    @pytest.mark.usefixtures("essential")
+    def test_a_tier_has_no_checkout_for_a_user_who_runs_no_organization(
+        self, rf, user_factory
+    ):
+        response = self.call_view(rf, user_factory())
+
+        assert self.tier(response)["checkout_url"] is None
+        assert b"/plans/" not in response.render().content
+
+    @pytest.mark.usefixtures("essential")
+    def test_a_visitor_signs_up_and_returns_to_the_pricing_page(self, rf):
+        content = self.call_view(rf).render().content.decode()
+
+        assert "/accounts/signup/?" in content
+        assert "next=%2Fselectplan%2F" in content
+        assert "/plans/" not in content
