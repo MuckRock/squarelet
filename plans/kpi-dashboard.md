@@ -30,3 +30,5 @@ straight from `LoginLog` instead of CSV exports.
 - `squarelet/templates/statistics/kpis.html` - `json_script` payload
 - `frontend/views/kpi_dashboard.ts`, `frontend/components/kpis/`
 - `squarelet/users/migrations/0016_loginlog_created_at_index.py`
+
+![The dashboard on sample data](kpi-dashboard.png)
