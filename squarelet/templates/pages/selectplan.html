@@ -319,26 +319,16 @@
             </div>
             {% endif %}
             <div class="actions">
-              {% if tier.annual %}
               {% if user.is_anonymous %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.annual.standard.pk tier.annual.standard.slug %}{% pass_query %}">
-                {% trans "Sign up & subscribe" %}
-              </a>
-              {% else %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.annual.standard.pk tier.annual.standard.slug %}{% pass_query %}">
+                {% if tier.annual or tier.monthly %}
+                <a class="btn premium" href="{% url 'account_signup' %}{% pass_query next=request.get_full_path %}">
+                  {% trans "Sign up & subscribe" %}
+                </a>
+                {% endif %}
+              {% elif tier.checkout_url %}
+              <a class="btn premium" href="{{ tier.checkout_url }}">
                 {% trans "Subscribe" %}
               </a>
-              {% endif %}
-              {% elif tier.monthly %}
-              {% if user.is_anonymous %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.standard.pk tier.monthly.standard.slug %}{% pass_query %}">
-                {% trans "Sign up & subscribe" %}
-              </a>
-              {% else %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.standard.pk tier.monthly.standard.slug %}{% pass_query %}">
-                {% trans "Subscribe" %}
-              </a>
-              {% endif %}
               {% endif %}
               <a class="btn primary ghost" href="https://sunlightresearch.net/launch" target="_blank">Learn more</a>
             </div>

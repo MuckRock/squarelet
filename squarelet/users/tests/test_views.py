@@ -3148,7 +3148,7 @@ class TestPlans(ViewTestMixin):
         page = self.call_view(rf, user, username=user.username).render()
 
         assert f"/users/{user.username}/subscriptions/".encode() in page.content
-        assert held.plan.get_absolute_url().encode() not in page.content
+        assert f"/plans/{held.plan.slug}/".encode() not in page.content
 
     def test_a_plan_is_bought_at_the_members_own_checkout(
         self, rf, user_factory, plan_price_factory
