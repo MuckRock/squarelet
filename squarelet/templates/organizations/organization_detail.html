@@ -237,6 +237,10 @@
         {% if can_edit_subscription or can_view_charge %}
         <div class="header-actions">
           {% if can_edit_subscription %}
+          <a href="{% url 'organizations:plans' organization.slug %}" class="btn ghost primary">
+            {% icon "premium" %}
+            {% trans "Browse plans" %}
+          </a>
           <a href="{% url 'organizations:subscriptions' organization.slug %}" class="btn ghost primary">
             {% icon "gear" %}
             {% trans "Manage billing" %}
