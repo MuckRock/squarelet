@@ -321,7 +321,6 @@ class Command(BaseCommand):
 
         self.stdout.write(json.dumps({"status": "clear_invitations_complete"}))
 
-    @transaction.atomic
     def seed_organization_price(self):
         """Price the organization plan, so its upgrade button links to checkout."""
         plan = Plan.objects.get(slug="organization")
@@ -353,6 +352,7 @@ class Command(BaseCommand):
         )
         plan.private_organizations.add(organization)
 
+    @transaction.atomic
     def teardown(self):
         # Delete users (cascades to memberships, email addresses)
         count, _ = User.objects.filter(username__startswith="e2e-").delete()

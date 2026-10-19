@@ -1677,6 +1677,29 @@ class Plan(models.Model):
             kwargs={"slug": organization.slug, "plan_slug": self.slug},
         )
 
+    def get_checkout_url_for(self, user):
+        """`user`'s checkout link for this plan, or None if no account of theirs
+        may buy it.
+
+        Their own account for a plan sold to individuals, else the first
+        organization they administer, by name, that may buy it.
+        """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.organization import Organization
+
+        if self.for_individuals:
+            accounts = [user.individual_organization]
+        else:
+            accounts = Organization.objects.filter(
+                memberships__user=user, memberships__admin=True, individual=False
+            ).order_by("name")
+        for organization in accounts:
+            url = self.get_checkout_url(organization)
+            if url:
+                return url
+        return None
+
     def cost(self, users):
         """Total monthly cost for a given number of resource blocks
 

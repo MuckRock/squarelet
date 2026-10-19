@@ -1894,6 +1894,24 @@ class TestPlans(ViewTestMixin):
             for group in response.context_data["services"]
         ] == [(documentcloud, [premium]), (muckrock, [basic, pro])]
 
+    @pytest.mark.parametrize("label", ["comped", "nonprofit"])
+    def test_a_plan_with_no_price_for_the_org_is_left_out(
+        self, rf, user_factory, organization_factory, plan_price_factory, label
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        service = ServiceFactory()
+        sold = plan_price_factory(plan__name="Sold", plan__service=service).plan
+        plan_price_factory(
+            plan__name="Unsold", plan__service=service, label=label, amount=0
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        assert response.context_data["services"] == [
+            {"service": service, "plans": [sold]}
+        ]
+
     def test_plans_are_ranked_by_their_monthly_price(
         self, rf, user_factory, organization_factory, plan_price_factory
     ):
@@ -2115,7 +2133,7 @@ class TestPlanCheckout(ViewTestMixin):
             interval=interval,
         )
 
-    def subscribe(  # pylint: disable=too-many-arguments
+    def subscribe(
         self,
         rf,
         admin,
@@ -2487,7 +2505,9 @@ class TestPlanCheckout(ViewTestMixin):
         assert response.context_data["held"]
         due_on_start.assert_not_called()
 
-    @pytest.mark.parametrize("due, prorated", [(10_000, False), (4_000, True)])
+    @pytest.mark.parametrize(
+        "due, prorated", [(10_000, False), (4_000, True), (None, False)]
+    )
     def test_the_proration_caption_shows_only_when_less_than_the_price_is_due(
         self, rf, admin, organization, plan_price_factory, mocker, due, prorated
     ):
@@ -2940,6 +2960,16 @@ class TestResubscribe(ViewTestMixin):
 
         assert response.status_code == 302
         self.assert_message(messages.ERROR, "already has a live subscription")
+
+    def test_a_line_the_org_does_not_hold_is_not_found(
+        self, rf, user_factory, organization_factory, subscription_item_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        elsewhere = subscription_item_factory()
+
+        with pytest.raises(Http404):
+            self.call_view(rf, admin, {}, slug=organization.slug, pk=elsewhere.pk)
 
 
 @pytest.mark.django_db()
