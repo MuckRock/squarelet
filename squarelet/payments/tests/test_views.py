@@ -1,6 +1,7 @@
 # Django
 from django.http import Http404
 from django.urls import reverse
+from django.utils.http import urlencode
 
 # Third Party
 import pytest
@@ -543,7 +544,9 @@ class TestPlanRedirectViewQueryString(ViewTestMixin):
         response = self.call_view(rf, user, pk=plan.pk)
 
         assert response.status_code == 301
-        expected_url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+        expected_url = reverse(
+            "users:plan", kwargs={"username": user.username, "plan_slug": plan.slug}
+        )
         assert response.url == expected_url
         assert "?" not in response.url
 
@@ -556,7 +559,7 @@ class TestPlanRedirectView(ViewTestMixin):
     url = "/plans/{pk}/"
 
     def test_redirect_with_id_only(self, rf, user_factory, plan_factory):
-        """Test that accessing plan by ID redirects to canonical URL with slug"""
+        """Accessing an individual plan by ID redirects to the user's checkout"""
         user = user_factory()
         plan = plan_factory(name="Test Plan", public=True)
 
@@ -566,12 +569,13 @@ class TestPlanRedirectView(ViewTestMixin):
         # Should return 301 permanent redirect
         assert response.status_code == 301
 
-        # Should redirect to canonical URL with both ID and slug
-        expected_url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+        expected_url = reverse(
+            "users:plan", kwargs={"username": user.username, "plan_slug": plan.slug}
+        )
         assert response.url == expected_url
 
     def test_redirect_with_slug_only(self, rf, user_factory, plan_factory):
-        """Test that accessing plan by slug redirects to canonical URL with ID"""
+        """Accessing an individual plan by slug redirects to the user's checkout"""
         user = user_factory()
         plan = plan_factory(name="Test Plan", public=True)
 
@@ -582,8 +586,9 @@ class TestPlanRedirectView(ViewTestMixin):
         # Should return 301 permanent redirect
         assert response.status_code == 301
 
-        # Should redirect to canonical URL with both ID and slug
-        expected_url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+        expected_url = reverse(
+            "users:plan", kwargs={"username": user.username, "plan_slug": plan.slug}
+        )
         assert response.url == expected_url
 
         # Reset URL for other tests
@@ -622,8 +627,10 @@ class TestPlanRedirectView(ViewTestMixin):
         # Should return 301 permanent redirect
         assert response.status_code == 301
 
-        # Should redirect to canonical URL with NEW slug
-        expected_url = reverse("plan_detail", kwargs={"pk": plan_id, "slug": new_slug})
+        # Should redirect to checkout with the NEW slug
+        expected_url = reverse(
+            "users:plan", kwargs={"username": user.username, "plan_slug": new_slug}
+        )
         assert response.url == expected_url
         assert "sunlight-research-desk-membership" in response.url
 
@@ -646,6 +653,51 @@ class TestPlanRedirectView(ViewTestMixin):
 
         # Reset URL for other tests
         self.url = "/plans/{pk}/"
+
+    @pytest.fixture
+    def group_plan(self, plan_factory):
+        return plan_factory(
+            name="Group Plan", public=True, for_individuals=False, for_groups=True
+        )
+
+    def test_an_org_plan_goes_to_an_organization_the_user_runs(
+        self, rf, user_factory, organization_factory, group_plan
+    ):
+        user = user_factory()
+        organization_factory(admins=[user], name="Zeta")
+        yonder = organization_factory(admins=[user], name="Yonder")
+
+        response = self.call_view(rf, user, pk=group_plan.pk)
+
+        assert response.status_code == 301
+        assert response.url == reverse(
+            "organizations:plan",
+            kwargs={"slug": yonder.slug, "plan_slug": group_plan.slug},
+        )
+
+    def test_an_org_plan_is_not_found_for_a_user_who_runs_no_organization(
+        self, rf, user_factory, organization_factory, group_plan
+    ):
+        user = user_factory()
+        organization_factory(users=[user])
+
+        with pytest.raises(Http404):
+            self.call_view(rf, user, pk=group_plan.pk)
+
+    def test_a_visitor_logs_in_without_the_redirect_being_cached(
+        self, rf, plan_factory
+    ):
+        plan = plan_factory(name="Test Plan", public=True)
+
+        response = self.call_view(
+            rf, params={"purchase_redirect": "https://example.com"}, pk=plan.pk
+        )
+
+        assert response.status_code == 302
+        query = urlencode({"purchase_redirect": "https://example.com"})
+        assert response.url == reverse("account_login") + "?" + urlencode(
+            {"next": f"/plans/{plan.pk}/?{query}"}
+        )
 
 
 @pytest.mark.django_db()

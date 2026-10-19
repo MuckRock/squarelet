@@ -62,7 +62,7 @@ def redirect_erh(request, path=""):
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
-    path("plans/<int:pk>-<slug:slug>/", PlanDetailView.as_view(), name="plan_detail"),
+    path("plans/<int:pk>-<slug:slug>/", PlanRedirectView.as_view(), name="plan_detail"),
     path("plans/<int:pk>/", PlanRedirectView.as_view(), name="plan_detail_id"),
     path("plans/<slug:slug>/", PlanRedirectView.as_view(), name="plan_detail_slug"),
     path("selectplan/", SelectPlanView.as_view(), name="select_plan"),
