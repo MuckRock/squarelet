@@ -106,6 +106,10 @@
       <header>
         <h2>{% trans "Billing" %}</h2>
         <div class="header-actions">
+          <a href="{% url 'users:plans' user.username %}" class="btn ghost primary">
+            {% icon "premium" %}
+            {% trans "Browse plans" %}
+          </a>
           <a href="{% url 'users:subscriptions' user.username %}" class="btn ghost primary">
             {% icon "gear" %}
             {% trans "Manage billing" %}
