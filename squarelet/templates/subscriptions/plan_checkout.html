@@ -127,18 +127,19 @@
         <div class="checkout-row">
           <div class="checkout-data">
             <dt>{% trans "Payment method" %}</dt>
-            <dd>
-              <span class="account-card">
-                {% if card_last4 %}
-                  <span>
-                    {% blocktrans with brand=card_brand last4=card_last4 %}
-                      <span class="account-card-brand">{{ brand }}</span> ending in <strong>{{ last4 }}</strong>
-                    {% endblocktrans %}
-                  </span>
-                {% else %}
-                  <span>{% trans "No card on file" %}</span>
-                {% endif %}
-              </span>
+            <dd{% if invoice_available %} class="payment-methods"{% endif %}>
+              {% if invoice_available %}
+                <label class="payment-method">
+                  <input type="radio" name="payment_method" value="card" form="subscribe-form" checked>
+                  {% include "subscriptions/includes/card_on_file.html" %}
+                </label>
+                <label class="payment-method">
+                  <input type="radio" name="payment_method" value="invoice" form="subscribe-form">
+                  {% trans "Invoice" %}
+                </label>
+              {% else %}
+                {% include "subscriptions/includes/card_on_file.html" %}
+              {% endif %}
             </dd>
           </div>
           {% if card_last4 %}
@@ -192,7 +193,7 @@
           </dd>
         </div>
 
-        <div class="checkout-row">
+        <div class="checkout-row" data-payment-label="card">
           <dt>
             {% trans "Due today" %}
             {% if prorated %}
@@ -210,6 +211,30 @@
             {% endif %}
           </dd>
         </div>
+
+        {% if invoice_available %}
+          <div class="checkout-row" data-payment-label="invoice" hidden>
+            {% if invoice_joining %}
+              <dt>
+                {% trans "Added to your next invoice" %}
+                <span class="caption">{% trans "Prorated to the rest of your invoiced year" %}</span>
+              </dt>
+              <dd class="checkout-price">
+                <strong>{{ invoice_joining.next_date|date:"F j, Y" }}</strong>
+              </dd>
+            {% else %}
+              <dt>
+                {% trans "Invoiced today" %}
+              </dt>
+              <dd class="checkout-price">
+                {% if list_price %}
+                  <s>${{ list_price.amount_dollars|floatformat:"-2"|intcomma }}</s>
+                {% endif %}
+                <strong>${{ price.amount_dollars|floatformat:"2"|intcomma }}</strong>
+              </dd>
+            {% endif %}
+          </div>
+        {% endif %}
       </dl>
 
       <form id="subscribe-form" method="post">
@@ -222,7 +247,7 @@
         {% endif %}
         <div class="checkout-actions">
           {% if available %}
-            <button type="submit" class="btn premium" id="subscribe-button"{% if not card_last4 %} disabled{% endif %}>
+            <button type="submit" class="btn premium" id="subscribe-button"{% if card_last4 %} data-has-card{% else %} disabled{% endif %}>
               {% icon "check" %}
               {% trans "Subscribe to this plan" %}
             </button>
