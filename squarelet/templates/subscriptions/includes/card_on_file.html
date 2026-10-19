@@ -1,0 +1,12 @@
+{% load i18n %}
+<span class="account-card">
+  {% if card_last4 %}
+    <span>
+      {% blocktrans with brand=card_brand last4=card_last4 %}
+        <span class="account-card-brand">{{ brand }}</span> ending in <strong>{{ last4 }}</strong>
+      {% endblocktrans %}
+    </span>
+  {% else %}
+    <span>{% trans "No card on file" %}</span>
+  {% endif %}
+</span>

@@ -22,7 +22,7 @@ from squarelet.users.models import User
 E2E_PASSWORD = "e2e-test-password"
 
 OIDC_CLIENT_ID = "e2e-verify-client"
-E2E_STRIPE_PRICE_ID = "price_e2e_organization"
+E2E_STRIPE_PRICE_PREFIX = "price_e2e_"
 OIDC_REDIRECT_URL = "https://dev.squarelet.com/"
 
 USERS = [
@@ -324,13 +324,20 @@ class Command(BaseCommand):
     @transaction.atomic
     def seed_organization_price(self):
         """Price the organization plan, so its upgrade button links to checkout."""
-        PlanPrice.objects.get_or_create(
-            plan=Plan.objects.get(slug="organization"),
-            interval="monthly",
-            label="standard",
-            code="",
-            defaults={"amount": 10000, "stripe_price_id": E2E_STRIPE_PRICE_ID},
-        )
+        plan = Plan.objects.get(slug="organization")
+        for interval, amount in (("monthly", 10000), ("annual", 100000)):
+            PlanPrice.objects.get_or_create(
+                plan=plan,
+                interval=interval,
+                label="standard",
+                code="",
+                defaults={
+                    "amount": amount,
+                    "stripe_price_id": (
+                        f"{E2E_STRIPE_PRICE_PREFIX}organization_{interval}"
+                    ),
+                },
+            )
 
     def seed_enterprise_offer(self, organization):
         """Offer the private enterprise plan to `organization`, as staff would."""
@@ -369,10 +376,10 @@ class Command(BaseCommand):
             self.stderr.write(f"Deleted OIDC client {OIDC_CLIENT_ID}")
 
         count, _ = PlanPrice.objects.filter(
-            stripe_price_id=E2E_STRIPE_PRICE_ID
+            stripe_price_id__startswith=E2E_STRIPE_PRICE_PREFIX
         ).delete()
         if count:
-            self.stderr.write("Deleted seeded organization plan price")
+            self.stderr.write("Deleted seeded organization plan prices")
 
         # Delete Staff group created by seed
         count, _ = Group.objects.filter(name="Staff").delete()
