@@ -1,6 +1,5 @@
 # Django
 from django.template.loader import render_to_string
-from django.urls import reverse
 
 # Standard Library
 import datetime
@@ -284,15 +283,14 @@ class TestPlanCard:
         assert "4242" in html
         assert "No card on file" not in html
 
-    def test_plan_name_links_to_plan_detail(self, organization_factory, plan_factory):
-        """The plan name links to its detail page"""
+    def test_plan_name_links_to_its_checkout(self, organization_factory, plan_factory):
+        """The plan name links to the subject's checkout for it"""
         plan = plan_factory(name="Org Plan")
         org = organization_factory(plans=[plan])
 
         html = self._render(subscriptions=list(org.subscription_items.all()))
 
-        expected_url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
-        assert f'href="{expected_url}"' in html
+        assert f'href="/organizations/acme/plans/{plan.slug}/"' in html
 
 
 @pytest.mark.django_db

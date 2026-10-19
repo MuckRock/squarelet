@@ -212,7 +212,9 @@ test.describe("Organization Viewing", () => {
     test("sees button to upgrade plan", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(
-        page.locator('a.btn.premium[href*="/plans/"][href$="-organization/"]'),
+        page.locator(
+          'a.btn.premium[href$="/organizations/e2e-public-org/plans/organization/"]',
+        ),
       ).toBeVisible();
     });
   });
@@ -261,7 +263,9 @@ test.describe("Organization Viewing", () => {
     test("sees button to upgrade plan", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(
-        page.locator('a.btn.premium[href*="/plans/"][href$="-organization/"]'),
+        page.locator(
+          'a.btn.premium[href$="/organizations/e2e-public-org/plans/organization/"]',
+        ),
       ).toBeVisible();
     });
 
