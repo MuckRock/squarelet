@@ -1109,9 +1109,17 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
                 list_price if list_price and list_price.amount > price.amount else None
             ),
             due_today=due_today,
-            prorated=due_today != price.amount,
+            prorated=due_today != price.amount_dollars,
             held=held,
             available=plan.has_available_slots(),
+            invoice_available=price.interval == "annual",
+            invoice_joining=(
+                None
+                if held
+                else SubscriptionItem.objects.joining_subscription(
+                    organization, price, "send_invoice"
+                )
+            ),
             card_brand=customer.payment_brand,
             card_last4=customer.payment_last4,
             card_form=CardForm(),
@@ -1160,7 +1168,13 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         ):
             return self.join_waitlist(plan)
-        if organization.customer().default_payment_method_obj() is None:
+        payment_method = request.POST.get("payment_method", "card")
+        if payment_method == "invoice":
+            if price.interval != "annual":
+                return self._error(_("Only annual plans can be paid by invoice."))
+        elif payment_method != "card":
+            return self._error(_("Choose a card or invoice to pay with."))
+        elif organization.customer().default_payment_method_obj() is None:
             return self._error(_("Add a payment method before subscribing."))
 
         try:
@@ -1168,7 +1182,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
                 plan,
                 None,
                 request.user,
-                payment_method="card",
+                payment_method=payment_method,
                 nonprofit=price.label == "nonprofit",
                 interval=price.interval,
             )

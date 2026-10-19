@@ -2116,17 +2116,81 @@ class TestPlanCheckout(ViewTestMixin):
         )
 
     def subscribe(  # pylint: disable=too-many-arguments
-        self, rf, admin, organization, plan, interval="monthly", params=None
+        self,
+        rf,
+        admin,
+        organization,
+        plan,
+        interval="monthly",
+        params=None,
+        data=None,
     ):
         return self.call_view(
             rf,
             admin,
-            {},
+            data or {},
             params,
             slug=organization.slug,
             plan_slug=plan.slug,
             interval=interval,
         )
+
+    def test_an_annual_plan_is_paid_by_invoice_without_a_card(
+        self, rf, admin, organization_factory, plan_price_factory, add_subscription
+    ):
+        organization = organization_factory(admins=[admin])
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        response = self.subscribe(
+            rf,
+            admin,
+            organization,
+            plan,
+            "annual",
+            data={"payment_method": "invoice"},
+        )
+
+        assert response.status_code == 302
+        add_subscription.assert_called_once_with(
+            plan,
+            None,
+            admin,
+            payment_method="invoice",
+            nonprofit=False,
+            interval="annual",
+        )
+
+    @pytest.mark.parametrize("payment_method", ["invoice", "cheque"])
+    def test_a_monthly_plan_is_paid_only_by_card(
+        self,
+        rf,
+        admin,
+        organization,
+        plan_price_factory,
+        add_subscription,
+        payment_method,
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        response = self.subscribe(
+            rf, admin, organization, plan, data={"payment_method": payment_method}
+        )
+
+        assert response.status_code == 302
+        add_subscription.assert_not_called()
+
+    def test_invoicing_is_offered_only_on_an_annual_plan(
+        self, rf, admin, organization, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        annual = self.view_page(rf, admin, organization, plan, "annual").render()
+        monthly = self.view_page(rf, admin, organization, plan, "monthly").render()
+
+        assert b'value="invoice"' in annual.content
+        assert b'value="invoice"' not in monthly.content
 
     def test_an_enterprise_plan_offers_contact_in_place_of_checkout(
         self, rf, admin, organization, plan_price_factory
@@ -2422,6 +2486,63 @@ class TestPlanCheckout(ViewTestMixin):
 
         assert response.context_data["held"]
         due_on_start.assert_not_called()
+
+    @pytest.mark.parametrize("due, prorated", [(10_000, False), (4_000, True)])
+    def test_the_proration_caption_shows_only_when_less_than_the_price_is_due(
+        self, rf, admin, organization, plan_price_factory, mocker, due, prorated
+    ):
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.objects.due_on_start",
+            return_value=due,
+        )
+        plan = plan_price_factory(plan__name="Tier", amount=10_000).plan
+
+        page = self.view_page(rf, admin, organization, plan).render()
+
+        assert page.context_data["prorated"] is prorated
+        assert (b"Prorated to your current billing period" in page.content) is prorated
+
+    def test_an_invoice_starts_its_own_year_at_the_full_price(
+        self, rf, admin, organization, plan_price_factory, subscription_factory, mocker
+    ):
+        # The card quote is prorated into the live annual card subscription.
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.objects.due_on_start",
+            return_value=40_000,
+        )
+        subscription_factory(
+            organization=organization, interval="annual", subscription_id="sub_card"
+        )
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        page = self.view_page(rf, admin, organization, plan, "annual").render()
+
+        assert page.context_data["invoice_joining"] is None
+        assert b"$400.00" in page.content
+        assert b"$1,000.00" in page.content
+
+    def test_an_invoice_joining_a_live_invoiced_year_waits_for_its_renewal(
+        self, rf, admin, organization, plan_price_factory, subscription_factory, mocker
+    ):
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.objects.due_on_start",
+            return_value=100_000,
+        )
+        invoiced = subscription_factory(
+            organization=organization,
+            interval="annual",
+            collection_method="send_invoice",
+            subscription_id="sub_invoiced",
+            current_period_end=datetime(2027, 3, 1, 12, tzinfo=dt_timezone.utc),
+        )
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        page = self.view_page(rf, admin, organization, plan, "annual").render()
+
+        assert page.context_data["invoice_joining"] == invoiced
+        assert b"March 1, 2027" in page.content
 
     def test_a_card_needing_authentication_hands_back_its_secret(
         self, rf, admin, organization, plan_price_factory, add_subscription
