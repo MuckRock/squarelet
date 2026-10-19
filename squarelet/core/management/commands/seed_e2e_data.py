@@ -16,12 +16,13 @@ from oidc_provider.models import Client, ResponseType
 from squarelet.oidc.models import ClientProfile
 from squarelet.organizations.models import Membership, Organization
 from squarelet.organizations.models.invitation import Invitation, OrganizationInvitation
-from squarelet.organizations.models.payment import Customer, Plan
+from squarelet.organizations.models.payment import Customer, Plan, PlanPrice
 from squarelet.users.models import User
 
 E2E_PASSWORD = "e2e-test-password"
 
 OIDC_CLIENT_ID = "e2e-verify-client"
+E2E_STRIPE_PRICE_ID = "price_e2e_organization"
 OIDC_REDIRECT_URL = "https://dev.squarelet.com/"
 
 USERS = [
@@ -119,27 +120,15 @@ class Command(BaseCommand):
             slug="organization",
             defaults={
                 "name": "Organization",
-                "minimum_users": 1,
-                "base_price": 0,
-                "price_per_user": 0,
-                "for_individuals": False,
-                "for_groups": True,
-            },
-        )
-
-        # Create a free group plan for e2e purchase redirect tests
-        Plan.objects.get_or_create(
-            slug="e2e-test-plan",
-            defaults={
-                "name": "E2E Test Plan",
-                "minimum_users": 1,
-                "base_price": 0,
-                "price_per_user": 0,
-                "for_individuals": False,
-                "for_groups": True,
                 "public": True,
+                "minimum_users": 1,
+                "base_price": 0,
+                "price_per_user": 0,
+                "for_individuals": False,
+                "for_groups": True,
             },
         )
+        self.seed_organization_price()
 
         # Create the professional plan (referenced by the user detail view
         # as the individual upgrade option)
@@ -233,6 +222,8 @@ class Command(BaseCommand):
 
             created_orgs[slug] = org
             self.stderr.write(f"Created org: {slug}")
+
+        self.seed_enterprise_offer(created_orgs["e2e-public-org"])
 
         # Create an OIDC client that gates features behind verification
         self._seed_verification_client()
@@ -331,6 +322,30 @@ class Command(BaseCommand):
         self.stdout.write(json.dumps({"status": "clear_invitations_complete"}))
 
     @transaction.atomic
+    def seed_organization_price(self):
+        """Price the organization plan, so its upgrade button links to checkout."""
+        PlanPrice.objects.get_or_create(
+            plan=Plan.objects.get(slug="organization"),
+            interval="monthly",
+            label="standard",
+            code="",
+            defaults={"amount": 10000, "stripe_price_id": E2E_STRIPE_PRICE_ID},
+        )
+
+    def seed_enterprise_offer(self, organization):
+        """Offer the private enterprise plan to `organization`, as staff would."""
+        plan, _ = Plan.objects.get_or_create(
+            slug="sunlight-enterprise",
+            defaults={
+                "name": "Sunlight Research Center - Enterprise",
+                "description": "Built for **newsrooms** that need more.",
+                "for_individuals": False,
+                "for_groups": True,
+                "wix": True,
+            },
+        )
+        plan.private_organizations.add(organization)
+
     def teardown(self):
         # Delete users (cascades to memberships, email addresses)
         count, _ = User.objects.filter(username__startswith="e2e-").delete()
@@ -352,6 +367,12 @@ class Command(BaseCommand):
         count, _ = Client.objects.filter(client_id=OIDC_CLIENT_ID).delete()
         if count:
             self.stderr.write(f"Deleted OIDC client {OIDC_CLIENT_ID}")
+
+        count, _ = PlanPrice.objects.filter(
+            stripe_price_id=E2E_STRIPE_PRICE_ID
+        ).delete()
+        if count:
+            self.stderr.write("Deleted seeded organization plan price")
 
         # Delete Staff group created by seed
         count, _ = Group.objects.filter(name="Staff").delete()
