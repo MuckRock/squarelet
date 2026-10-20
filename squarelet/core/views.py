@@ -1,11 +1,25 @@
 # Django
-from django.shortcuts import render
+from django.conf import settings
+from django.contrib import messages
+from django.shortcuts import redirect, render, resolve_url
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext_lazy as _
+from django.views import csrf
 from django.views.generic.base import RedirectView, TemplateView
+
+# Standard Library
+import logging
 
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.organizations.models import Plan
+
+logger = logging.getLogger(__name__)
+
+# The forms a user submits to sign in; a stale token on one of these is
+# almost always an old tab or a double submit, not an attack.
+SIGN_IN_URL_NAMES = {"account_login", "account_signup", "mfa_authenticate"}
 
 
 class HomeView(RedirectView):
@@ -102,3 +116,41 @@ def page_not_found(request, exception, template_name="404.html"):
     if isinstance(exception, ContextHttp404):
         context.update(exception.context)
     return render(request, template_name, context, status=404)
+
+
+def csrf_failure(request, reason=""):
+    """Send a stale sign-in form back to where it was going instead of a 403.
+
+    Never processes the POST body. Anything other than a same-origin POST to a
+    sign-in view gets Django's default 403.
+    """
+    match = request.resolver_match
+    url_name = match.url_name if match else None
+    if url_name not in SIGN_IN_URL_NAMES:
+        return csrf.csrf_failure(request, reason=reason)
+
+    origin = request.META.get("HTTP_ORIGIN")
+    same_origin = origin == f"{request.scheme}://{request.get_host()}"
+    authenticated = request.user.is_authenticated
+    logger.warning(
+        "Sign-in CSRF failure: reason=%r authenticated=%s url_name=%s origin=%s",
+        reason,
+        authenticated,
+        url_name,
+        "absent" if origin is None else ("same" if same_origin else "cross"),
+    )
+    if origin is not None and not same_origin:
+        return csrf.csrf_failure(request, reason=reason)
+
+    if authenticated:
+        next_url = request.GET.get("next")
+        if not url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            next_url = resolve_url(settings.LOGIN_REDIRECT_URL)
+        return redirect(next_url)
+
+    messages.info(request, _("Your sign-in page expired. Please try again."))
+    return redirect(request.get_full_path())
