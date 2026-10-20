@@ -2,6 +2,7 @@
   import { curveMonotoneX } from "d3-shape";
   import { LineChart } from "layerchart";
   import ChartLegend from "./ChartLegend.svelte";
+  import { pinHighlight } from "./highlight";
   import type { ChartRow } from "./activity";
 
   interface Series {
@@ -34,16 +35,22 @@
     series.some((s) => s.key === highlighted) ? highlighted : null,
   );
 
+  // LayerChart's own highlight also fades the other series' dots and tooltip rows.
+  let context: { series: Parameters<typeof pinHighlight>[0] } | undefined =
+    $state();
+  $effect(() => {
+    if (context) pinHighlight(context.series, active);
+  });
+
   function lineProps(s: Series) {
     const base = s.width ?? 2;
-    if (active === null) return { strokeWidth: base };
-    if (active === s.key) return { strokeWidth: base + 1 };
-    return { strokeWidth: base, opacity: 0.15 };
+    return { strokeWidth: active === s.key ? base + 1 : base };
   }
 </script>
 
 <figure class="trend" aria-label={label} bind:clientWidth={width}>
   <LineChart
+    bind:context
     {data}
     x="date"
     series={series.map((s) => ({
