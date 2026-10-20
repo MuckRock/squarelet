@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { curveMonotoneX } from "d3-shape";
   import { LineChart } from "layerchart";
   import ChartLegend from "./ChartLegend.svelte";
   import type { ChartRow } from "./activity";
@@ -57,6 +58,8 @@
     props={{
       xAxis: { format: formatMonth, ticks: width < 600 ? 3 : 6 },
       yAxis: { format },
+      // Monotone so the curve never overshoots past a real month's value.
+      spline: { curve: curveMonotoneX },
       tooltip: {
         header: { format: formatMonth },
         item: { format: formatValue },
