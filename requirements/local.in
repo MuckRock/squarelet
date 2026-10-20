@@ -7,7 +7,7 @@ django-coverage-plugin
 django-test-plus
 factory-boy
 flake8
-pip-tools
+pip-tools>=7.6.1
 pip-audit
 pylint
 pylint_celery
