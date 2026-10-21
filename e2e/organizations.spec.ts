@@ -290,7 +290,7 @@ test.describe("Profile Editing", () => {
 
     // Verify change reflected on detail page
     await page.goto("/organizations/e2e-public-org/");
-    await expect(page.locator("p.org-about")).toContainText(
+    await expect(page.locator("p.profile-about")).toContainText(
       "Updated by e2e test",
     );
 

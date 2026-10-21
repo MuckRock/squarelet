@@ -1,6 +1,6 @@
 {% extends "layouts/sidebar_layout.html" %}
 {% load account airtable avatar i18n socialaccount static thumbnail django_vite %}
-{% load icon %}
+{% load icon profile_card %}
 
 {% block title %}{% trans 'User' %}: {{ user.username }}{% endblock %}
 
@@ -84,7 +84,10 @@
         <h2>{% trans "Profile" %}</h2>
         <div class="header-actions">
           {% comment %}
-          Hide action until we support profile previews
+          Hide action until we support profile previews.
+          Before enabling public previews, we'll need to ensure we're
+          disclosing only the details we want to. Review the profile fields
+          we're comfortable rendering.
           <a href="?public" class="btn ghost primary">
             {% icon "eye" %}
             {% trans "View profile" %}
@@ -96,38 +99,7 @@
           </a>
         </div>
       </header>
-      <div class="card profile">
-        <div class="icon">
-        {% if user.avatar %}
-          {% thumbnail user.avatar "240x240" crop="center" as img %}
-          <img src="{{ img.url }}" alt="{{user.name}}" />
-          {% endthumbnail %}
-        {% else %}
-          {% icon "person-24" %}
-        {% endif %}
-        </div>
-
-        <div class="details details-padded">
-          <h3>{% firstof user.name user.username %}</h3>
-          <div class="details">
-          {% if individually_verified %}
-            <div class="badge green">
-              {% icon "verification" %}
-              {% trans "Verified" %}
-            </div>
-          {% endif %}
-          {% if user.name %}<p class="user-detail">{{user.username}}</p>{% endif %}
-          </div>
-          <p class="user-detail">
-            Joined
-            <time
-              title="{{user.created_at|date:"c"}}"
-              datetime="{{user.created_at|date:"c"}}">
-              {{user.created_at|date:"F j, Y"}}
-            </time>
-          </p>
-        </div>
-      </div>
+      {% profile_card user subject="users" verified=individually_verified show_stats=True %}
     </section>
 
     <section id="billing">

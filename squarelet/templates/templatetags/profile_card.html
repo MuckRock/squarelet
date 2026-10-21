@@ -1,0 +1,59 @@
+{% load i18n icon thumbnail %}
+<div class="card profile">
+  <div class="profile-avatar">
+    {% if avatar %}
+      {% thumbnail avatar "240x240" crop="center" as img %}
+      <img src="{{ img.url }}" alt="{{ title }}" />
+      {% endthumbnail %}
+    {% else %}
+      {% icon fallback_icon %}
+    {% endif %}
+  </div>
+  <div class="profile-body">
+    <div class="profile-header">
+      <h3>{{ title }}</h3>
+      {% if verified or subtitle or joined_at %}
+      <div class="profile-meta">
+        {% if verified or subtitle %}
+        <div class="profile-identity">
+          {% if verified %}
+            <span class="badge green">
+              {% icon "verification" %}
+              {% trans "Verified" %}
+            </span>
+          {% endif %}
+          {% if subtitle %}<span class="profile-caption">{{ subtitle }}</span>{% endif %}
+        </div>
+        {% endif %}
+        {% if joined_at %}
+          <span class="profile-caption">
+            {% trans "Joined" %}
+            <time title="{{ joined_at|date:"c" }}" datetime="{{ joined_at|date:"c" }}">{{ joined_at|date:"F j, Y" }}</time>
+          </span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% if about %}
+      <p class="profile-about">{{ about }}</p>
+    {% endif %}
+    {% if service_lines %}
+      <ul class="profile-services">
+        {% for line in service_lines %}
+          <li class="profile-service">
+            <span class="profile-service-usage">
+              <img class="profile-service-icon" src="{{ line.service.icon.url }}" alt="{{ line.service.name }}" title="{{ line.service.name }}" />
+              {{ line.label }}
+            </span>
+            {% if line.last_at %}
+              <span class="profile-caption">
+                {{ line.last_label }}
+                <time title="{{ line.last_at|date:"c" }}" datetime="{{ line.last_at|date:"c" }}">{% blocktrans with since=line.last_since %}{{ since }} ago{% endblocktrans %}</time>
+              </span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</div>
