@@ -1,5 +1,4 @@
 # Django
-from django.contrib.messages import get_messages
 from django.test import Client
 from django.urls import reverse
 
@@ -38,6 +37,10 @@ def stale_tab(user, next_url=NEXT):
     return client, stale
 
 
+def our_messages(caplog):
+    return [r.getMessage() for r in caplog.records if r.name == "squarelet.core.views"]
+
+
 @pytest.fixture(name="user")
 def user_fixture(user_factory):
     return user_factory(password="pw", email_verified=True)
@@ -45,71 +48,60 @@ def user_fixture(user_factory):
 
 @pytest.mark.django_db
 class TestCsrfFailure:
-    def test_a_stale_tab_continues_to_next_without_signing_in_again(
+    def test_a_stale_tab_is_forbidden_and_leaves_the_first_sign_in(
         self, user, user_factory
     ):
         other = user_factory(password="pw", email_verified=True)
         client, stale = stale_tab(user)
         response = client.post(login_url(), credentials(other, stale))
-        assert response.status_code == 302
-        assert response["Location"] == NEXT
+        assert response.status_code == 403
         assert client.session["_auth_user_id"] == str(user.pk)
 
-    def test_an_offsite_next_falls_back_to_the_login_redirect(self, user):
-        client, stale = stale_tab(user, next_url="https://evil.example/")
-        response = client.post(
-            login_url("https://evil.example/"), credentials(user, stale)
-        )
-        assert response.status_code == 302
-        assert response["Location"] == reverse("users:redirect")
-
-    def test_an_anonymous_stale_form_is_shown_again_with_next(self, user):
+    def test_an_anonymous_stale_form_is_forbidden(self, user):
         client = Client(enforce_csrf_checks=True)
         client.get(login_url())
         other_token = form_token(Client().get(login_url()))
         response = client.post(login_url(), credentials(user, other_token))
-        assert response.status_code == 302
-        assert response["Location"] == login_url()
+        assert response.status_code == 403
         assert "_auth_user_id" not in client.session
-        assert [str(m) for m in get_messages(response.wsgi_request)] == [
-            "Your sign-in page expired. Please try again."
-        ]
-
-    def test_a_stale_mfa_step_is_shown_again(self):
-        client = Client(enforce_csrf_checks=True)
-        client.get(login_url())
-        url = reverse("mfa_authenticate")
-        response = client.post(url, {"code": "123456", "csrfmiddlewaretoken": "x"})
-        assert response.status_code == 302
-        assert response["Location"] == url
-
-    def test_a_same_origin_header_still_recovers(self, user):
-        client, stale = stale_tab(user)
-        response = client.post(
-            login_url(), credentials(user, stale), HTTP_ORIGIN="http://testserver"
-        )
-        assert response.status_code == 302
-
-    def test_a_cross_origin_post_is_forbidden(self, user):
-        client, stale = stale_tab(user)
-        response = client.post(
-            login_url(), credentials(user, stale), HTTP_ORIGIN="https://evil.example"
-        )
-        assert response.status_code == 403
-
-    def test_other_forms_are_still_forbidden(self, user):
-        client, stale = stale_tab(user)
-        response = client.post(
-            reverse("account_reset_password"),
-            {"email": user.email, "csrfmiddlewaretoken": stale},
-        )
-        assert response.status_code == 403
 
     def test_the_failure_is_logged_with_its_reason(self, user, caplog):
         client, stale = stale_tab(user)
         with caplog.at_level(logging.WARNING, logger="squarelet.core.views"):
             client.post(login_url(), credentials(user, stale))
-        assert caplog.messages == [
+        assert our_messages(caplog) == [
             "Sign-in CSRF failure: reason='CSRF token from POST incorrect.' "
             "authenticated=True url_name=account_login origin=absent"
         ]
+
+    def test_a_stale_mfa_step_is_logged(self, caplog):
+        client = Client(enforce_csrf_checks=True)
+        client.get(login_url())
+        with caplog.at_level(logging.WARNING, logger="squarelet.core.views"):
+            response = client.post(
+                reverse("mfa_authenticate"),
+                {"code": "123456", "csrfmiddlewaretoken": "x"},
+            )
+        assert response.status_code == 403
+        assert "url_name=mfa_authenticate" in caplog.text
+
+    def test_a_cross_origin_post_is_logged_as_cross(self, user, caplog):
+        client, stale = stale_tab(user)
+        with caplog.at_level(logging.WARNING, logger="squarelet.core.views"):
+            response = client.post(
+                login_url(),
+                credentials(user, stale),
+                HTTP_ORIGIN="https://evil.example",
+            )
+        assert response.status_code == 403
+        assert "origin=cross" in caplog.text
+
+    def test_other_forms_are_not_logged(self, user, caplog):
+        client, stale = stale_tab(user)
+        with caplog.at_level(logging.WARNING, logger="squarelet.core.views"):
+            response = client.post(
+                reverse("account_reset_password"),
+                {"email": user.email, "csrfmiddlewaretoken": stale},
+            )
+        assert response.status_code == 403
+        assert not our_messages(caplog)
