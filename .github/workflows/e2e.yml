@@ -44,6 +44,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +57,19 @@ jobs:
       - uses: ./.github/actions/dev-stack
 
       - name: Compare against the base branch
+        id: compare
         run: inv test-visual --baseline=HEAD^1
+
+      # A pull request from a fork gets a read-only token.
+      - name: Comment with the changed screenshots
+        if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
+        run: .github/scripts/comment_visual_changes.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          OUTCOME: ${{ steps.compare.outcome }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
