@@ -1,9 +1,10 @@
 # Standard Library
 import os
+import time
 from pathlib import Path
 
 # Third Party
-from invoke import task
+from invoke import Exit, task
 
 DOCKER_COMPOSE_RUN_OPT = "docker compose -f local.yml run {opt} --rm {service} {cmd}"
 DOCKER_COMPOSE_RUN_OPT_USER = DOCKER_COMPOSE_RUN_OPT.format(
@@ -166,6 +167,80 @@ def test_e2e(c, ui=False, grep="", project="chromium", workers=""):
     pw_flags = " ".join(playwright_args)
 
     c.run(f"npx playwright test {pw_flags}", pty=True)
+
+
+VISUAL_PATHS = "frontend squarelet/templates"
+SCREENSHOTS = "e2e/__screenshots__"
+VISUAL_PROJECTS = "--project=visual --project=visual-phone --workers=1"
+
+
+@task(name="test-visual")
+def test_visual(c, baseline="", record=False, grep=""):
+    """Screenshot the main pages into e2e/__screenshots__/<short hash>/
+
+    With --baseline=<ref>, compares the working tree against that ref's
+    screenshots, recording them first if they are missing or with --record.
+    Uncommitted changes to the frontend or templates are saved under
+    <hash>-dirty. Diffs are in the report: `npx playwright show-report`.
+    """
+    playwright = f"npx playwright test {VISUAL_PROJECTS}"
+    if grep:
+        playwright += f" --grep '{grep}'"
+
+    actual = _short_hash(c, "HEAD")
+    dirty = c.run(f"git status --porcelain -- {VISUAL_PATHS}", hide=True).stdout
+    if dirty:
+        actual += "-dirty"
+    expected = _short_hash(c, baseline) if baseline else actual
+
+    if baseline and (record or not Path(f"{SCREENSHOTS}/{expected}").exists()):
+        if dirty:
+            raise Exit(f"Commit or stash your changes to {VISUAL_PATHS} first")
+        # Restoring the working tree leaves files deleted since the baseline
+        # behind as untracked, where Vite would still serve them.
+        deleted = c.run(
+            f"git diff --name-only --diff-filter=D {baseline} HEAD -- {VISUAL_PATHS}",
+            hide=True,
+        ).stdout.split()
+        try:
+            c.run(f"git restore --source={baseline} --worktree -- {VISUAL_PATHS}")
+            _restart_vite(c)
+            c.run(
+                f"{playwright} --update-snapshots=all",
+                pty=True,
+                env={"VISUAL_EXPECTED": expected, "VISUAL_ACTUAL": expected},
+            )
+        finally:
+            c.run(f"git restore --worktree -- {VISUAL_PATHS}")
+            for path in deleted:
+                Path(path).unlink(missing_ok=True)
+            _restart_vite(c)
+
+    c.run(
+        playwright,
+        pty=True,
+        env={"VISUAL_EXPECTED": expected, "VISUAL_ACTUAL": actual},
+    )
+
+
+def _short_hash(c, ref):
+    return c.run(f"git rev-parse --short {ref}", hide=True).stdout.strip()
+
+
+def _restart_vite(c):
+    """Vite's file watcher can miss a bulk checkout and keep serving the old
+    modules."""
+    c.run("docker compose -f local.yml restart squarelet_vite")
+    for _ in range(60):
+        ready = c.run(
+            "curl -sf -o /dev/null http://localhost:4200/static/@vite/client",
+            warn=True,
+            hide=True,
+        )
+        if ready.ok:
+            return
+        time.sleep(1)
+    raise Exit("Vite did not come back up")
 
 
 # Code Quality

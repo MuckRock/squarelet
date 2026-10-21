@@ -246,85 +246,83 @@
           {% endif %}
         </div>
       </header>
-      <div class="card accounts">
+      <div class="card card--stack accounts">
+        <ul class="card-list">
         {% for email in emails %}
-        <div class="email account">
-          <div class="account-detail">
-            <span class="icon">{% icon "mail-24" %}</span>
-            <h3 class="label">{{email.email}}</h3>
-          </div>
-          <form class="email-actions" action="{% url "account_email" %}" method="post">
-            {% csrf_token %}
-            <input type="hidden" name="email" value="{{email.email}}" />
-            {% if not email.verified %}
-            <button class="btn primary small" type="submit" name="action_send">
-              {% trans "Confirm this email" %}
-            </button>
-            {% else %}
-            <span class="badge green">{% trans "Confirmed" %}</span>
-            {% endif %}
-            {% if email.primary %}
-            <span class="badge blue">{% trans "Primary" %}</span>
-            {% else %}
-            <button class="btn small" type="submit" name="action_primary" {% if not email.verified %}disabled{% endif %}>
-              {% trans "Make primary" %}
-            </button>
-            {% endif %}
-            <button {% if email.primary %}disabled{% endif %} class="btn ghost danger" type="submit" name="action_remove">
-              {% icon "trashcan" %}
-            </button>
-          </form>
-        </div>
+          <li class="card-item email">
+            <span class="card-item-icon">{% icon "mail-24" %}</span>
+            <div class="card-item-body">
+              <div class="card-item-title">
+                <h3>{{email.email}}</h3>
+                {% if email.verified %}
+                <span class="badge green">{% trans "Confirmed" %}</span>
+                {% endif %}
+                {% if email.primary %}
+                <span class="badge blue">{% trans "Primary" %}</span>
+                {% endif %}
+              </div>
+            </div>
+            <form class="actions row" action="{% url "account_email" %}" method="post">
+              {% csrf_token %}
+              <input type="hidden" name="email" value="{{email.email}}" />
+              {% if not email.verified %}
+              <button class="btn primary small" type="submit" name="action_send">
+                {% trans "Confirm this email" %}
+              </button>
+              {% endif %}
+              {% if not email.primary %}
+              <button class="btn small" type="submit" name="action_primary" {% if not email.verified %}disabled{% endif %}>
+                {% trans "Make primary" %}
+              </button>
+              {% endif %}
+              <button {% if email.primary %}disabled{% endif %} class="btn ghost danger" type="submit" name="action_remove">
+                {% icon "trashcan" %}
+              </button>
+            </form>
+          </li>
         {% endfor %}
         {% if settings.ENABLE_SOCIAL_LOGINS %}
         {% get_social_accounts user as accounts %}
         {% for google_account in accounts.google %}
-          <div class="social account">
-            <div class="account-detail">
-              <div class="icon">{% icon "google" %}</div>
-              <div class="account-detail-text">
-                <h3 class="provider-label">{{google_account.get_provider}}</h3>
-                <p class="provider-account">{{google_account.get_provider_account}}</p>
-              </div>
-              <div class="account-status">
+          <li class="card-item">
+            <span class="card-item-icon">{% icon "google" %}</span>
+            <div class="card-item-body">
+              <div class="card-item-title">
+                <h3>{{google_account.get_provider}}</h3>
                 <span class="badge green">{% trans "Connected" %}</span>
               </div>
+              <p class="help-text">{{google_account.get_provider_account}}</p>
             </div>
-            <div class="account-actions">
-              <form method="POST" action="{% url 'socialaccount_connections' %}">
-                {% csrf_token %}
-                <input type="hidden" name="account" value="{{google_account.pk}}" />
-                <button type="submit" class="ghost danger btn" title="Disconnect {{google_account.provider}} account">
-                  {% icon "trashcan" %}
-                </button>
-              </form>
-            </div>
-          </div>
+            <form class="actions row" method="POST" action="{% url 'socialaccount_connections' %}">
+              {% csrf_token %}
+              <input type="hidden" name="account" value="{{google_account.pk}}" />
+              <button type="submit" class="ghost danger btn" title="Disconnect {{google_account.provider}} account">
+                {% icon "trashcan" %}
+              </button>
+            </form>
+          </li>
         {% endfor %}
         {% for github_account in accounts.github %}
-          <div class="social account">
-            <div class="account-detail">
-              <div class="icon">{% icon "github" %}</div>
-              <div class="account-detail-text">
-                <h3 class="provider-label">{{github_account.get_provider}}</h3>
-                <p class="provider-account">{{github_account.get_provider_account}}</p>
-              </div>
-              <div class="account-status">
+          <li class="card-item">
+            <span class="card-item-icon">{% icon "github" %}</span>
+            <div class="card-item-body">
+              <div class="card-item-title">
+                <h3>{{github_account.get_provider}}</h3>
                 <span class="badge green">{% trans "Connected" %}</span>
               </div>
+              <p class="help-text">{{github_account.get_provider_account}}</p>
             </div>
-            <div class="account-actions">
-              <form method="POST" action="{% url 'socialaccount_connections' %}">
-                {% csrf_token %}
-                <input type="hidden" name="account" value="{{github_account.pk}}" />
-                <button type="submit" class="ghost danger btn" title="Disconnect {{github_account.provider}} account">
-                  {% icon "trashcan" %}
-                </button>
-              </form>
-            </div>
-          </div>
+            <form class="actions row" method="POST" action="{% url 'socialaccount_connections' %}">
+              {% csrf_token %}
+              <input type="hidden" name="account" value="{{github_account.pk}}" />
+              <button type="submit" class="ghost danger btn" title="Disconnect {{github_account.provider}} account">
+                {% icon "trashcan" %}
+              </button>
+            </form>
+          </li>
         {% endfor %}
         {% endif %}
+        </ul>
       </div>
     </section>
 
@@ -336,73 +334,94 @@
           {% trans "Security best practices" %}
         </a>
       </header>
-      <div class="card security">
-        <form class="autologin" method="post" action="{% url 'users:detail' username=user.username %}">
-          {% csrf_token %}
-          <div class="status-row">
-            <h3>{% trans "Automatic login links" %}</h3>
-            {% if user.use_autologin %}
-              <span class="badge green">{% trans "Enabled" %}</span>
+      <div class="card card--stack">
+        <ul class="card-list">
+          <li class="card-item">
+            <div class="card-item-body">
+              <div class="card-item-title">
+                <h3>{% trans "Automatic login links" %}</h3>
+                {% if user.use_autologin %}
+                <span class="badge green">{% trans "Enabled" %}</span>
+                {% else %}
+                <span class="badge">{% trans "Disabled" %}</span>
+                {% endif %}
+              </div>
+              <p class="help-text">
+                {% trans "When enabled, links we email you (like notifications) include a secure token that signs you in automatically." %}
+              </p>
+            </div>
+            <form class="actions row" method="post" action="{% url 'users:detail' username=user.username %}">
+              {% csrf_token %}
+              {% if user.use_autologin %}
               <input type="hidden" name="use_autologin" value="False" />
               <button type="submit" class="btn ghost danger small">{% trans "Disable" %}</button>
-            {% else %}
-              <span class="badge">{% trans "Disabled" %}</span>
+              {% else %}
               <input type="hidden" name="use_autologin" value="True" />
               <button type="submit" class="btn ghost primary small">{% trans "Enable" %}</button>
-            {% endif %}
-          </div>
-          <p class="help-text">
-            {% trans "When enabled, links we email you (like notifications) include a secure token that signs you in automatically." %}
-          </p>
-        </form>
-        <div class="password">
-          <h3>{% trans "Password" %}</h3>
-          <a href="{% url "account_change_password" %}" class="small btn ghost primary">{% trans "Change password" %}</a>
-        </div>
-        <div class="mfa">
-          <div class="mfa-overview">
-            <h3>{% trans "Two-factor authentication" %}</h3>
-            <div class="mfa-active">
-              {% if user.has_mfa_enabled %}
-              <span class="badge green">{% trans "Enabled" %}</span>
-              <a class="small btn ghost danger" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
-              {% else %}
-                {% if has_unverified_emails %}
-                  <button class="small btn ghost primary" disabled>{% trans "Enable two-factor auth" %}</button>
-                {% else %}
-                  <a class="small btn ghost primary" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
+              {% endif %}
+            </form>
+          </li>
+          <li class="card-item">
+            <div class="card-item-body">
+              <div class="card-item-title">
+                <h3>{% trans "Password" %}</h3>
+              </div>
+            </div>
+            <div class="actions row">
+              <a href="{% url "account_change_password" %}" class="small btn ghost primary">{% trans "Change password" %}</a>
+            </div>
+          </li>
+          <li class="card-item">
+            <div class="card-item-body">
+              <div class="card-item-title">
+                <h3>{% trans "Two-factor authentication" %}</h3>
+                {% if user.has_mfa_enabled %}
+                <span class="badge green">{% trans "Enabled" %}</span>
                 {% endif %}
+              </div>
+              {% if has_unverified_emails %}
+              <p class="help-text error">{% trans "You must confirm all connected email addresses before enabling two-factor authentication." %}</p>
               {% endif %}
             </div>
-          </div>
-          {% if has_unverified_emails %}
-            <p class="help-text error">{% trans "You must confirm all connected email addresses before enabling two-factor authentication." %}</p>
-          {% endif %}
-          {% if user.has_mfa_enabled %}
-            <div class="recovery-codes">
-              <dl class="status">
-                <dt>{% trans "Recovery codes" %}</dt>
-                <dd>
-                  There {{unused_code_count|pluralize:"is,are"}} {{ unused_code_count }} out of {{ RECOVERY_CODE_COUNT }} recovery codes available.
-                </dd>
-              </dl>
-              <div class="actions">
-                <a href="{% url "mfa_view_recovery_codes" %}" class="btn ghost primary small">
-                  {% icon "eye" %}
-                  {% trans "View" %}
-                </a>
-                <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost primary small">
-                  {% icon "sync" %}
-                  {% trans "Generate" %}
-                </a>
-                <a href="{% url "mfa_download_recovery_codes" %}" class="btn ghost primary small">
-                  {% icon "download" %}
-                  {% trans "Download" %}
-                </a>
+            <div class="actions row">
+              {% if user.has_mfa_enabled %}
+              <a class="small btn ghost danger" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
+              {% elif has_unverified_emails %}
+              <button class="small btn ghost primary" disabled>{% trans "Enable two-factor auth" %}</button>
+              {% else %}
+              <a class="small btn ghost primary" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
+              {% endif %}
+            </div>
+            {% if user.has_mfa_enabled %}
+            <div class="card-subsection">
+              <div class="card-item">
+                <div class="card-item-body">
+                  <div class="card-item-title">
+                    <h4>{% trans "Recovery codes" %}</h4>
+                  </div>
+                  <p class="caption">
+                    There {{unused_code_count|pluralize:"is,are"}} {{ unused_code_count }} out of {{ RECOVERY_CODE_COUNT }} recovery codes available.
+                  </p>
+                </div>
+                <div class="actions row">
+                  <a href="{% url "mfa_view_recovery_codes" %}" class="btn ghost primary small">
+                    {% icon "eye" %}
+                    {% trans "View" %}
+                  </a>
+                  <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost primary small">
+                    {% icon "sync" %}
+                    {% trans "Generate" %}
+                  </a>
+                  <a href="{% url "mfa_download_recovery_codes" %}" class="btn ghost primary small">
+                    {% icon "download" %}
+                    {% trans "Download" %}
+                  </a>
+                </div>
               </div>
             </div>
             {% endif %}
-        </div>
+          </li>
+        </ul>
       </div>
     </section>
 {% endblock main %}
