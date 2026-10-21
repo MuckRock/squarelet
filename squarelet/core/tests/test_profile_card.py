@@ -93,6 +93,13 @@ class TestProfileCard:
         assert "2\xa0weeks ago" in html
         assert "days" not in html
 
+    def test_large_counts_are_comma_delimited(self):
+        user = UserFactory(client_stats={"muckrock": {"total_requests": 101202}})
+
+        html = _render(user, "users", show_stats=True)
+
+        assert "101,202 requests" in html
+
     def test_synced_at_key_is_not_rendered_as_a_service(self):
         user = UserFactory(client_stats={"synced_at": "2026-10-01T01:30:00+00:00"})
 

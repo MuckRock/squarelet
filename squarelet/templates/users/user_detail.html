@@ -84,7 +84,10 @@
         <h2>{% trans "Profile" %}</h2>
         <div class="header-actions">
           {% comment %}
-          Hide action until we support profile previews
+          Hide action until we support profile previews.
+          Before enabling public previews, we'll need to ensure we're
+          disclosing only the details we want to. Review the profile fields
+          we're comfortable rendering.
           <a href="?public" class="btn ghost primary">
             {% icon "eye" %}
             {% trans "View profile" %}

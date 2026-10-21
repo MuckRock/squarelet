@@ -1,5 +1,6 @@
 # Django
 from django import template
+from django.contrib.humanize.templatetags.humanize import intcomma
 from django.utils.dateparse import parse_datetime
 from django.utils.timesince import timesince
 from django.utils.translation import gettext_lazy as _, ngettext_lazy
@@ -29,7 +30,7 @@ SERVICE_METRICS = {
     "muckrock": ServiceMetric(
         total_key="total_requests",
         last_key="last_request_at",
-        count_label=ngettext_lazy("%(count)d request", "%(count)d requests", "count"),
+        count_label=ngettext_lazy("%(total)s request", "%(total)s requests", "count"),
         empty=_("No requests"),
         last_label=_("Last request"),
         always_show=True,
@@ -37,7 +38,7 @@ SERVICE_METRICS = {
     "documentcloud": ServiceMetric(
         total_key="total_documents",
         last_key="last_upload_at",
-        count_label=ngettext_lazy("%(count)d document", "%(count)d documents", "count"),
+        count_label=ngettext_lazy("%(total)s document", "%(total)s documents", "count"),
         empty=_("No documents"),
         last_label=_("Last upload"),
         always_show=False,
@@ -62,7 +63,11 @@ def service_usage(client_stats, verified):
         total = stats.get(metric.total_key) or 0
         if not (metric.always_show or total or verified):
             continue
-        label = metric.count_label % {"count": total} if total else metric.empty
+        label = (
+            metric.count_label % {"count": total, "total": intcomma(total)}
+            if total
+            else metric.empty
+        )
         last_at = stats.get(metric.last_key)
         last_at = parse_datetime(last_at) if last_at else None
         lines.append(
