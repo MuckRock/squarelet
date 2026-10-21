@@ -367,3 +367,4 @@ class LoginLog(models.Model):
 
     class Meta:
         ordering = ("created_at",)
+        indexes = [models.Index(fields=["created_at"])]
