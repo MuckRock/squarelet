@@ -1,0 +1,152 @@
+{% extends "layouts/sidebar_layout.html" %}
+{% load humanize django_vite i18n %}
+{% load icon %}
+
+{% block title %}{{ organization.name }} | Plans{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/browse_plans.ts" %}
+{% endblock vite %}
+
+{% block layout_id %}browse_plans{% endblock %}
+
+{% block header %}
+  <header>
+    <h1>{{ organization.name }}</h1>
+    <span class="arrow">{% icon "chevron-right" %}</span>
+    <h2>{% trans "Browse Plans" %}</h2>
+  </header>
+{% endblock %}
+
+{% block sidebar %}
+  <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% if subject == "organizations" %}
+      {% trans "Back to team overview" %}
+    {% else %}
+      {% trans "Back to your account" %}
+    {% endif %}
+  </a>
+  <ul>
+    {% for group in services %}
+      <li>
+        <a href="#{{ group.service.slug }}" class="nav-item">
+          {% if group.service.icon %}
+            <img class="nav-icon" src="{{ group.service.icon.url }}" alt="" />
+          {% else %}
+            {% icon "premium" %}
+          {% endif %}
+          {{ group.service.name }}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock sidebar %}
+
+{% block main %}
+  {% for group in services %}
+    {% with service=group.service %}
+      <section id="{{ service.slug }}" class="service-plans"{% if service.theme_color %} style="--service-color: var({{ service.theme_color }})"{% endif %}>
+        <header>
+          <div class="title">
+            <h2>{{ service.name }}</h2>
+          </div>
+        </header>
+        <p class="service-description">{{ service.marketing_description|default:service.description }}</p>
+
+        <ul class="plan-cards">
+          {% for plan in group.plans %}
+            <li id="plan-{{ plan.slug }}" class="card card--stack plan-card">
+              <div class="plan-card-heading">
+                {% if plan.icon %}
+                  <img class="plan-icon" src="{{ plan.icon.url }}" alt="" />
+                {% else %}
+                  <img class="plan-icon" src="{{ service.icon.url }}" alt="" />
+                {% endif %}
+                <div class="plan-info">
+                  <div class="plan-title">
+                    <h3>{{ plan.name }}</h3>
+                    {% if plan.nonprofit %}
+                      <span class="badge">{% trans "Non-profit" %}</span>
+                    {% endif %}
+                  </div>
+                  {% if plan.short_description %}
+                    <p class="plan-description">{{ plan.short_description }}</p>
+                  {% endif %}
+                </div>
+              </div>
+
+
+              {% if plan.held %}
+                <div class="plan-card-actions">
+                  <p class="caption">{% trans "You are already subscribed to this plan." %}</p>
+                  <a href="{% url subject|add:':subscriptions' subject_slug %}" class="btn primary ghost small">
+                    {% icon "gear" %}
+                    {% trans "Manage subscription" %}
+                  </a>
+                </div>
+              {% else %}
+                {% with benefits=plan.get_benefits %}
+                  <div class="plan-card-actions">
+                    {% if benefits %}
+                      <button type="button" class="btn ghost primary small plan-benefits-toggle" aria-expanded="false" aria-controls="plan-{{ plan.slug }}-benefits">
+                        <span class="chevron">{% icon "chevron-right" %}</span>
+                        {% trans "Benefits" %}
+                      </button>
+                    {% endif %}
+
+                    <div class="plan-prices">
+                      {% for price in plan.display_prices %}
+                        {%if forloop.counter == 2 %}
+                          <span class="plan-price-separator">or</span>
+                        {% endif %}
+                        <div class="plan-price">
+                          {% if price.amount %}
+                            <strong>${{ price.amount_dollars|floatformat:"-2"|intcomma }}</strong>
+                            <span>
+                              &nbsp;/
+                              {% if price.interval == "annual" %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}
+                            </span>
+                          {% else %}
+                            <strong>{% trans "Free" %}</strong>
+                          {% endif %}
+                        </div>
+                      {% endfor %}
+                    </div>
+                    <a href="{{ plan.checkout_url }}" class="btn premium">
+                      {% trans "Subscribe" %}
+                    </a>
+                  </div>
+
+                  {% if benefits %}
+                    <ul id="plan-{{ plan.slug }}-benefits" class="plan-benefits checklist card-subsection" hidden>
+                      {% for benefit in benefits %}
+                        <li class="checklist-item">
+                          <span class="icon">{% icon "checkmark" %}</span>
+                          <span class="text">{{ benefit }}</span>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                {% endwith %}
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endwith %}
+  {% empty %}
+    <section>
+      <div class="card card--stack">
+        <p class="empty empty--no-border">
+          {% if subject == "organizations" %}
+            {% trans "There are no plans available to this organization." %}
+          {% else %}
+            {% trans "There are no plans available to you." %}
+          {% endif %}
+        </p>
+      </div>
+    </section>
+  {% endfor %}
+{% endblock main %}

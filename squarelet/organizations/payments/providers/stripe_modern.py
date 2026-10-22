@@ -206,6 +206,25 @@ class StripeModernSubscriptionService(SubscriptionService):
             },
         )
 
+    def preview_addition(
+        self, customer_id, price_id, subscription_id=None, anchor=None
+    ):
+        details = {"items": [{"price": price_id, "quantity": 1}]}
+        if subscription_id:
+            # Matches what `Subscription.proration_behavior` bills a card payer.
+            details["proration_behavior"] = "always_invoice"
+            return stripe.Invoice.create_preview(
+                customer=customer_id,
+                subscription=subscription_id,
+                subscription_details=details,
+            )
+        if anchor is not None:
+            details["billing_cycle_anchor"] = anchor
+            details["proration_behavior"] = "create_prorations"
+        return stripe.Invoice.create_preview(
+            customer=customer_id, subscription_details=details
+        )
+
     def get_current_period_end(self, stripe_subscription):
         # current_period_end moved from subscription root to subscription items
         # in API version 2025-03-31.basil. Webhook payloads may omit items

@@ -12,6 +12,10 @@ Args:
   inherited_orgs      — deduped list of orgs the subject inherits benefits from.
   inherited_benefits  — deduped list of inherited plain-language benefit strings.
   upgrade_plan      — Plan to advertise when there is no own plan (optional).
+  private_plans     — private Plans the subject may subscribe to but has not;
+                      one banner each, shown only with can_edit_subscription.
+                      The banner links to the plan's `checkout_url`, and has
+                      no button when it is unset.
   next_charge_date, card, cancelled — subscription details (optional, org only).
   can_edit_subscription — bool gating the CTA. Default True.
   subject           — "users" | "organizations". Controls copy and links
@@ -19,6 +23,16 @@ Args:
 
 {% if subscriptions or upgrade_plan or not inherited_benefits %}
 <div class="card card--stack plan-card{% if not subscriptions %} plan-card--no-subscription{% endif %}">
+  {% if can_edit_subscription %}
+    {% for plan in private_plans %}
+      {% trans "You are eligible to subscribe to a private plan" as title %}
+      {% blocktrans with name=plan.name asvar text %}
+        Your organization has been invited to subscribe to <strong>{{ name }}</strong>.
+      {% endblocktrans %}
+      {% trans "View plan" as action %}
+      {% include "core/component/notification_banner.html" with icon="note" title=title text=text url=plan.checkout_url action=action %}
+    {% endfor %}
+  {% endif %}
   {% if subscriptions %}
     <section class="card-section">
       <header class="card-section-label">
@@ -36,7 +50,7 @@ Args:
       <ul class="card-subsection">
         {% for subscription in subscriptions %}
           <li class="card-item">
-            <a class="plan-name {% if subject == "organizations" %}organization{% else %}professional{% endif %}" href="{% url 'plan_detail' pk=subscription.plan.id slug=subscription.plan.slug %}">{{ subscription.plan.name }}</a>
+            <a class="plan-name {% if subject == "organizations" %}organization{% else %}professional{% endif %}" href="{% url subject|add:':plan' subject_slug subscription.plan.slug %}">{{ subscription.plan.name }}</a>
             <div class="card-item-meta">
               <span class="caption">
                 {% if subscription.is_free %}
@@ -109,7 +123,11 @@ Args:
       <div class="plan-upgrade">
         <p>
           {% trans "Upgrade to the" %}
-          <a class="plan-name" href="{% url 'plan_detail' pk=upgrade_plan.id slug=upgrade_plan.slug %}">{{ upgrade_plan.name }}</a>
+          {% if can_edit_subscription and upgrade_plan.checkout_url %}
+            <a class="plan-name" href="{{ upgrade_plan.checkout_url }}">{{ upgrade_plan.name }}</a>
+          {% else %}
+            <span class="plan-name">{{ upgrade_plan.name }}</span>
+          {% endif %}
           {% trans "plan for premium features and benefits:" %}
         </p>
         {% with upgrade_benefits=upgrade_plan.get_benefits %}
@@ -124,8 +142,8 @@ Args:
           </ul>
         {% endif %}
         {% endwith %}
-        {% if can_edit_subscription and upgrade_plan %}
-          <a class="btn premium" href="{% url 'plan_detail' pk=upgrade_plan.id slug=upgrade_plan.slug %}">{% trans "Upgrade" %}</a>
+        {% if can_edit_subscription and upgrade_plan.checkout_url %}
+          <a class="btn premium" href="{{ upgrade_plan.checkout_url }}">{% trans "Upgrade" %}</a>
         {% endif %}
       </div>
     {% endif %}

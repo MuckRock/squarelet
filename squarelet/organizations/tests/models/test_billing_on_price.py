@@ -233,6 +233,17 @@ class TestPurchaseResolvesAPrice:
 
         assert self._resolve(plan=plan) == annual
 
+    def test_an_interval_asked_for_overrides_the_plans_own(
+        self, plan_factory, plan_price_factory
+    ):
+        plan = plan_factory(name="Monthly Tier")
+        plan_price_factory(plan=plan, interval="monthly", amount=10_000)
+        annual = plan_price_factory(plan=plan, interval="annual", amount=120_000)
+
+        _, price = SubscriptionItem.objects.resolve_purchase(plan, interval="annual")
+
+        assert price == annual
+
     def test_list_pricing_wins_over_a_negotiated_rate(self, plan_price_factory):
         plan = plan_price_factory(interval="monthly", label="standard").plan
         plan_price_factory(

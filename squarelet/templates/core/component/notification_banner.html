@@ -1,0 +1,20 @@
+{% load icon django_vite %}
+
+{% block vite %}
+{% vite_asset "frontend/views/notification_banner.ts" %}
+{% endblock vite %}
+
+<div class="notification-banner {{ color|default:'blue' }}">
+  <div class="banner-content">
+    {% if icon %}
+      <span class="icon">{% icon icon %}</span>
+    {% endif %}
+    <div class="banner-text">
+      <h4>{{ title }}</h4>
+      <p>{{ text }}</p>
+    </div>
+    {% if url %}
+      <a href="{{ url }}" class="btn primary">{{ action }}</a>
+    {% endif %}
+  </div>
+</div>

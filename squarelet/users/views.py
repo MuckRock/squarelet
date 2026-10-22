@@ -61,6 +61,9 @@ from squarelet.payments.views import (
     BaseEndSubscription,
     BaseManageSubscriptions,
     BasePaymentsList,
+    BasePlanCheckout,
+    BasePlanCheckoutRedirect,
+    BasePlans,
     BaseRemoveCard,
     BaseResubscribe,
     BaseUpdateCard,
@@ -185,6 +188,8 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["subscription_benefits"] = consolidate_plan_benefits(
             sub.plan for sub in subscriptions
         )
+        if upgrade_plan:
+            upgrade_plan.checkout_url = upgrade_plan.get_checkout_url(individual_org)
         context["upgrade_plan"] = upgrade_plan
         # Get card for active subscription
         customer = individual_org.customer()
@@ -714,6 +719,18 @@ class IndividualSubscriptionView(LoginRequiredMixin, StaffAccessMixin):
 
 
 class ManageSubscriptions(IndividualSubscriptionView, BaseManageSubscriptions):
+    pass
+
+
+class Plans(IndividualSubscriptionView, BasePlans):
+    pass
+
+
+class PlanCheckout(IndividualSubscriptionView, BasePlanCheckout):
+    pass
+
+
+class PlanCheckoutRedirect(IndividualSubscriptionView, BasePlanCheckoutRedirect):
     pass
 
 

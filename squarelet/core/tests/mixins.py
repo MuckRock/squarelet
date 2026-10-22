@@ -1,5 +1,6 @@
 # Django
 from django.contrib.auth.models import AnonymousUser
+from django.utils.http import urlencode
 
 # Standard Library
 from unittest.mock import MagicMock
@@ -19,6 +20,8 @@ class ViewTestMixin:
         if data is None:
             self.request = rf.get(url, params)
         else:
+            if params:
+                url = f"{url}?{urlencode(params)}"
             self.request = rf.post(url, data)
         self.request.user = user
         self.request._messages = MagicMock()

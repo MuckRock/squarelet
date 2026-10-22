@@ -7,11 +7,11 @@
 {% endblock vite %}
 
 {% block container %}
-  <article id="{% block layout_id %}{% endblock %}" class="_cls-content modal-layout">
+  <article id="{% block layout_id %}{% endblock %}" class="modal-layout {% block layout_class %}{% endblock %}">
     <header>
       {% block header %}{% endblock %}
     </header>
-    <main class="card card--stack">
+    <main class="{% block main_class %}card card--stack{% endblock %}">
       {% block main %}{% endblock %}
     </main>
 

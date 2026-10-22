@@ -19,7 +19,7 @@ from autoslug import AutoSlugField
 
 # Squarelet
 from squarelet.core.storage import private_storage
-from squarelet.core.utils import is_production_env, mailchimp_journey
+from squarelet.core.utils import file_path, is_production_env, mailchimp_journey
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -389,8 +389,9 @@ def _stripe_price_id(stripe_item):
     return None
 
 
-def _proration_for(line, item_id):
+def _proration_for(line, item_id=None):
     """Whether an invoice line is a proration for Stripe subscription item `item_id`.
+    If item_id is none, check if the line is a proration for any item.
 
     Newer API versions nest this under `parent`; older ones put it on the line.
     Subscript access: a StripeObject refuses `.get`.
@@ -398,13 +399,13 @@ def _proration_for(line, item_id):
     parent = line["parent"] if "parent" in line else None
     if parent and "subscription_item_details" in parent:
         details = parent["subscription_item_details"]
-        return bool(details["proration"]) and details["subscription_item"] == item_id
-    return (
-        "proration" in line
-        and bool(line["proration"])
-        and "subscription_item" in line
-        and line["subscription_item"] == item_id
-    )
+        proration, item = details["proration"], details["subscription_item"]
+    elif "proration" in line:
+        proration = line["proration"]
+        item = line["subscription_item"] if "subscription_item" in line else None
+    else:
+        return False
+    return bool(proration) and (item_id is None or item == item_id)
 
 
 class Cancellable:
@@ -1417,8 +1418,14 @@ class SubscriptionItem(models.Model):
         )
 
 
+def plan_file_path(instance, filename):
+    return file_path("plan_icons", instance, filename)
+
+
 class Plan(models.Model):
     """Plans that organizations can subscribe to"""
+
+    CHECKOUT_INTERVALS = ("annual", "monthly")
 
     objects = PlanQuerySet.as_manager()
 
@@ -1431,28 +1438,19 @@ class Plan(models.Model):
         help_text=_("A unique slug to identify the plan"),
     )
 
-    PRODUCT_CHOICES = [
-        ("muckrock", _("MuckRock")),
-        ("documentcloud", _("DocumentCloud")),
-        ("sunlight", _("Sunlight")),
-        ("scoutpost", _("Scoutpost")),
-    ]
-
-    product = models.CharField(
-        _("product"),
-        max_length=20,
-        choices=PRODUCT_CHOICES,
+    service = models.ForeignKey(
+        "services.Service",
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        default="",
+        related_name="plans",
+        verbose_name=_("service"),
         help_text=_(
-            "Which product this plan is marketed under, for grouping tiers on "
+            "Which service this plan is marketed under, for grouping tiers on "
             "the plan page.  This is a display label, not a description of "
-            "what the plan grants - most plans span more than one product "
-            "(Sunlight tiers grant MuckRock and DocumentCloud entitlements but "
-            "are still marketed as Sunlight).  Do NOT use this to decide "
-            "whether a plan switch is an upgrade or an unrelated addition; "
-            "compare the entitlement client sets instead.  Blank on legacy "
-            "plans not yet mapped to a tier."
+            "what the plan grants - most plans span more than one service.  "
+            "Do NOT use this to decide whether a plan switch is an upgrade; "
+            "compare the entitlement client sets instead."
         ),
     )
     stripe_product_id = models.CharField(
@@ -1573,15 +1571,18 @@ class Plan(models.Model):
         blank=True,
         help_text=_("Detailed description of the plan, in Markdown"),
     )
+    icon = models.ImageField(
+        _("icon"),
+        upload_to=plan_file_path,
+        blank=True,
+        help_text=_("Icon for the plan"),
+    )
 
     class Meta:
         ordering = ("slug",)
 
     def __str__(self):
         return self.name
-
-    def get_absolute_url(self):
-        return reverse("plan_detail", kwargs={"pk": self.pk, "slug": self.slug})
 
     @property
     def free(self):
@@ -1632,6 +1633,73 @@ class Plan(models.Model):
             return current_count < settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         return True
 
+    def checkout_prices(self, interval, nonprofit):
+        """The price buying this plan at `interval` bills, and its list price.
+
+        Resolved as `add_subscription` resolves them, so checkout quotes what is
+        billed. `(None, None)` when the plan has no price at `interval`.
+        """
+        resolve = SubscriptionItem.objects.resolve_purchase
+        _plan, standard = resolve(self, interval=interval)
+        if nonprofit:
+            _plan, discounted = resolve(self, nonprofit=True, interval=interval)
+            if discounted is not None:
+                return discounted, standard
+        return standard, standard
+
+    def default_interval(self, nonprofit):
+        """Annual where this plan is sold annually, else monthly; None if neither."""
+        for interval in self.CHECKOUT_INTERVALS:
+            if self.checkout_prices(interval, nonprofit)[0] is not None:
+                return interval
+        return None
+
+    def get_checkout_url(self, organization):
+        """The checkout link for `organization`, which picks its interval on arrival.
+
+        None when `organization` may not buy this plan or it is sold at neither
+        interval; callers keep the plan page.
+        """
+        if not Plan.objects.choices(organization).filter(pk=self.pk).exists():
+            return None
+        if (
+            not self.is_enterprise
+            and self.default_interval(organization.nonprofit) is None
+        ):
+            return None
+        if organization.individual:
+            return reverse(
+                "users:plan",
+                kwargs={"username": organization.user.username, "plan_slug": self.slug},
+            )
+        return reverse(
+            "organizations:plan",
+            kwargs={"slug": organization.slug, "plan_slug": self.slug},
+        )
+
+    def get_checkout_url_for(self, user):
+        """`user`'s checkout link for this plan, or None if no account of theirs
+        may buy it.
+
+        Their own account for a plan sold to individuals, else the first
+        organization they administer, by name, that may buy it.
+        """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.organization import Organization
+
+        if self.for_individuals:
+            accounts = [user.individual_organization]
+        else:
+            accounts = Organization.objects.filter(
+                memberships__user=user, memberships__admin=True, individual=False
+            ).order_by("name")
+        for organization in accounts:
+            url = self.get_checkout_url(organization)
+            if url:
+                return url
+        return None
+
     def cost(self, users):
         """Total monthly cost for a given number of resource blocks
 
@@ -1644,6 +1712,11 @@ class Plan(models.Model):
         return (
             self.base_price + max(users - self.minimum_users, 0) * self.price_per_user
         )
+
+    @property
+    def is_enterprise(self):
+        """Enterprise page offers contact in place of checkout."""
+        return self.slug.startswith("sunlight-enterprise")
 
     @property
     def is_sunlight_plan(self):
