@@ -66,6 +66,10 @@ PRICE_MATRIX = [
     # cheaper Sunlight Basic rate for the subscribers who still hold it.
     ("organization", "monthly", "standard", "insideclimate", 3_000),
     ("sunlight-essential", "annual", "standard", "legacy-basic", 200_000),
+    # The Election Accountability cohort's rate, one deal at both cadences:
+    # two of its subscribers renew, one monthly.  $250/mo is $3,000/yr.
+    ("sunlight-essential", "annual", "standard", "election-cohort", 300_000),
+    ("sunlight-essential", "monthly", "standard", "election-cohort", 25_000),
 ]
 
 
