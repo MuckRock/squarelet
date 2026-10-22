@@ -139,6 +139,14 @@ PACK_DECOMPOSITION = {
     "organization-annual": ("muckrock-request-pack",),
     "organization-flexible-users-annual": ("muckrock-request-pack",),
     "documentcloud-premium": ("documentcloud-credit-pack",),
+    "scoutpost-team": ("scoutpost-credit-pack",),
+    # Comps cost nothing, so they keep both halves of what their seats grant.
+    "premium-org-comp": ("muckrock-request-pack", "documentcloud-credit-pack"),
+    "muckrock-editorial-partner": (
+        "muckrock-request-pack",
+        "documentcloud-credit-pack",
+    ),
+    "admin": ("scoutpost-credit-pack",),
 }
 
 # What a block granted that no pack carries, and may be dropped: DocumentCloud
@@ -148,6 +156,10 @@ DROPPED_WITH_BLOCKS = frozenset({"base_ai_credits"})
 # Legacy plans whose grant changes on purpose when they consolidate.  Any
 # other change stops the migration.
 EXPECTED_GRANT_CHANGES = {
+    "scoutpost-team": (
+        "Blocks billed $10 each but granted nothing under an entitlement "
+        "minimum of 5; as packs they grant 1,000 credits each."
+    ),
     "beta": "Grandfathered onto Professional: 5 -> 20 MuckRock requests.",
     "insideclimate-news-plan": (
         "Normalized to Organization: 15 -> 50 requests, plus DocumentCloud "

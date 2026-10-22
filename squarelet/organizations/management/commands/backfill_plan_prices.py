@@ -46,6 +46,22 @@ def blocks_held(item):
     return max(item.quantity - item.plan.minimum_users, 0)
 
 
+def blocks_granted(item):
+    """Blocks over the minimum the line's entitlements grant from.
+
+    That minimum can be higher than the plan's: blocks under it bill, but
+    grant nothing.
+    """
+    minima = [
+        entitlement.resources.get("minimum_users", 0)
+        for entitlement in item.plan.entitlements.all()
+        if scaling_pairs(entitlement.resources)
+    ]
+    if not item.plan.for_groups or not minima:
+        return 0
+    return max(item.quantity - min(minima), 0)
+
+
 def legacy_bill_cents(item):
     """What Stripe charges for this line today.
 
@@ -352,7 +368,9 @@ class Command(BaseCommand):
             code=code,
             active=True,
         )
-        blocks = blocks_held(item)
+        # A billing line's packs keep its bill; a comp costs nothing, so its
+        # packs keep what its seats are granted.
+        blocks = blocks_held(item) if is_billing(item) else blocks_granted(item)
         packs = [
             (
                 PlanPrice.objects.select_related("plan").get(
@@ -365,6 +383,7 @@ class Command(BaseCommand):
                 blocks,
             )
             for pack_slug, interval, pack_label, pack_code in _pack_keys(item)
+            if blocks
         ]
 
         if is_billing(item):

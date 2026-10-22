@@ -1,5 +1,5 @@
 # The command's steps are the unit under test here.
-# pylint: disable=protected-access
+# pylint: disable=protected-access,too-many-lines
 # Django
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -529,8 +529,18 @@ class TestBlocksBecomePacks:
         assert item.plan_price is None
         assert item.quantity == 30
 
-    def test_a_comped_block_holder_gets_a_free_pack_on_the_free_row(self, actor):
+    def test_a_comped_block_holder_gets_a_free_pack_on_the_free_row(
+        self, actor, targets
+    ):
         item = block_holder(quantity=30, billing=False)
+        requests = {"base_requests": 50, "requests_per_user": 10, "minimum_users": 5}
+        # The legacy row is the target tier itself.
+        client = entitle(item.plan, requests).client
+        entitle(
+            targets["muckrock-request-pack"],
+            {"base_requests": 0, "requests_per_user": 10, "minimum_users": 0},
+            client=client,
+        )
 
         run(actor=actor)
 
@@ -707,7 +717,7 @@ class TestWhatTheOrganizationReceives:
     @pytest.mark.usefixtures("targets")
     def test_comped_blocks_that_grant_need_a_pack_up_front(self, actor):
         item = line(
-            "muckrock-editorial-partner",
+            "education-grant",
             billing=False,
             quantity=30,
             plan_fields={**GROUP, "base_price": 0, "price_per_user": 0},
@@ -740,6 +750,122 @@ class TestWhatTheOrganizationReceives:
         item.refresh_from_db()
         assert item.quantity == 1
         assert not SubscriptionItem.objects.filter(plan__slug__in=PACK_SLUGS).exists()
+
+
+@pytest.mark.django_db()
+class TestProductionsSeatedPlans:
+    """Plans whose seat minimum differs from their entitlements' minimum."""
+
+    ORGANIZATION = {"base_requests": 50, "requests_per_user": 10, "minimum_users": 5}
+    CREDITS = {"base_ai_credits": 5000, "ai_credits_per_user": 500, "minimum_users": 5}
+
+    def _organization_tier(self, targets):
+        muckrock = entitle(targets["organization"], self.ORGANIZATION).client
+        documentcloud = entitle(targets["organization"], self.CREDITS).client
+        entitle(
+            targets["muckrock-request-pack"],
+            {"base_requests": 0, "requests_per_user": 10, "minimum_users": 0},
+            client=muckrock,
+        )
+        entitle(
+            targets["documentcloud-credit-pack"],
+            {"base_ai_credits": 0, "ai_credits_per_user": 500, "minimum_users": 0},
+            client=documentcloud,
+        )
+        return muckrock, documentcloud
+
+    @pytest.mark.parametrize(
+        ("slug", "seats", "packs"),
+        [("premium-org-comp", 45, 40), ("muckrock-editorial-partner", 7, 2)],
+    )
+    # pylint: disable-next=too-many-positional-arguments
+    def test_a_comp_on_organization_keeps_every_seat_it_is_granted(
+        self, targets, actor, slug, seats, packs
+    ):
+        """Counted from the entitlements' minimum of 5, not the plan's 1."""
+        muckrock, documentcloud = self._organization_tier(targets)
+        item = line(
+            slug,
+            billing=False,
+            quantity=seats,
+            plan_fields={**GROUP, "minimum_users": 1, "base_price": 0},
+        )
+        entitle(item.plan, self.ORGANIZATION, client=muckrock)
+        entitle(item.plan, self.CREDITS, client=documentcloud)
+
+        run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan.slug == "organization"
+        held = {
+            pack.plan.slug: (pack.quantity, pack.plan_price.amount)
+            for pack in SubscriptionItem.objects.filter(plan__slug__in=PACK_SLUGS)
+        }
+        assert held == {
+            "muckrock-request-pack": (packs, 0),
+            "documentcloud-credit-pack": (packs, 0),
+        }
+
+    def test_seats_inside_the_entitlement_minimum_need_no_pack(self, targets, actor):
+        muckrock, documentcloud = self._organization_tier(targets)
+        item = line(
+            "premium-org-comp",
+            billing=False,
+            quantity=5,
+            plan_fields={**GROUP, "minimum_users": 1, "base_price": 0},
+        )
+        entitle(item.plan, self.ORGANIZATION, client=muckrock)
+        entitle(item.plan, self.CREDITS, client=documentcloud)
+
+        run(actor=actor)
+
+        assert not SubscriptionItem.objects.filter(plan__slug__in=PACK_SLUGS).exists()
+
+    def test_admin_keeps_its_per_seat_scoutpost_credits(self, targets, actor):
+        scoutpost = {"base_credits": 1000, "credits_per_user": 1000, "minimum_users": 1}
+        client = entitle(targets["admin"], scoutpost).client
+        entitle(
+            targets["scoutpost-credit-pack"],
+            {"base_credits": 0, "credits_per_user": 1000, "minimum_users": 0},
+            client=client,
+        )
+        item = line(
+            "admin",
+            billing=False,
+            quantity=8,
+            plan_fields={**GROUP, "minimum_users": 1, "base_price": 0},
+        )
+        entitle(item.plan, scoutpost, client=client)
+
+        run(actor=actor)
+
+        pack = SubscriptionItem.objects.get(plan__slug="scoutpost-credit-pack")
+        assert (pack.quantity, pack.plan_price.amount) == (7, 0)
+
+    def test_scoutpost_team_bills_the_same_and_gains_its_unused_blocks(
+        self, targets, actor
+    ):
+        """Its blocks billed $10 each but, under an entitlement minimum of 5,
+        granted nothing; as packs they grant 1,000 credits each."""
+        scoutpost = {"base_credits": 5000, "credits_per_user": 1000, "minimum_users": 5}
+        client = entitle(targets["scoutpost-team"], scoutpost).client
+        entitle(
+            targets["scoutpost-credit-pack"],
+            {"base_credits": 0, "credits_per_user": 1000, "minimum_users": 0},
+            client=client,
+        )
+        item = line(
+            "scoutpost-team",
+            quantity=5,
+            plan_fields={**GROUP, "minimum_users": 1},
+        )
+        entitle(item.plan, scoutpost, client=client)
+
+        out = run(actor=actor)
+
+        pack = SubscriptionItem.objects.get(plan__slug="scoutpost-credit-pack")
+        assert (pack.quantity, pack.plan_price.amount) == (4, 1_000)
+        assert "grant changes as decided" in out
 
 
 @pytest.mark.django_db()
