@@ -260,3 +260,22 @@ class TestSavedRowIsReadOnlyInTheAdmin:
         assert form.cleaned_data["amount"] == 10000
         assert form.cleaned_data["currency"] == "usd"
         assert form.cleaned_data["interval"] == "monthly"
+
+
+@pytest.mark.django_db
+class TestSupersedeLeavesTheOldStripePrice:
+    """Subscribers still bill on it; the inactive row already stops new sales."""
+
+    def test_the_old_price_is_not_archived(self, plan_price_factory, mocker):
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_plan_service.return_value
+        service.find_price.return_value = mocker.Mock(id="price_new")
+        service.create_price.return_value = mocker.Mock(id="price_new")
+        price = plan_price_factory(amount=10_000, stripe_price_id="price_old")
+        price.plan.stripe_product_id = "prod_1"
+        price.plan.save(update_fields=["stripe_product_id"])
+
+        price.supersede(20_000)
+
+        service.archive_price.assert_not_called()
