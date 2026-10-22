@@ -555,6 +555,28 @@ class TestOrganizationAdmin:
         subscribe_mock.assert_called_once()
 
 
+class TestTheAdminSeesRetiredPlans:
+    """Archiving hides a plan from customers, not from staff.
+
+    The admin is the only way to unarchive one.
+    """
+
+    @pytest.fixture(name="plan_admin")
+    def plan_admin_fixture(self):
+        return PlanAdmin(Plan, AdminSite())
+
+    @pytest.mark.django_db
+    def test_an_archived_plan_is_listed(self, plan_admin, plan_factory):
+        retired = plan_factory(name="Retired Plan", archived=True)
+
+        assert plan_admin.get_queryset(None).filter(pk=retired.pk).exists()
+
+    def test_the_flag_is_visible_and_filterable(self, plan_admin):
+        """A row staff cannot tell apart from a live one is no better."""
+        assert "archived" in plan_admin.list_display
+        assert "archived" in plan_admin.list_filter
+
+
 class TestPlanFilter:
     """Tests for the PlanFilter admin list filter."""
 
