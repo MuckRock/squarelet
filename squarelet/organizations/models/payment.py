@@ -1669,10 +1669,13 @@ class Plan(models.Model):
 
     def requires_payment(self):
         """Does this plan require immediate payment?
-        Free plans never require payment
-        Annual payments are invoiced and do not require payment at time of purchase
+
+        Free plans never require payment.  Annual payments are invoiced and
+        do not require payment at time of purchase.  Read off the list
+        price, so a plan with nothing to sell needs no payment either.
         """
-        return not self.free and not self.annual
+        price = self.list_price
+        return price is not None and price.amount > 0 and price.interval == "monthly"
 
     def has_available_slots(self):
         """Check if new subscriptions are allowed for this plan"""
@@ -1706,17 +1709,6 @@ class Plan(models.Model):
         return self.product == "sunlight" or (
             tier != self.slug and tier.startswith("sunlight-")
         )
-
-    @property
-    def nonprofit_variant_slug(self):
-        """Get the nonprofit variant slug for this plan"""
-        if self.slug.startswith("sunlight-nonprofit-"):
-            return self.slug  # Already a nonprofit variant
-        elif self.slug.startswith("sunlight-"):
-            # Convert sunlight-essential -> sunlight-nonprofit-essential
-            # Convert sunlight-essential-annual -> sunlight-nonprofit-essential-annual
-            return self.slug.replace("sunlight-", "sunlight-nonprofit-", 1)
-        return None
 
     @property
     def stripe_id(self):
