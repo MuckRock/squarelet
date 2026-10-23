@@ -63,6 +63,7 @@ while read -r actual; do
   cp "$actual" "$tree/$dest/$project/$name-after.png"
   if [ -f "$dir/$name-expected.png" ]; then
     cp "$dir/$name-expected.png" "$tree/$dest/$project/$name-before.png"
+    cp "$dir/$name-diff.png" "$tree/$dest/$project/$name-diff.png"
   fi
   rows+="$project $name"$'\n'
 done <<<"$actuals"
@@ -90,10 +91,14 @@ img() {
 {
   printf '%s\n### Visual changes\n\n' "$MARKER"
   printf 'Screenshots that differ from `%s` as of %s: %d. ' "$BASE_REF" "$HEAD_SHA" "$(wc -l <<<"$actuals")"
-  printf 'Pixel diffs are in the `visual-report` artifact of [this run](%s).\n\n' "$RUN_URL"
+  printf 'The full report is in the `visual-report` artifact of [this run](%s).\n\n' "$RUN_URL"
   while read -r project name; do
     [ -n "$name" ] || continue
-    printf '<details><summary><code>%s / %s</code></summary>\n\n' "$project" "$name"
+    diff=""
+    if [ -f "$tree/$dest/$project/$name-diff.png" ]; then
+      diff=$(printf ' · <a href="%s/%s/%s-diff.png">View diff</a>' "$raw" "$project" "$name")
+    fi
+    printf '<details><summary><code>%s / %s</code>%s</summary>\n\n' "$project" "$name" "$diff"
     printf '| Before | After |\n| --- | --- |\n'
     printf '| %s | %s |\n\n</details>\n\n' \
       "$(img "$project/$name-before.png")" "$(img "$project/$name-after.png")"
