@@ -71,8 +71,19 @@ class TestCsrfFailure:
             client.post(login_url(), credentials(user, stale))
         assert our_messages(caplog) == [
             "Sign-in CSRF failure: reason='CSRF token from POST incorrect.' "
-            "authenticated=True url_name=account_login origin=absent"
+            "authenticated=True url_name=account_login origin=absent "
+            "request_id=none"
         ]
+
+    def test_the_failure_is_logged_with_the_heroku_request_id(self, user, caplog):
+        client, stale = stale_tab(user)
+        with caplog.at_level(logging.WARNING, logger="squarelet.core.views"):
+            client.post(
+                login_url(),
+                credentials(user, stale),
+                HTTP_X_REQUEST_ID="9b1f6e2e-example",
+            )
+        assert "request_id=9b1f6e2e-example" in caplog.text
 
     def test_a_stale_mfa_step_is_logged(self, caplog):
         client = Client(enforce_csrf_checks=True)

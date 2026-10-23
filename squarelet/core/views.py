@@ -121,11 +121,14 @@ def csrf_failure(request, reason=""):
     if url_name in SIGN_IN_URL_NAMES:
         origin = request.META.get("HTTP_ORIGIN")
         same_origin = origin == f"{request.scheme}://{request.get_host()}"
+        request_id = request.META.get("HTTP_X_REQUEST_ID", "none")
         logger.warning(
-            "Sign-in CSRF failure: reason=%r authenticated=%s url_name=%s origin=%s",
+            "Sign-in CSRF failure: reason=%r authenticated=%s url_name=%s "
+            "origin=%s request_id=%s",
             reason,
             request.user.is_authenticated,
             url_name,
             "absent" if origin is None else ("same" if same_origin else "cross"),
+            request_id,
         )
     return csrf.csrf_failure(request, reason=reason)
