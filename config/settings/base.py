@@ -181,6 +181,8 @@ MIDDLEWARE = [
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#csrf-trusted-origins
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+# https://docs.djangoproject.com/en/dev/ref/settings/#csrf-failure-view
+CSRF_FAILURE_VIEW = "squarelet.core.views.csrf_failure"
 
 # STATIC
 # ------------------------------------------------------------------------------

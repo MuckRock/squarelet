@@ -1,11 +1,21 @@
 # Django
 from django.shortcuts import render
 from django.urls import reverse
+from django.views import csrf
 from django.views.generic.base import RedirectView, TemplateView
+
+# Standard Library
+import logging
 
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.organizations.models import Plan
+
+logger = logging.getLogger(__name__)
+
+# The forms a user submits to sign in; a stale token on one of these is
+# almost always an old tab or a double submit, not an attack.
+SIGN_IN_URL_NAMES = {"account_login", "account_signup", "mfa_authenticate"}
 
 
 class HomeView(RedirectView):
@@ -102,3 +112,23 @@ def page_not_found(request, exception, template_name="404.html"):
     if isinstance(exception, ContextHttp404):
         context.update(exception.context)
     return render(request, template_name, context, status=404)
+
+
+def csrf_failure(request, reason=""):
+    """Log a CSRF failure on a sign-in form, then return Django's default 403."""
+    match = request.resolver_match
+    url_name = match.url_name if match else None
+    if url_name in SIGN_IN_URL_NAMES:
+        origin = request.META.get("HTTP_ORIGIN")
+        same_origin = origin == f"{request.scheme}://{request.get_host()}"
+        request_id = request.META.get("HTTP_X_REQUEST_ID", "none")
+        logger.warning(
+            "Sign-in CSRF failure: reason=%r authenticated=%s url_name=%s "
+            "origin=%s request_id=%s",
+            reason,
+            request.user.is_authenticated,
+            url_name,
+            "absent" if origin is None else ("same" if same_origin else "cross"),
+            request_id,
+        )
+    return csrf.csrf_failure(request, reason=reason)

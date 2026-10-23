@@ -23,7 +23,7 @@
       {{form.code.errors}}
       {{form.non_field_errors}}
     </div>
-    <form class="flex gap-1 align-end" method="post" action="{{action_url}}">
+    <form class="flex gap-1 align-end" id="mfa_authenticate_form" method="post" action="{{action_url}}">
         {% csrf_token %}
         <label class="login text field">
           {% trans 'Enter Code' %}
