@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { initLoginForm } from "./login_form";
 
 function render() {
@@ -19,6 +19,10 @@ function submit(form: HTMLFormElement) {
 }
 
 describe("login form", () => {
+  afterEach(() => {
+    document.cookie = "csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
+  });
+
   it("lets the first submit through and disables the button", () => {
     const { form, button } = render();
     expect(submit(form).defaultPrevented).toBe(false);
@@ -29,6 +33,32 @@ describe("login form", () => {
     const { form } = render();
     submit(form);
     expect(submit(form).defaultPrevented).toBe(true);
+  });
+
+  it("reloads instead of submitting when another tab rotated the token", () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { reload });
+    document.cookie = "csrftoken=abc";
+    const { form } = render();
+    document.cookie = "csrftoken=xyz";
+    expect(submit(form).defaultPrevented).toBe(true);
+    expect(reload).toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("reloads a stale tab as soon as it becomes visible again", () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { reload });
+    document.cookie = "csrftoken=abc";
+    render();
+    document.cookie = "csrftoken=xyz";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(reload).toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it("reloads a page restored from the back-forward cache", () => {
