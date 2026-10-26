@@ -10,6 +10,7 @@ import pytest
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.core.views import SelectPlanView, page_not_found
+from squarelet.organizations.models import Plan
 
 
 def _request(rf, user=None):
@@ -89,15 +90,25 @@ class TestSelectPlan(ViewTestMixin):
     url = "/selectplan/"
 
     @pytest.fixture
-    def essential(self, plan_factory, plan_price_factory):
+    def essential(self, plan_price_factory):
         """The legacy annual row the page links, priced on its canonical tier."""
-        groups_only = {"wix": True, "for_individuals": False, "for_groups": True}
-        plan_price_factory(
-            plan=plan_factory(name="Sunlight Essential", **groups_only),
-            interval="annual",
-            amount=100_000,
+        # Keyed on slug: the migrations seed these rows on a fresh database.
+        groups_only = {
+            "public": True,
+            "wix": True,
+            "for_individuals": False,
+            "for_groups": True,
+        }
+        tier, _ = Plan.objects.update_or_create(
+            slug="sunlight-essential",
+            defaults={"name": "Sunlight Essential", **groups_only},
         )
-        return plan_factory(name="Sunlight Essential Annual", **groups_only)
+        plan_price_factory(plan=tier, interval="annual", amount=100_000)
+        annual, _ = Plan.objects.update_or_create(
+            slug="sunlight-essential-annual",
+            defaults={"name": "Sunlight Essential Annual", **groups_only},
+        )
+        return annual
 
     def tier(self, response, name="Essential"):
         return next(
