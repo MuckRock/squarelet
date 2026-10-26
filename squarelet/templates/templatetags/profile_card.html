@@ -41,10 +41,10 @@
       <ul class="profile-services">
         {% for line in service_lines %}
           <li class="profile-service">
-            <span class="profile-service-usage">
+            {% if line.url %}<a class="profile-service-usage" href="{{ line.url }}">{% else %}<span class="profile-service-usage">{% endif %}
               <img class="profile-service-icon" src="{{ line.service.icon.url }}" alt="{{ line.service.name }}" title="{{ line.service.name }}" />
               {{ line.label }}
-            </span>
+            {% if line.url %}</a>{% else %}</span>{% endif %}
             {% if line.last_at %}
               <span class="profile-caption">
                 {{ line.last_label }}
