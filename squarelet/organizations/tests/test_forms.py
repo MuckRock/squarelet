@@ -12,6 +12,42 @@ from squarelet.organizations.models import ProfileChangeRequest
 class TestProfileChangeRequestForm:
     """Test ProfileChangeRequestForm"""
 
+    def test_a_slug_taken_by_another_organization_is_rejected(
+        self, organization_factory, user_factory, rf
+    ):
+        """A slug another organization holds fails validation"""
+        organization_factory(slug="taken-slug")
+        org = organization_factory(slug="original-slug")
+        user = user_factory(is_staff=True)
+        request = rf.post("/")
+        request.user = user
+
+        form = ProfileChangeRequestForm(
+            data={"slug": "taken-slug"},
+            instance=ProfileChangeRequest(organization=org, user=user),
+            request=request,
+        )
+
+        assert not form.is_valid()
+        assert "slug" in form.errors
+
+    def test_keeping_the_current_slug_is_not_a_collision(
+        self, organization_factory, user_factory, rf
+    ):
+        """An organization's own slug is not treated as taken"""
+        org = organization_factory(name="Original Name", slug="original-slug")
+        user = user_factory(is_staff=True)
+        request = rf.post("/")
+        request.user = user
+
+        form = ProfileChangeRequestForm(
+            data={"name": "New Name", "slug": "original-slug"},
+            instance=ProfileChangeRequest(organization=org, user=user),
+            request=request,
+        )
+
+        assert form.is_valid(), form.errors
+
     def test_unchanged_fields_are_cleared(self, organization_factory, user_factory, rf):
         """Test that fields with unchanged values are cleared"""
         org = organization_factory(

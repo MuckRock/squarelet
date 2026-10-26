@@ -113,6 +113,20 @@ class RequestProfileChange(OrganizationPermissionMixin, CreateView):
                     description=f"Changed fields: {', '.join(changed_fields)}",
                 )
 
+            note = profile_change_request.explanation or "Submitted by staff"
+            profile_change_request.accept(note=note)
+            new_action(
+                actor=self.request.user,
+                verb="accepted profile change request",
+                action_object=profile_change_request,
+                target=profile_change_request.organization,
+                description=note,
+            )
+            messages.success(self.request, _("Your profile changes have been applied."))
+            return redirect(
+                "organizations:update", slug=profile_change_request.organization.slug
+            )
+
         messages.success(
             self.request,
             _(

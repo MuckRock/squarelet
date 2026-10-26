@@ -1207,6 +1207,59 @@ class TestRequestProfileChange(ViewTestMixin):
         assert action.public is False
         assert "name" in action.description
 
+    def test_a_staff_change_is_applied_without_a_ticket(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Staff changes skip review and Zendesk but leave an accepted record"""
+        mock_ticket = mocker.patch(
+            "squarelet.organizations.models.profile_change_request"
+            ".create_zendesk_ticket"
+        )
+        staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "change_organization")
+        organization = organization_factory(name="Old Name")
+
+        response = self.call_view(
+            rf, staff_member, {"name": "New Name"}, slug=organization.slug
+        )
+        assert response.status_code == 302
+
+        organization.refresh_from_db()
+        assert organization.name == "New Name"
+        change = organization.profile_change_requests.get()
+        assert change.status == "accepted"
+        assert change.previous["name"] == "Old Name"
+        assert change.ticket_id is None
+        mock_ticket.assert_not_called()
+        assert Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="accepted profile change request",
+        ).exists()
+
+    def test_a_non_staff_change_waits_for_review(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Non-staff changes stay pending and open a Zendesk ticket"""
+        mock_ticket = mocker.patch(
+            "squarelet.organizations.models.profile_change_request"
+            ".create_zendesk_ticket",
+            return_value=None,
+        )
+        regular_admin = user_factory(is_staff=False)
+        organization = organization_factory(name="Old Name", admins=[regular_admin])
+
+        self.call_view(
+            rf,
+            regular_admin,
+            {"name": "New Name", "explanation": "Rebrand"},
+            slug=organization.slug,
+        )
+
+        organization.refresh_from_db()
+        assert organization.name == "Old Name"
+        assert organization.profile_change_requests.get().status == "pending"
+        mock_ticket.assert_called_once()
+
     def test_non_staff_submit_profile_change_does_not_create_action(
         self, rf, organization_factory, user_factory
     ):
