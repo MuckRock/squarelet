@@ -2,14 +2,15 @@
 
 {% if change.name %}- Display Name: {{ change.previous.name }} -> {{ change.name }}{% endif %}
 {% if change.slug %}- Slug: {{ change.previous.slug }} -> {{ change.slug }}{% endif %}
+{% if change.url %}- Add URL: {{ change.url }}{% endif %}
 {% if change.city %}- City: {{ change.previous.city }} -> {{ change.city }}{% endif %}
 {% if change.state %}- State: {{ change.previous.state }} -> {{ change.state }}{% endif %}
 {% if change.country %}- Country: {{ change.previous.country }} -> {{ change.country }}{% endif %}
-
+{% if change.explanation %}
 They provided the following explanation:
 
 > {{ change.explanation }}
-
+{% endif %}
 To approve this change, please follow this link:
 
 https://accounts.muckrock.com{% url 'organizations:update' slug=organization.slug %}
