@@ -93,7 +93,15 @@ class RequestProfileChange(OrganizationPermissionMixin, CreateView):
         profile_change_request = form.save(commit=False)
         profile_change_request.organization = self.get_organization()
         profile_change_request.user = self.request.user
-        profile_change_request.save()
+        auto_accept = self.request.user.has_perm(
+            "organizations.can_review_profile_changes",
+            profile_change_request.organization,
+        )
+        if auto_accept:
+            note = profile_change_request.explanation or "Submitted by a reviewer"
+            profile_change_request.accept(note=note)
+        else:
+            profile_change_request.save()
 
         # Log staff action when editing protected fields
         if self.request.user.is_staff:
@@ -113,8 +121,7 @@ class RequestProfileChange(OrganizationPermissionMixin, CreateView):
                     description=f"Changed fields: {', '.join(changed_fields)}",
                 )
 
-            note = profile_change_request.explanation or "Submitted by staff"
-            profile_change_request.accept(note=note)
+        if auto_accept:
             new_action(
                 actor=self.request.user,
                 verb="accepted profile change request",

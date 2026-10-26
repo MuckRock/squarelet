@@ -115,13 +115,17 @@ class ProfileChangeRequest(models.Model):
     def __str__(self):
         return f"Request: {self.organization} by {self.user}"
 
-    def save(self, *args, **kwargs):
+    def snapshot_previous(self):
+        """Record the organization's current values, unless already recorded."""
         if not self.previous:
             self.previous = {
                 field: getattr(self.organization, field) for field in self.FIELDS
             }
 
-        if not self.ticket_id and not self.user.is_staff:
+    def save(self, *args, **kwargs):
+        self.snapshot_previous()
+
+        if self.status == "pending" and not self.ticket_id:
             description = render_to_string(
                 "organizations/change_request.txt",
                 {"user": self.user, "organization": self.organization, "change": self},
@@ -141,6 +145,8 @@ class ProfileChangeRequest(models.Model):
             raise ValueError("Review note is required")
 
         with transaction.atomic():
+            # Must run before the organization is changed below.
+            self.snapshot_previous()
             self.status = "accepted"
             self.internal_note = note
             for field in self.FIELDS:

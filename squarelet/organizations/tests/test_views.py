@@ -1207,20 +1207,23 @@ class TestRequestProfileChange(ViewTestMixin):
         assert action.public is False
         assert "name" in action.description
 
-    def test_a_staff_change_is_applied_without_a_ticket(
+    def test_a_reviewers_change_is_applied_without_a_ticket(
         self, rf, organization_factory, user_factory, mocker
     ):
-        """Staff changes skip review and Zendesk but leave an accepted record"""
+        """Reviewers skip review and Zendesk but leave an accepted record"""
         mock_ticket = mocker.patch(
             "squarelet.organizations.models.profile_change_request"
             ".create_zendesk_ticket"
         )
-        staff_member = user_factory(is_staff=True)
-        staff_member = _assign_org_perm(staff_member, "change_organization")
-        organization = organization_factory(name="Old Name")
+        reviewer = user_factory(is_staff=False)
+        reviewer = _assign_org_perm(reviewer, "can_review_profile_changes")
+        organization = organization_factory(name="Old Name", admins=[reviewer])
 
         response = self.call_view(
-            rf, staff_member, {"name": "New Name"}, slug=organization.slug
+            rf,
+            reviewer,
+            {"name": "New Name", "explanation": "Rebrand"},
+            slug=organization.slug,
         )
         assert response.status_code == 302
 
@@ -1232,9 +1235,29 @@ class TestRequestProfileChange(ViewTestMixin):
         assert change.ticket_id is None
         mock_ticket.assert_not_called()
         assert Action.objects.filter(
-            actor_object_id=str(staff_member.pk),
+            actor_object_id=str(reviewer.pk),
             verb="accepted profile change request",
         ).exists()
+
+    def test_a_staff_change_without_review_permission_waits(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Staff without the review permission open a ticket and wait"""
+        mock_ticket = mocker.patch(
+            "squarelet.organizations.models.profile_change_request"
+            ".create_zendesk_ticket",
+            return_value=None,
+        )
+        staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "change_organization")
+        organization = organization_factory(name="Old Name")
+
+        self.call_view(rf, staff_member, {"name": "New Name"}, slug=organization.slug)
+
+        organization.refresh_from_db()
+        assert organization.name == "Old Name"
+        assert organization.profile_change_requests.get().status == "pending"
+        mock_ticket.assert_called_once()
 
     def test_a_non_staff_change_waits_for_review(
         self, rf, organization_factory, user_factory, mocker
