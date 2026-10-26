@@ -11,6 +11,7 @@ from squarelet.organizations.management.commands.consolidate_stripe_products imp
     Command,
 )
 from squarelet.organizations.models import PlanPrice
+from squarelet.organizations.plan_mapping import COHORT_SLUG, LEGACY_PLAN_MAP
 
 
 @pytest.mark.django_db()
@@ -46,3 +47,18 @@ class TestTheMatrix:
         }
 
         assert cohort["monthly"] * 12 == cohort["annual"]
+
+
+def test_every_mapped_target_has_a_price():
+    """The backfill needs a price for every target, or production stops on it."""
+    priced = {
+        (slug, interval, label, code)
+        for slug, interval, label, code, _amount in PRICE_MATRIX
+    }
+    missing = {
+        target
+        for (slug, _billing), target in LEGACY_PLAN_MAP.items()
+        if slug != COHORT_SLUG
+    } - priced
+
+    assert not missing

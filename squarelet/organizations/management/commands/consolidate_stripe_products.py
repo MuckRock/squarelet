@@ -45,6 +45,7 @@ PRICE_MATRIX = [
     ("sunlight-enterprise", "monthly", "standard", "", 275_000),
     ("sunlight-enterprise", "annual", "standard", "", 3_200_000),
     ("sunlight-enterprise", "annual", "comped", "", 0),
+    ("sunlight-essential", "annual", "comped", "", 0),
     ("scoutpost-pro", "monthly", "standard", "", 1_000),
     ("scoutpost-team", "monthly", "standard", "", 5_000),
     ("muckrock-request-pack", "monthly", "standard", "", 1_000),

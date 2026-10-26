@@ -179,6 +179,27 @@ class TestBillingDecidesTheLabel:
 
 @pytest.mark.django_db()
 @pytest.mark.usefixtures("targets")
+class TestAnExtendedSunlightBasicLine:
+    """Staff extended a Sunlight Basic subscription without billing it."""
+
+    def test_it_becomes_a_sunlight_essential_comp(self, actor):
+        item = line("sunlight-basic-annual", billing=False)
+
+        run(actor=actor)
+
+        item.refresh_from_db()
+        price = item.plan_price
+        assert (price.plan.slug, price.interval, price.label, price.code) == (
+            "sunlight-essential",
+            "annual",
+            "comped",
+            "",
+        )
+        assert item.subscription.kind == "free"
+
+
+@pytest.mark.django_db()
+@pytest.mark.usefixtures("targets")
 class TestACompedLineIsFree:
     """A $0 price belongs on the organization's free subscription."""
 

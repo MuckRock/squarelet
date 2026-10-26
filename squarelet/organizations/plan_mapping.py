@@ -124,6 +124,13 @@ LEGACY_PLAN_MAP = {
         "standard",
         "legacy-basic",
     ),
+    # A Sunlight Basic subscription staff extended without billing it.
+    ("sunlight-basic-annual", False): (
+        "sunlight-essential",
+        "annual",
+        "comped",
+        "",
+    ),
 }
 
 # Plans the migration leaves on their legacy rows.
