@@ -28,6 +28,7 @@ import time
 
 # Third Party
 import stripe
+from allauth.account.adapter import get_adapter
 
 # Squarelet
 from squarelet.core.utils import format_stripe_error, new_action
@@ -969,11 +970,17 @@ class BasePlanCheckoutRedirect(SubscriptionObjectMixin, RedirectView):
         organization = self.get_organization()
         plan = get_checkout_plan(organization, self.kwargs["plan_slug"])
         interval = plan.default_interval(organization.nonprofit)
+        if interval is None and plan.is_enterprise:
+            interval = "annual"
         if interval is None:
             raise Http404("This plan is not available")
-        return self.reverse_subject(
+        url = self.reverse_subject(
             "plan-checkout", plan_slug=plan.slug, interval=interval
         )
+        # Checkout reads purchase_redirect from its own URL.
+        if self.request.META.get("QUERY_STRING"):
+            url = f"{url}?{self.request.META['QUERY_STRING']}"
+        return url
 
 
 class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
@@ -990,15 +997,29 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
     def get_prices(self, plan, interval):
         return plan.checkout_prices(interval, self.object.nonprofit)
 
-    def get_price(self, plan):
-        """The price this page sells, or 404."""
+    def get_interval(self):
         interval = self.kwargs["interval"]
         if interval not in Plan.CHECKOUT_INTERVALS:
             raise Http404("No such billing interval")
+        return interval
+
+    def get_price(self, plan):
+        """The price this page sells, or 404."""
+        interval = self.get_interval()
         price, list_price = self.get_prices(plan, interval)
         if price is None:
             raise Http404("This plan is not sold at that interval")
         return price, list_price
+
+    def get_purchase_redirect(self):
+        """The URL another app asked to send the buyer back to, or "" if unsafe."""
+        url = self.request.GET.get("purchase_redirect", "").strip()
+        return url if url and get_adapter(self.request).is_safe_url(url) else ""
+
+    def purchase_query(self):
+        """The query string carrying `purchase_redirect` to another checkout link."""
+        url = self.get_purchase_redirect()
+        return f"?{urlencode({'purchase_redirect': url})}" if url else ""
 
     def is_held(self, plan):
         held = self.object.line_holding(plan)
@@ -1014,7 +1035,8 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             return []
 
         user = self.request.user
-        choices = [(self.object, self.request.path)]
+        query = self.purchase_query()
+        choices = [(self.object, self.request.path + query)]
         admin_orgs = (
             user.organizations.filter(memberships__admin=True)
             .exclude(pk=self.object.pk)
@@ -1044,13 +1066,19 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
                         "interval": interval,
                     },
                 )
-            choices.append((organization, url))
+            choices.append((organization, url + query))
         return choices
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         organization = self.object
         plan = self.get_plan()
+        if plan.is_enterprise:
+            self.get_interval()
+            context.update(
+                plan=plan, benefits=plan.get_benefits(), held=self.is_held(plan)
+            )
+            return context
         price, list_price = self.get_price(plan)
         context["organization_choices"] = self.get_organization_choices(
             plan, price.interval
@@ -1058,8 +1086,11 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
 
         other_interval = next(i for i in Plan.CHECKOUT_INTERVALS if i != price.interval)
         if self.get_prices(plan, other_interval)[0] is not None:
-            context["other_interval_url"] = self.reverse_subject(
-                "plan-checkout", plan_slug=plan.slug, interval=other_interval
+            context["other_interval_url"] = (
+                self.reverse_subject(
+                    "plan-checkout", plan_slug=plan.slug, interval=other_interval
+                )
+                + self.purchase_query()
             )
 
         held = self.is_held(plan)
@@ -1112,8 +1143,12 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         # pylint: disable=too-many-return-statements
         self.object = organization = self.get_object()
         plan = self.get_plan()
+        if plan.is_enterprise:
+            return self._error(_("Contact us to subscribe to this plan."))
         price, _list_price = self.get_price(plan)
-        redirect_url = self.reverse_subject("subscriptions")
+        redirect_url = self.get_purchase_redirect() or self.reverse_subject(
+            "subscriptions"
+        )
 
         if self.is_held(plan):
             return self._error(_("You are already subscribed to this plan."))

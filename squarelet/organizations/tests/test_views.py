@@ -8,6 +8,7 @@ from django.db import connection
 from django.http.response import Http404
 from django.test.utils import CaptureQueriesContext, override_settings
 from django.utils import timezone
+from django.utils.http import urlencode
 
 # Standard Library
 import json
@@ -2030,22 +2031,27 @@ class TestPlans(ViewTestMixin):
         rf,
         user_factory,
         organization_factory,
-        plan_factory,
         plan_price_factory,
         subscription_item_factory,
     ):
         admin = user_factory()
         organization = organization_factory(admins=[admin])
-        # A migration seeds this row without a service, and the factory's
-        # get-or-create on name ignores one passed in.
-        tier = plan_factory(name="Organization")
-        tier.service = ServiceFactory()
-        tier.save()
-        plan_price_factory(plan=tier)
-        subscription_item_factory(
-            subscription__organization=organization,
-            plan=plan_factory(name="Premium Org Comp"),
+        # Keyed on slug: the migrations seed these rows on a fresh database.
+        groups_only = {"public": True, "for_individuals": False, "for_groups": True}
+        tier, _ = Plan.objects.update_or_create(
+            slug="organization",
+            defaults={
+                "name": "Organization",
+                "service": ServiceFactory(),
+                **groups_only,
+            },
         )
+        plan_price_factory(plan=tier)
+        legacy, _ = Plan.objects.update_or_create(
+            slug="organization-annual",
+            defaults={"name": "Organization Annual", "service": None, **groups_only},
+        )
+        subscription_item_factory(subscription__organization=organization, plan=legacy)
 
         response = self.call_view(rf, admin, slug=organization.slug)
 
@@ -2061,6 +2067,22 @@ class TestPlans(ViewTestMixin):
 
         with pytest.raises(PermissionDenied):
             self.call_view(rf, member, slug=organization.slug)
+
+
+def sunlight_enterprise(**fields):
+    """The enterprise plan, keyed on slug as the migrations seed it on a fresh db."""
+    plan, _ = Plan.objects.update_or_create(
+        slug="sunlight-enterprise",
+        defaults={
+            "name": "Sunlight Enterprise",
+            "public": True,
+            "wix": True,
+            "for_individuals": False,
+            "for_groups": True,
+            **fields,
+        },
+    )
+    return plan
 
 
 @pytest.mark.django_db()
@@ -2093,15 +2115,138 @@ class TestPlanCheckout(ViewTestMixin):
             interval=interval,
         )
 
-    def subscribe(self, rf, admin, organization, plan, interval="monthly"):
+    def subscribe(  # pylint: disable=too-many-arguments
+        self, rf, admin, organization, plan, interval="monthly", params=None
+    ):
         return self.call_view(
             rf,
             admin,
             {},
+            params,
             slug=organization.slug,
             plan_slug=plan.slug,
             interval=interval,
         )
+
+    def test_an_enterprise_plan_offers_contact_in_place_of_checkout(
+        self, rf, admin, organization, plan_price_factory
+    ):
+        plan = sunlight_enterprise()
+        plan_price_factory(plan=plan, interval="annual", amount=1_000_000)
+
+        page = self.view_page(rf, admin, organization, plan, "annual").render()
+
+        content = page.content.decode()
+        assert 'id="subscribe-form"' not in content
+        assert 'id="card-form"' not in content
+        assert 'href="https://calendar.app.google/fAWZF635MY89Sp5J9"' in content
+        assert 'href="https://sunlightresearch.net/launch"' in content
+
+    def test_an_enterprise_plan_shows_its_description_as_markdown(
+        self, rf, admin, organization
+    ):
+        plan = sunlight_enterprise(description="Built for **newsrooms**.")
+
+        page = self.view_page(rf, admin, organization, plan, "annual").render()
+
+        assert b"Built for <strong>newsrooms</strong>." in page.content
+
+    def test_an_unpriced_enterprise_plan_still_has_a_page(
+        self, rf, admin, organization
+    ):
+        plan = sunlight_enterprise()
+
+        response = self.view_page(rf, admin, organization, plan, "annual")
+
+        assert response.status_code == 200
+
+    def test_an_enterprise_plan_cannot_be_bought_here(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        plan = sunlight_enterprise()
+        plan_price_factory(plan=plan, interval="annual", amount=1_000_000)
+
+        response = self.subscribe(rf, admin, organization, plan, "annual")
+
+        assert response.status_code == 302
+        add_subscription.assert_not_called()
+
+    def test_subscribing_returns_the_buyer_to_the_app_that_sent_them(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        back = "https://dev.muckrock.com/accounts/"
+
+        response = self.subscribe(
+            rf, admin, organization, plan, params={"purchase_redirect": back}
+        )
+
+        add_subscription.assert_called_once()
+        assert response.url == back
+
+    def test_a_purchase_redirect_to_an_unknown_host_is_ignored(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        response = self.subscribe(
+            rf,
+            admin,
+            organization,
+            plan,
+            params={"purchase_redirect": "https://evil.example.com/"},
+        )
+
+        add_subscription.assert_called_once()
+        assert response.url == f"/organizations/{organization.slug}/subscriptions/"
+
+    def test_a_card_needing_authentication_returns_to_the_app_afterwards(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        add_subscription.side_effect = PaymentActionRequired("pi_1_secret_2", "pi_1")
+        back = "https://dev.muckrock.com/accounts/"
+        url = self.url.format(
+            slug=organization.slug, plan_slug=plan.slug, interval="monthly"
+        )
+        request = rf.post(
+            f"{url}?{urlencode({'purchase_redirect': back})}",
+            {},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        request.user = admin
+        # pylint: disable=protected-access
+        request._messages = MagicMock()
+        request.session = MagicMock()
+
+        response = self.view.as_view()(
+            request, slug=organization.slug, plan_slug=plan.slug, interval="monthly"
+        )
+
+        assert response.status_code == 402
+        assert json.loads(response.content)["redirect"] == back
+
+    def test_switching_interval_or_organization_keeps_the_purchase_redirect(
+        self, rf, admin, organization, organization_factory, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+        organization_factory(admins=[admin], name="Other")
+        query = urlencode({"purchase_redirect": "https://dev.muckrock.com/accounts/"})
+
+        response = self.call_view(
+            rf,
+            admin,
+            params={"purchase_redirect": "https://dev.muckrock.com/accounts/"},
+            slug=organization.slug,
+            plan_slug=plan.slug,
+            interval="monthly",
+        )
+
+        assert response.context_data["other_interval_url"].endswith(f"?{query}")
+        urls = [url for _org, url in response.context_data["organization_choices"]]
+        assert len(urls) > 1
+        assert all(url.endswith(f"?{query}") for url in urls)
 
     def test_a_nonprofit_is_quoted_its_rate_beside_the_struck_list_price(
         self, rf, admin, organization, plan_price_factory
@@ -2379,6 +2524,34 @@ class TestPlanCheckoutRedirect(ViewTestMixin):
         assert response.url == (
             f"/organizations/{organization.slug}/plans/{plan.slug}/annual/"
         )
+
+    def test_it_carries_the_purchase_redirect_to_checkout(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        params = {"purchase_redirect": "https://dev.muckrock.com/accounts/"}
+
+        response = self.call_view(
+            rf, admin, params=params, slug=organization.slug, plan_slug=plan.slug
+        )
+
+        assert response.url == (
+            f"/organizations/{organization.slug}/plans/{plan.slug}/monthly/"
+            f"?{urlencode(params)}"
+        )
+
+    def test_an_unpriced_enterprise_plan_goes_to_its_page(
+        self, rf, user_factory, organization_factory
+    ):
+        plan = sunlight_enterprise()
+
+        _organization, response = self.visit(
+            rf, user_factory, organization_factory, plan
+        )
+
+        assert response.url.endswith("/plans/sunlight-enterprise/annual/")
 
     def test_it_goes_to_monthly_otherwise(
         self, rf, user_factory, organization_factory, plan_price_factory
