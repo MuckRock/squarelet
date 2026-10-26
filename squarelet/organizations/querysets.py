@@ -609,6 +609,32 @@ class SubscriptionItemQuerySet(models.QuerySet):
         """Lines that cost something: the SQL form of `not is_free`."""
         return self.filter(plan_price__amount__gt=0)
 
+    @staticmethod
+    def joining_subscription(organization, plan_price, collection_method):
+        """The live Stripe subscription `start` would add `plan_price` to, or None.
+
+        None means `start` opens a new subscription on its own billing cycle.
+        """
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import Subscription
+
+        kind = Subscription.kind_for(plan_price.plan, plan_price)
+        if kind != "renewing":
+            return None
+        return (
+            Subscription.objects.filter(
+                organization=organization,
+                interval=plan_price.interval,
+                collection_method=collection_method,
+                kind=kind,
+                cancelled=False,
+            )
+            .exclude(subscription_id="")
+            .first()
+        )
+
     def due_on_start(self, organization, plan_price):
         """What `start` charges a card for `plan_price` at once, in cents.
 
@@ -627,16 +653,8 @@ class SubscriptionItemQuerySet(models.QuerySet):
             return plan_price.amount
 
         # Must pick the subscription `start` would.
-        joining = (
-            Subscription.objects.filter(
-                organization=organization,
-                interval=plan_price.interval,
-                collection_method="charge_automatically",
-                kind=kind,
-                cancelled=False,
-            )
-            .exclude(subscription_id="")
-            .first()
+        joining = self.joining_subscription(
+            organization, plan_price, "charge_automatically"
         )
         anchor = None
         if (
