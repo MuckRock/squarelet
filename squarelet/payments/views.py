@@ -43,8 +43,6 @@ from squarelet.payments.forms import (
     UpdateReceiptEmailForm,
 )
 
-# pylint: disable=too-many-lines
-
 logger = logging.getLogger(__name__)
 
 
