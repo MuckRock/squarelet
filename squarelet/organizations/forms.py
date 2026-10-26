@@ -325,6 +325,13 @@ class ProfileChangeRequestForm(forms.ModelForm):
                     {"url": _("This URL is already associated with the organization.")}
                 )
 
+        # A taken slug would be silently suffixed on accept.
+        slug = cleaned_data.get("slug")
+        if slug and Organization.objects.filter(slug=slug).exists():
+            raise forms.ValidationError(
+                {"slug": _("This slug is already used by another organization.")}
+            )
+
         # At least one field must have changed
         if not changed_fields:
             raise forms.ValidationError(_("You must change at least one field."))

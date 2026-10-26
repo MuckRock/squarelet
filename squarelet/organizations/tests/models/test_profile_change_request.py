@@ -158,6 +158,39 @@ class TestProfileChangeRequest:
         assert request.organization.name == original_org_name
 
     @pytest.mark.django_db()
+    def test_the_ticket_lists_a_url_change(
+        self, profile_change_request_factory, mocker
+    ):
+        """A URL-only request still shows the change in the ticket"""
+        mock_ticket = mocker.patch(
+            "squarelet.organizations.models.profile_change_request"
+            ".create_zendesk_ticket",
+            return_value=None,
+        )
+        profile_change_request_factory(
+            url="https://example.com", explanation="Our new site"
+        )
+
+        description = mock_ticket.call_args.kwargs["description"]
+        assert "Add URL: https://example.com" in description
+
+    @pytest.mark.django_db()
+    def test_the_ticket_omits_a_blank_explanation(
+        self, profile_change_request_factory, mocker
+    ):
+        """No explanation heading appears when none was given"""
+        mock_ticket = mocker.patch(
+            "squarelet.organizations.models.profile_change_request"
+            ".create_zendesk_ticket",
+            return_value=None,
+        )
+        profile_change_request_factory(name="New Name", explanation="")
+
+        description = mock_ticket.call_args.kwargs["description"]
+        assert "New Name" in description
+        assert "explanation" not in description
+
+    @pytest.mark.django_db()
     def test_default_status_is_pending(self, profile_change_request_factory):
         """Test that new requests default to pending status"""
         request = profile_change_request_factory()
