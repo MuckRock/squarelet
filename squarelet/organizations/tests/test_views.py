@@ -1946,12 +1946,15 @@ class TestPlans(ViewTestMixin):
     ):
         admin = user_factory()
         organization = organization_factory(admins=[admin])
-        tier = plan_price_factory(
-            plan__name="Professional", plan__service=ServiceFactory()
-        ).plan
+        # A migration seeds this row without a service, and the factory's
+        # get-or-create on name ignores one passed in.
+        tier = plan_factory(name="Organization")
+        tier.service = ServiceFactory()
+        tier.save()
+        plan_price_factory(plan=tier)
         subscription_item_factory(
             subscription__organization=organization,
-            plan=plan_factory(name="Professional Pre Paid"),
+            plan=plan_factory(name="Premium Org Comp"),
         )
 
         response = self.call_view(rf, admin, slug=organization.slug)
