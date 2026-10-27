@@ -363,7 +363,7 @@ packaging==24.1
     #   pip-audit
     #   pip-requirements-parser
     #   pytest
-    #   pytest-sugar
+    #   pytest-factoryboy
     #   redis
     #   sphinx
     #   wheel
@@ -487,13 +487,13 @@ pytest==9.0.3
     #   pytest-sugar
 pytest-django==4.5.2
     # via -r requirements/local.in
-pytest-factoryboy==2.1.0
+pytest-factoryboy==2.8.1
     # via -r requirements/local.in
 pytest-freezegun==0.4.2
     # via -r requirements/local.in
 pytest-mock==3.6.1
     # via -r requirements/local.in
-pytest-sugar==0.9.6
+pytest-sugar==1.1.1
     # via -r requirements/local.in
 python-dateutil==2.9.0.post0
     # via
@@ -589,7 +589,7 @@ stack-data==0.3.0
     #   ipython
 stripe==15.5.1
     # via -r requirements/base.txt
-termcolor==1.1.0
+termcolor==3.3.0
     # via pytest-sugar
 text-unidecode==1.3
     # via faker
@@ -617,6 +617,7 @@ traitlets==5.3.0
 typing-extensions==4.12.2
     # via
     #   -r requirements/base.txt
+    #   pytest-factoryboy
     #   stripe
 tzdata==2024.2
     # via

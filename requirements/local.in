@@ -17,5 +17,5 @@ pytest-django
 pytest-factoryboy
 pytest-freezegun
 pytest-mock
-pytest-sugar
+pytest-sugar>=1.0
 requests-mock
