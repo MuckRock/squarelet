@@ -15,16 +15,20 @@ import requests
 from squarelet.core.utils import requests_retry_session
 from squarelet.organizations.models.organization import Organization
 from squarelet.organizations.models.payment import Plan
+from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP
 
 logger = logging.getLogger(__name__)
 
 SKIP_SLUGS = {"sunlight-search"}
 
-# Cache of x_plan name -> id
-_PLAN_ID_CACHE = {}
-
 # Default page size for paginated search_read calls
 _PAGE_SIZE = 200
+
+# x_plan_tier slug -> id, and the reverse, loaded once per run
+_TIER_ID_CACHE = {}
+_TIER_SLUG_BY_ID = {}
+
+LINE_FIELDS = ["x_interval", "x_rate", "x_code", "x_renews_on", "x_cancelling"]
 
 # Client-stats fields synced to Odoo
 STAT_INT_FIELDS = {
@@ -104,6 +108,10 @@ def odoo_write(model, ids, vals):
     return _odoo_request(f"{model}/write", {"ids": ids, "vals": vals})
 
 
+def odoo_unlink(model, ids):
+    return _odoo_request(f"{model}/unlink", {"ids": ids})
+
+
 def log_org_note(odoo_id, body, dry_run=False):
     """Post an internal note to an org's Odoo chatter (mail.thread log)."""
     if dry_run:
@@ -162,79 +170,232 @@ def _normalize_stat(field, value):
     return value or False
 
 
-def _resolve_plan_id(name):
-    """Resolve a plan on Accounts to its Odoo x_plan id by name match.
-    Creation is handled up front by _ensure_all_plans, so this is
-    lookup-only. A missing plan means it wasn't in Accounts at the time
-    _ensure_all_plans was called"""
-    if name in _PLAN_ID_CACHE:
-        return _PLAN_ID_CACHE[name]
-    res = odoo_search("x_plan", [["x_name", "=", name]], ["id"])
-    pid = res[0]["id"] if res else None
-    if pid is None:
-        logger.warning("No Odoo plan match for Accounts plan: %s", name)
-    _PLAN_ID_CACHE[name] = pid
-    return pid
+# --- Plan lines -------------------------------------------------------------
 
 
-def _resolve_plan_ids(plans):
-    """Calls _resolve_plan_id but on a list of plans
-    Necessary for linting"""
-    plan_ids = []
-    for plan in plans:
-        pid = _resolve_plan_id(plan.name)
-        if pid is not None:
-            plan_ids.append(pid)
-    return plan_ids
+def _m2o_id(value):
+    """Odoo many2one value ([id, name], id, or False) -> id or False."""
+    if isinstance(value, (list, tuple)):
+        return value[0]
+    return value or False
 
 
-def _plan_note(plan_ids):
-    """Render Odoo plan ids as names for a note, via the run's name->id cache.
-    Omits any id not in the cache rather than raising, so a note can never
-    take down the sync."""
-    id_to_name = {pid: name for name, pid in _PLAN_ID_CACHE.items() if pid}
-    return ", ".join(id_to_name[pid] for pid in sorted(plan_ids) if pid in id_to_name)
+def _m2o_name(value):
+    """Odoo many2one value -> display name, or '' when absent."""
+    if isinstance(value, (list, tuple)):
+        return value[1]
+    return ""
 
 
-def _build_plan_vals(plan):
-    """Map a Plan from Accounts to the x_plan fields Odoo mirrors."""
-    return {
-        "x_name": plan.name,
-        "x_studio_slug": plan.slug,
-        "x_studio_base_price": plan.base_price,
-        "x_studio_price_per_user": plan.price_per_user,
-        "x_studio_annual": plan.annual,
-    }
+def _load_tiers():
+    """Load every Odoo tier so lines compare by slug, even for tiers not yet created."""
+    for tier in odoo_search_all("x_plan_tier", [], ["id", "x_slug"]):
+        _TIER_ID_CACHE[tier["x_slug"]] = tier["id"]
+        _TIER_SLUG_BY_ID[tier["id"]] = tier["x_slug"]
 
 
-def _resolve_or_create_plan(plan, dry_run):
-    """Return the Odoo x_plan id for an Accounts plan, creating it if
-    missing. Returns None if it can't be resolved (dry-run, or a failed
-    create)."""
-    res = odoo_search("x_plan", [["x_name", "=", plan.name]], ["id"])
-    if res:
-        return res[0]["id"]
-    if dry_run:
-        logger.info("[DRY RUN] Would create Odoo plan: %s", plan.name)
-        return None
-    result = odoo_create("x_plan", _build_plan_vals(plan))
+def _resolve_tier_id(tier_slug, fallback_name):
+    """Odoo x_plan_tier id for a canonical slug, creating the tier if missing."""
+    if tier_slug in _TIER_ID_CACHE:
+        return _TIER_ID_CACHE[tier_slug]
+    plan = Plan.objects.filter(slug=tier_slug).first()
+    name = plan.name if plan else fallback_name
+    result = odoo_create("x_plan_tier", {"x_name": name, "x_slug": tier_slug})
     if not result:
-        logger.error("Failed to create Odoo plan: %s", plan.name)
+        logger.error("Failed to create Odoo tier: %s", tier_slug)
         return None
-    logger.info("Created Odoo plan: %s (x_plan ID %s)", plan.name, result[0])
+    _TIER_ID_CACHE[tier_slug] = result[0]
+    _TIER_SLUG_BY_ID[result[0]] = tier_slug
+    logger.info("Created Odoo tier: %s (%s)", name, tier_slug)
     return result[0]
 
 
-def _ensure_all_plans(dry_run=False):
-    """Create an Odoo x_plan with full pricing data for any Accounts
-    plan that lacks one. Runs before sync so every plan resolves to a
-    real id and no plan silently drops out of an org's plan list."""
-    for plan in Plan.objects.all():
-        if plan.name not in _PLAN_ID_CACHE:
-            _PLAN_ID_CACHE[plan.name] = _resolve_or_create_plan(plan, dry_run)
+def _tier_for(plan, is_billing):
+    """(tier slug, interval, rate) for a legacy line with no PlanPrice yet."""
+    target = LEGACY_PLAN_MAP.get((plan.slug, is_billing))
+    if target is not None:
+        return target[0], target[1], target[2]
+    slug = plan.slug
+    if plan.free:
+        rate = "comped"
+    elif "nonprofit" in slug:
+        rate = "nonprofit"
+    else:
+        rate = "standard"
+    tier_slug = slug.replace("sunlight-nonprofit-", "sunlight-")
+    if tier_slug.endswith("-annual"):
+        tier_slug = tier_slug[: -len("-annual")]
+    interval = "annual" if plan.annual else "monthly"
+    return tier_slug, interval, rate
 
 
-def _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids):
+def _item_spec(item):
+    """Desired plan-line fields for one SubscriptionItem, with no source."""
+    subscription = item.subscription
+    if item.plan_price_id:
+        price = item.plan_price
+        tier_slug = price.plan.slug
+        tier_name = price.plan.name
+        interval = price.interval
+        rate = price.label
+        code = price.code
+    else:
+        tier_slug, interval, rate = _tier_for(
+            item.plan, bool(subscription.subscription_id)
+        )
+        tier_name = item.plan.name.split(" (")[0]
+        code = ""
+    renews_on = item.ends_on or subscription.next_date
+    return {
+        "tier_slug": tier_slug,
+        "tier_name": tier_name,
+        "x_source_id": False,
+        "x_interval": interval,
+        "x_rate": rate,
+        "x_code": code,
+        "x_renews_on": renews_on.isoformat() if renews_on else False,
+        # One-off subscriptions are flagged cancelled at purchase; only renewing ones can be cancelling
+        "x_cancelling": subscription.cancelled and subscription.kind != "one_off",
+        "wix": item.plan.wix,
+    }
+
+
+def _org_item_specs(org):
+    """Plan-line specs for every line on the org's own subscriptions, from the prefetch."""
+    specs = []
+    for subscription in org.subscriptions.all():
+        for item in subscription.items.all():
+            specs.append(_item_spec(item))
+    return specs
+
+
+def _spec_key(spec):
+    return (spec["tier_slug"], spec["x_source_id"])
+
+
+def _line_key(line):
+    return (
+        _TIER_SLUG_BY_ID.get(_m2o_id(line["x_tier_id"])),
+        _m2o_id(line["x_source_id"]),
+    )
+
+
+def _normalize_line_field(field, value):
+    """Normalize a plan-line value read from Odoo to compare against a spec."""
+    if field == "x_code":
+        return value or ""
+    if field == "x_cancelling":
+        return bool(value)
+    return value or False
+
+
+def _write_plan_line(partner_id, label, spec, line, dry_run):
+    """Create a missing plan line, or update one whose fields differ."""
+    vals = {}
+    for field in LINE_FIELDS:
+        if field == "x_renews_on" and spec[field] is False:
+            continue  # Accounts has no date (comped or free); keep the one set in Odoo
+        vals[field] = spec[field]
+    if line is None:
+        if dry_run:
+            logger.info(
+                "[DRY RUN] Would add plan line %s for %s: %s",
+                spec["tier_slug"],
+                label,
+                vals,
+            )
+            return
+        tier_id = _resolve_tier_id(spec["tier_slug"], spec["tier_name"])
+        if tier_id is None:
+            return
+        vals["x_partner_id"] = partner_id
+        vals["x_tier_id"] = tier_id
+        vals["x_source_id"] = spec["x_source_id"]
+        odoo_create("x_plan_line", vals)
+        logger.info("Added plan line %s for %s", spec["tier_slug"], label)
+        return
+    changes = {}
+    for field in vals:
+        current = _normalize_line_field(field, line.get(field))
+        if current != vals[field]:
+            changes[field] = (current, vals[field])
+    if not changes:
+        return
+    if dry_run:
+        logger.info(
+            "[DRY RUN] Would update plan line %s for %s: %s",
+            spec["tier_slug"],
+            label,
+            changes,
+        )
+        return
+    odoo_write("x_plan_line", [line["id"]], vals)
+    logger.info("Updated plan line %s for %s: %s", spec["tier_slug"], label, changes)
+
+
+def _sync_plan_lines(partner_id, label, specs, dry_run):
+    """Make a partner's plan lines match specs; returns tier names of removed lines."""
+    current = odoo_search_all(
+        "x_plan_line",
+        [["x_partner_id", "=", partner_id]],
+        ["id", "x_tier_id", "x_source_id"] + LINE_FIELDS,
+    )
+    current_by_key = {}
+    for line in current:
+        current_by_key[_line_key(line)] = line
+    desired_by_key = {}
+    for spec in specs:
+        desired_by_key[_spec_key(spec)] = spec
+
+    for key, spec in desired_by_key.items():
+        _write_plan_line(partner_id, label, spec, current_by_key.get(key), dry_run)
+
+    stale_ids = []
+    stale_names = []
+    for key, line in current_by_key.items():
+        if key not in desired_by_key:
+            stale_ids.append(line["id"])
+            stale_names.append(_m2o_name(line["x_tier_id"]) or str(key[0]))
+    if not stale_ids:
+        return []
+    if dry_run:
+        logger.info("[DRY RUN] Would remove plan lines for %s: %s", label, stale_names)
+    else:
+        odoo_unlink("x_plan_line", stale_ids)
+        logger.info("Removed plan lines for %s: %s", label, stale_names)
+    return stale_names
+
+
+def _line_names(partner_id):
+    """Tier names of a partner's current plan lines, for notes."""
+    names = []
+    for line in odoo_search_all(
+        "x_plan_line", [["x_partner_id", "=", partner_id]], ["x_tier_id"]
+    ):
+        names.append(_m2o_name(line["x_tier_id"]))
+    return names
+
+
+def _remove_member_lines(member_id, keys):
+    """Delete a member's plan lines that were copied from their org."""
+    current = odoo_search_all(
+        "x_plan_line",
+        [["x_partner_id", "=", member_id]],
+        ["id", "x_tier_id", "x_source_id"],
+    )
+    ids = []
+    for line in current:
+        if _line_key(line) in keys:
+            ids.append(line["id"])
+    if ids:
+        odoo_unlink("x_plan_line", ids)
+    return len(ids)
+
+
+# --- Orgs -------------------------------------------------------------------
+
+
+def _build_org_vals(org, sunlight_status, member_tag_ids):
     """Build the vals dict for a res.partner org record."""
     # Read the urls from the prefetch
     urls = [u.url for u in org.urls.all()]
@@ -249,9 +410,6 @@ def _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids):
         "x_studio_verified_journalist": org.verified_journalist,
         "is_company": True,
         "company_type": "company",
-        # (6, 0, ids) tells Odoo to set this field to exactly these plan
-        # ids, replacing whatever was linked before
-        "x_studio_plan_1": [(6, 0, odoo_plan_ids)],
     }
     if sunlight_status is not None:
         vals["x_studio_sunlight_status"] = sunlight_status
@@ -264,18 +422,12 @@ def _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids):
     return vals
 
 
-def _compute_org_plans_and_status(org, inherited_plan_ids):
-    """Return (odoo_plan_ids, sunlight_status) for an org.
-    Reads plans from the subscriptions__plans prefetch."""
-    plans = org.prefetched_plans()
-    has_sunlight = any(plan.wix for plan in plans)
-    own_plan_ids = _resolve_plan_ids(plans)
-    if inherited_plan_ids is not None:
-        odoo_plan_ids = sorted(set(own_plan_ids + inherited_plan_ids))
-    else:
-        odoo_plan_ids = sorted(set(own_plan_ids))
-    sunlight_status = "Confirmed" if has_sunlight else None
-    return odoo_plan_ids, sunlight_status
+def _sunlight_status(own_specs):
+    """'Confirmed' when the org's own lines include a Sunlight (wix) plan, else None."""
+    for spec in own_specs:
+        if spec["wix"]:
+            return "Confirmed"
+    return None
 
 
 def _reconcile_category_id(
@@ -299,7 +451,7 @@ def _reconcile_category_id(
 
 
 def _diff_and_update_org(
-    org, odoo_id, vals, odoo_plan_ids, sunlight_status, member_tag_ids, dry_run
+    org, odoo_id, vals, sunlight_status, member_tag_ids, dry_run
 ):  # pylint:disable=too-many-positional-arguments
     """Compare current Odoo state to desired vals and write if changed."""
     current = odoo_search(
@@ -315,7 +467,6 @@ def _diff_and_update_org(
             "website",
             "x_studio_verified_journalist",
             "x_studio_sunlight_status",
-            "x_studio_plan_1",
             "is_company",
             "company_type",
             "x_studio_about",
@@ -323,13 +474,8 @@ def _diff_and_update_org(
         ]
         + STAT_FIELDS,
     )[0]
-    # Plans present in Odoo but not in the new desired set — a partial removal
-    # (org kept at least one plan). A full lapse is caught by the sweep instead,
-    # since such an org falls out of the sync queryset entirely.
-    removed_plan_ids = set(current.get("x_studio_plan_1") or []) - set(odoo_plan_ids)
 
     current_normalized = {k: v for k, v in current.items() if k != "id"}
-    current_normalized["x_studio_plan_1"] = sorted(current.get("x_studio_plan_1") or [])
     current_normalized["category_id"] = sorted(current.get("category_id") or [])
     for f in STAT_FIELDS:
         current_normalized[f] = _normalize_stat(f, current.get(f))
@@ -337,12 +483,9 @@ def _diff_and_update_org(
         if current_normalized[k] is False and k in vals and vals[k] == "":
             current_normalized[k] = ""
 
-    vals_normalized = {
-        k: v for k, v in vals.items() if k not in ("x_studio_plan_1", "category_id")
-    }
+    vals_normalized = {k: v for k, v in vals.items() if k != "category_id"}
     if sunlight_status is None:
         current_normalized.pop("x_studio_sunlight_status", None)
-    vals_normalized["x_studio_plan_1"] = sorted(odoo_plan_ids)
 
     _reconcile_category_id(current, current_normalized, vals_normalized, member_tag_ids)
 
@@ -351,69 +494,52 @@ def _diff_and_update_org(
         for k in vals_normalized
         if current_normalized.get(k) != vals_normalized[k]
     }
-    if diffs:
-        if dry_run:
-            logger.info(
-                "[DRY RUN] Would update org: %s (Odoo ID %s) — changes: %s",
-                org.name,
-                odoo_id,
-                diffs,
-            )
-        else:
-            odoo_write("res.partner", [odoo_id], vals)
-            logger.info("Updated org: %s", org.name)
-        if removed_plan_ids:
-            log_org_note(
-                odoo_id,
-                f"Plan(s) removed by Accounts sync: {_plan_note(removed_plan_ids)}",
-                dry_run=dry_run,
-            )
-    else:
+    if not diffs:
         logger.info("No changes for org: %s", org.name)
+        return
+    if dry_run:
+        logger.info(
+            "[DRY RUN] Would update org: %s (Odoo ID %s) — changes: %s",
+            org.name,
+            odoo_id,
+            diffs,
+        )
+    else:
+        odoo_write("res.partner", [odoo_id], vals)
+        logger.info("Updated org: %s", org.name)
 
 
-def get_or_create_org(org, dry_run=False, member_tag_ids=None, inherited_plan_ids=None):
+def get_or_create_org(org, sunlight_status, dry_run=False, member_tag_ids=None):
+    """Find or create the org's Odoo partner, updating it if changed; returns its id."""
     if org.slug in SKIP_SLUGS:
         logger.info("Skipping org: %s (%s)", org.name, org.slug)
-        return None, []
+        return None
 
     results = odoo_search(
         "res.partner",
         [["x_studio_slug", "=", org.slug], ["is_company", "=", True]],
-        ["id", "x_studio_plan_1", "x_studio_sunlight_status"],
+        ["id"],
     )
-
-    odoo_plan_ids, sunlight_status = _compute_org_plans_and_status(
-        org, inherited_plan_ids
-    )
-    vals = _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids)
+    vals = _build_org_vals(org, sunlight_status, member_tag_ids)
 
     if results:
         odoo_id = results[0]["id"]
         _diff_and_update_org(
-            org, odoo_id, vals, odoo_plan_ids, sunlight_status, member_tag_ids, dry_run
+            org, odoo_id, vals, sunlight_status, member_tag_ids, dry_run
         )
-        return odoo_id, odoo_plan_ids
-    else:
-        if dry_run:
-            logger.info("[DRY RUN] Would create org: %s (slug=%s)", org.name, org.slug)
-            return None, odoo_plan_ids
-        else:
-            result = odoo_create("res.partner", vals)
-            if not result:
-                logger.error("Failed to create org in Odoo: %s", org.name)
-                return None, odoo_plan_ids
-            odoo_id = result[0]
-            logger.info("Created org: %s", org.name)
-            return odoo_id, odoo_plan_ids
+        return odoo_id
+    if dry_run:
+        logger.info("[DRY RUN] Would create org: %s (slug=%s)", org.name, org.slug)
+        return None
+    result = odoo_create("res.partner", vals)
+    if not result:
+        logger.error("Failed to create org in Odoo: %s", org.name)
+        return None
+    logger.info("Created org: %s", org.name)
+    return result[0]
 
 
-def _member_desired_plans(user, org_plan_ids):
-    """Union of the org's inherited plans and the user's own personal plans"""
-    personal_plan_ids = _resolve_plan_ids(
-        user.individual_organization.prefetched_plans()
-    )
-    return sorted(set(org_plan_ids) | set(personal_plan_ids))
+# --- Members ----------------------------------------------------------------
 
 
 def _find_member(user):
@@ -471,7 +597,7 @@ def _find_member(user):
 
 
 def _member_vals(user, odoo_org_id, matched_via_secondary):
-    """Build the base res.partner vals for a member contact (no plans)."""
+    """Build the base res.partner vals for a member contact."""
     vals = {
         "name": user.name,
         "email": user.email,
@@ -488,30 +614,26 @@ def _member_vals(user, odoo_org_id, matched_via_secondary):
     return vals
 
 
-def sync_member(user, org_name, odoo_org_id, org_plan_ids, dry_run=False):
-    desired_plans = _member_desired_plans(user, org_plan_ids)
+def sync_member(user, org_name, odoo_org_id, dry_run=False):
+    """Create or update a member contact; returns its Odoo id, or None in dry-run create."""
     odoo_id, matched_via_secondary = _find_member(user)
     vals = _member_vals(user, odoo_org_id, matched_via_secondary)
 
     if odoo_id is None:
-        # create path: plans go straight in
-        vals["x_studio_plan_1"] = [(6, 0, desired_plans)]
         if dry_run:
             logger.info(
-                "[DRY RUN] Would create member: %s under org: %s (plans: %s)",
-                user.email,
-                org_name,
-                desired_plans,
+                "[DRY RUN] Would create member: %s under org: %s", user.email, org_name
             )
-        else:
-            odoo_create("res.partner", vals)
-            logger.info("Created member: %s (%s)", user.email, org_name)
-        return
+            return None
+        result = odoo_create("res.partner", vals)
+        logger.info("Created member: %s (%s)", user.email, org_name)
+        return result[0] if result else None
 
-    _update_member(user, org_name, odoo_id, vals, desired_plans, dry_run)
+    _update_member(user, org_name, odoo_id, vals, dry_run)
+    return odoo_id
 
 
-def _update_member(user, org_name, odoo_id, vals, desired_plans, dry_run):
+def _update_member(user, org_name, odoo_id, vals, dry_run):
     # pylint:disable=too-many-positional-arguments
     """Diff an existing member against desired vals and write if changed."""
     current = odoo_search(
@@ -526,7 +648,6 @@ def _update_member(user, org_name, odoo_id, vals, desired_plans, dry_run):
             "x_studio_muckrock_accounts",
             "x_studio_muckrock_accounts_id",
             "x_studio_muckrock_accounts_uuid",
-            "x_studio_plan_1",
         ]
         + STAT_FIELDS,
     )[0]
@@ -555,13 +676,6 @@ def _update_member(user, org_name, odoo_id, vals, desired_plans, dry_run):
         del diffs["parent_id"]
         del vals["parent_id"]
 
-    current_plans = sorted(set(current.get("x_studio_plan_1") or []))
-    if current_plans != desired_plans:
-        diffs["x_studio_plan_1"] = (current_plans, desired_plans)
-        # (6, 0, ids) replaces all plans; desired_plans is the union of
-        # org (inherited) and personal plans, so nothing is dropped
-        vals["x_studio_plan_1"] = [(6, 0, desired_plans)]
-
     if not diffs:
         logger.info("No changes for member: %s (%s)", user.email, org_name)
         return
@@ -578,31 +692,24 @@ def _update_member(user, org_name, odoo_id, vals, desired_plans, dry_run):
         logger.info("Updated member: %s (%s)", user.email, org_name)
 
 
-def _unlink_departed_member(member, org, org_plans, dry_run):
-    """Unlink a departed member and strip the plans they inherited from the org."""
+def _unlink_departed_member(member, org, member_line_keys, dry_run):
+    """Unlink a departed member and delete the plan lines they carried from the org."""
     email = (member.get("email") or "").lower()
-    current_plans = set(member.get("x_studio_plan_1") or [])
-    inherited = current_plans & org_plans
     if dry_run:
         logger.info(
-            "[DRY RUN] Would unlink departed member:"
-            "%s (org: %s, would remove plans: %s)",
+            "[DRY RUN] Would unlink departed member: %s (org: %s) and remove "
+            "their org plan lines",
             email,
             org.name,
-            sorted(inherited) or "none",
         )
         return
-    write_vals = {"parent_id": False}
-    if inherited:
-        # (6, 0, ids) replaces all plans; keep everything except the
-        # org-inherited plans being stripped on departure
-        write_vals["x_studio_plan_1"] = [(6, 0, list(current_plans - inherited))]
-    odoo_write("res.partner", [member["id"]], write_vals)
+    odoo_write("res.partner", [member["id"]], {"parent_id": False})
+    removed = _remove_member_lines(member["id"], member_line_keys)
     logger.info(
-        "Unlinked departed member: %s (org: %s, removed plans: %s)",
+        "Unlinked departed member: %s (org: %s, removed %d plan lines)",
         email,
         org.name,
-        sorted(inherited) or "none",
+        removed,
     )
 
 
@@ -637,11 +744,10 @@ def _is_departed(member, current_emails):
 
 
 def remove_departed_members(
-    org, odoo_org_id, org_plan_ids, remove=False, dry_run=False
+    org, odoo_org_id, member_line_keys, remove=False, dry_run=False
 ):
     # Read from the users prefetch
     current_emails = {u.email.lower() for u in org.users.all()}
-    org_plans = set(org_plan_ids)
 
     odoo_members = odoo_search_all(
         "res.partner",
@@ -652,7 +758,6 @@ def remove_departed_members(
             "x_studio_muckrock_accounts",
             "x_studio_org_departed_date",
             "x_studio_secondary_email",
-            "x_studio_plan_1",
         ],
     )
 
@@ -660,20 +765,20 @@ def remove_departed_members(
         if not _is_departed(member, current_emails):
             continue
         if remove:
-            _unlink_departed_member(member, org, org_plans, dry_run)
+            _unlink_departed_member(member, org, member_line_keys, dry_run)
         elif not member.get("x_studio_org_departed_date", False):
             _flag_departed_member(member, org, dry_run)
 
 
-def cancel_org(odoo_id, name, plan_ids, dry_run=False):
-    """Cancel a single Confirmed org, noting which plan(s) it lost.
+# --- Sweeps -----------------------------------------------------------------
 
-    plan_ids are the org's current x_studio_plan_1 in Odoo — the plans about
-    to be orphaned by the lapse. They're still on the record at cancel time
-    (the sweep sets status only, it doesn't clear the plan field), so the note
-    can name them. This is a full-lapse audit note: such an org fell out of
-    the sync set entirely, so the per-org path never ran for it — this is the
-    only place the lapse is recorded."""
+
+def cancel_org(odoo_id, name, dry_run=False):
+    """Cancel a single Confirmed org, noting which plan lines it still carries.
+
+    This is a full-lapse audit note: such an org fell out of the sync set
+    entirely, so the per-org path never ran for it — this is the only place
+    the lapse is recorded. Lines are left in place, like the status sweep."""
     if dry_run:
         logger.info("[DRY RUN] Would cancel lapsed org: %s (Odoo ID %s)", name, odoo_id)
     else:
@@ -683,11 +788,9 @@ def cancel_org(odoo_id, name, plan_ids, dry_run=False):
             {"x_studio_sunlight_status": "Cancelled"},
         )
         logger.info("Cancelled lapsed org: %s", name)
-    if plan_ids:
-        body = (
-            f"Marked Cancelled by Accounts sync — lost plan(s): "
-            f"{_plan_note(plan_ids)}."
-        )
+    names = _line_names(odoo_id)
+    if names:
+        body = f"Marked Cancelled by Accounts sync — lost plan(s): {', '.join(names)}."
     else:
         body = "Marked Cancelled by Accounts sync — no active Sunlight plan."
     log_org_note(odoo_id, body, dry_run=dry_run)
@@ -707,9 +810,7 @@ def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
     if only_slug is not None:
         domain.append(["x_studio_slug", "=", only_slug])
 
-    candidates = odoo_search_all(
-        "res.partner", domain, ["id", "name", "x_studio_plan_1"]
-    )
+    candidates = odoo_search_all("res.partner", domain, ["id", "name"])
 
     logger.info(
         "Found %d confirmed orgs in Odoo with no active plan in Accounts"
@@ -717,44 +818,57 @@ def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
         len(candidates),
     )
     for org in candidates:
-        cancel_org(
-            org["id"], org["name"], org.get("x_studio_plan_1") or [], dry_run=dry_run
-        )
+        cancel_org(org["id"], org["name"], dry_run=dry_run)
 
 
 class CollaborativeConfig:
     """Holds resolved runtime data for a collaborative org."""
 
-    def __init__(self, slug, tag_id, plan_ids, member_slugs):
+    def __init__(
+        self, slug, tag_id, member_slugs, odoo_id, line_specs
+    ):  # pylint:disable=too-many-arguments,too-many-positional-arguments
         self.slug = slug
         self.tag_id = tag_id
-        self.plan_ids = plan_ids
         self.member_slugs = member_slugs
+        self.odoo_id = odoo_id
+        self.line_specs = line_specs
 
 
 def remove_collaborative_tag(tagged, config, dry_run=False):
-    """Remove a collaborative tag and its inherited plans from a single org."""
+    """Remove a collaborative tag and its sourced plan lines from an org and its contacts."""
     if dry_run:
         logger.info(
-            "[DRY RUN] Would remove %s Member tag from: %s (Odoo ID %s)",
+            "[DRY RUN] Would remove %s Member tag and its plan lines from: %s "
+            "(Odoo ID %s)",
             config.slug,
             tagged["name"],
             tagged["id"],
         )
         return
-    write_vals = {"category_id": [(3, config.tag_id)]}
-    current_plan_ids = set(tagged.get("x_studio_plan_1") or [])
-    remaining = current_plan_ids - set(config.plan_ids)
-    removed = current_plan_ids - remaining
-    if remaining != current_plan_ids:
-        write_vals["x_studio_plan_1"] = [(6, 0, sorted(remaining))]
-    odoo_write("res.partner", [tagged["id"]], write_vals)
+    odoo_write("res.partner", [tagged["id"]], {"category_id": [(3, config.tag_id)]})
+    removed_names = []
+    if config.odoo_id:
+        sourced = odoo_search_all(
+            "x_plan_line",
+            [
+                ["x_source_id", "=", config.odoo_id],
+                ["x_partner_id", "child_of", tagged["id"]],
+            ],
+            ["id", "x_tier_id", "x_partner_id"],
+        )
+        sourced_ids = []
+        for line in sourced:
+            sourced_ids.append(line["id"])
+            if _m2o_id(line["x_partner_id"]) == tagged["id"]:
+                removed_names.append(_m2o_name(line["x_tier_id"]))
+        if sourced_ids:
+            odoo_unlink("x_plan_line", sourced_ids)
     logger.info("Removed %s Member tag from: %s", config.slug, tagged["name"])
-    if removed:
+    if removed_names:
         log_org_note(
             tagged["id"],
             f"Plan(s) removed — no longer a {config.slug} member: "
-            f"{_plan_note(removed)}",
+            f"{', '.join(removed_names)}",
             dry_run=dry_run,
         )
 
@@ -767,7 +881,7 @@ def _sweep_stale_collaborative_tags(config, dry_run=False, only_slug=None):
     tagged_orgs = odoo_search_all(
         "res.partner",
         domain,
-        ["id", "name", "x_studio_slug", "x_studio_plan_1"],
+        ["id", "name", "x_studio_slug"],
     )
     for tagged in tagged_orgs:
         if (
@@ -786,7 +900,11 @@ def _load_collaborative_data():
     collab_orgs = Organization.objects.filter(
         collective_enabled=True,
         individual=False,
-    ).prefetch_related("subscriptions__plans", "members")
+    ).prefetch_related(
+        "subscriptions__items__plan",
+        "subscriptions__items__plan_price__plan",
+        "members",
+    )
     for collab_org in collab_orgs:
         tag_id = settings.COLLABORATIVE_TAGS.get(collab_org.slug)
         if tag_id is None:
@@ -798,18 +916,32 @@ def _load_collaborative_data():
             )
             continue
         tag_id = int(tag_id)
-        # Collect the collab org's wix plans from the prefetch
-        wix_plans = []
-        for plan in collab_org.prefetched_plans():
-            if plan.wix:
-                wix_plans.append(plan)
-        plan_ids = _resolve_plan_ids(wix_plans)
         member_slugs = set()
         # Use the members prefetch
         for member in collab_org.members.all():
             member_slugs.add(member.slug)
+
+        res = odoo_search(
+            "res.partner",
+            [["x_studio_slug", "=", collab_org.slug], ["is_company", "=", True]],
+            ["id"],
+        )
+        odoo_id = res[0]["id"] if res else None
+        line_specs = []
+        if odoo_id is None:
+            logger.warning(
+                "Collaborative not in Odoo, no inherited lines: %s", collab_org.slug
+            )
+        else:
+            for spec in _org_item_specs(collab_org):
+                if not spec["wix"]:
+                    continue
+                spec["x_source_id"] = odoo_id
+                spec["x_rate"] = False
+                line_specs.append(spec)
+
         collaborative_data[collab_org.slug] = CollaborativeConfig(
-            collab_org.slug, tag_id, plan_ids, member_slugs
+            collab_org.slug, tag_id, member_slugs, odoo_id, line_specs
         )
     return collaborative_data
 
@@ -829,8 +961,9 @@ def _build_org_queryset(collaborative_data):
         all_collaborative_member_slugs |= config.member_slugs
     all_slugs = (sunlight_slugs | all_collaborative_member_slugs) - SKIP_SLUGS
     return Organization.objects.filter(slug__in=all_slugs).prefetch_related(
-        "subscriptions__plans",
-        "users__individual_organization__subscriptions__plans",
+        "subscriptions__items__plan",
+        "subscriptions__items__plan_price__plan",
+        "users",
         "urls",
     )
 
@@ -840,45 +973,67 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
     if org.slug in SKIP_SLUGS:
         return None
 
+    own_lines = _org_item_specs(org)
+    desired_lines = list(own_lines)
     member_tag_ids = []
-    inherited_plan_ids = []
     labels = []
     for config in collaborative_data.values():
         if org.slug in config.member_slugs:
             member_tag_ids.append(config.tag_id)
-            inherited_plan_ids.extend(config.plan_ids)
             labels.append(config.slug)
+            desired_lines.extend(config.line_specs)
 
     label_str = "/".join(labels) + " member " if labels else ""
     logger.info("Syncing %sorg: %s", label_str, org.name)
 
-    odoo_org_id, odoo_plan_ids = get_or_create_org(
+    odoo_org_id = get_or_create_org(
         org,
+        _sunlight_status(own_lines),
         dry_run=dry_run,
         member_tag_ids=member_tag_ids or None,
-        inherited_plan_ids=inherited_plan_ids or None,
     )
 
     if odoo_org_id is None:
         logger.info("Skipping members for %s — org not yet in Odoo", org.name)
         return org.slug
 
-    # reading the prefetch also carries each user's individual-org plans
+    removed_lines = _sync_plan_lines(odoo_org_id, org.name, desired_lines, dry_run)
+    if removed_lines:
+        log_org_note(
+            odoo_org_id,
+            f"Plan line(s) removed by Accounts sync: {', '.join(removed_lines)}",
+            dry_run=dry_run,
+        )
+
+    # Members carry the org's Sunlight lines only, for now
+    member_lines = []
+    member_line_keys = set()
+    for spec in desired_lines:
+        if spec["wix"]:
+            member_lines.append(spec)
+            member_line_keys.add(_spec_key(spec))
+
     for user in org.users.all():
-        sync_member(user, org.name, odoo_org_id, odoo_plan_ids, dry_run=dry_run)
+        member_id = sync_member(user, org.name, odoo_org_id, dry_run=dry_run)
+        if member_id is not None:
+            _sync_plan_lines(member_id, user.email, member_lines, dry_run)
 
     remove_departed_members(
-        org, odoo_org_id, odoo_plan_ids, remove=remove_members, dry_run=dry_run
+        org,
+        odoo_org_id,
+        member_line_keys,
+        remove=remove_members,
+        dry_run=dry_run,
     )
     return org.slug
 
 
 def _run_sync(dry_run, remove_members, slug):
-    """Run the full sync pass: ensure plans, sync orgs + members, then the
+    """Run the full sync pass: load tiers, sync orgs + members, then the
     lapsed-org and stale-tag sweeps."""
     if dry_run:
         logger.info("DRY RUN - no changes will be made")
-    _ensure_all_plans(dry_run=dry_run)
+    _load_tiers()
     collaborative_data = _load_collaborative_data()
     all_orgs = _build_org_queryset(collaborative_data)
     if slug:
