@@ -26,6 +26,7 @@ from freezegun import freeze_time
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.services.tests.factories import ServiceFactory
 
 # Local
 from .. import views
@@ -1781,6 +1782,195 @@ class TestManageSubscriptions(ViewTestMixin):
         )
         page = self.call_view(rf, admin, slug=organization.slug).render()
         assert page.content.count(b"/cancel") == 2
+
+
+@pytest.mark.django_db()
+class TestPlans(ViewTestMixin):
+    """The plans page, one group of plan cards per service."""
+
+    view = views.Plans
+    url = "/organizations/{slug}/plans/"
+
+    def test_plans_are_grouped_under_their_service_cheapest_first(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        muckrock = ServiceFactory(name="MuckRock")
+        documentcloud = ServiceFactory(name="DocumentCloud")
+        pro = plan_price_factory(
+            plan__name="Pro", plan__service=muckrock, amount=4000
+        ).plan
+        basic = plan_price_factory(
+            plan__name="Basic", plan__service=muckrock, amount=1000
+        ).plan
+        premium = plan_price_factory(
+            plan__name="Premium", plan__service=documentcloud
+        ).plan
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        assert [
+            (group["service"], group["plans"])
+            for group in response.context_data["services"]
+        ] == [(documentcloud, [premium]), (muckrock, [basic, pro])]
+
+    def test_plans_are_ranked_by_their_monthly_price(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        service = ServiceFactory()
+        dear = plan_price_factory(
+            plan__name="Dear", plan__service=service, amount=5000
+        ).plan
+        plan_price_factory(plan=dear, interval="annual", amount=10000)
+        cheap = plan_price_factory(
+            plan__name="Cheap", plan__service=service, amount=1000
+        ).plan
+        plan_price_factory(plan=cheap, interval="annual", amount=60000)
+        annual_only = plan_price_factory(
+            plan__name="Annual Only",
+            plan__service=service,
+            interval="annual",
+            amount=36000,
+        ).plan
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        (group,) = response.context_data["services"]
+        assert group["plans"] == [cheap, annual_only, dear]
+
+    def test_a_plan_with_no_service_or_no_list_price_is_left_out(
+        self, rf, user_factory, organization_factory, plan_factory, plan_price_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        service = ServiceFactory()
+        plan_factory(name="Unpriced", service=service)
+        plan_price_factory(plan__name="Negotiated", plan__service=service, code="deal")
+        plan_price_factory(plan__name="Superseded", plan__service=service, active=False)
+        plan_price_factory(plan__name="Unmarketed")
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        assert response.context_data["services"] == []
+
+    def test_a_private_plan_is_not_displayed(
+        self, rf, user_factory, organization_factory, plan_factory, plan_price_factory
+    ):
+        pass
+
+    def test_a_private_plan_is_shown_only_to_an_organization_granted_it(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        granted_admin = user_factory()
+        granted = organization_factory(admins=[granted_admin])
+        service = ServiceFactory()
+        public = plan_price_factory(plan__name="Public", plan__service=service).plan
+        private = plan_price_factory(
+            plan__name="Private", plan__service=service, plan__public=False
+        ).plan
+        private.private_organizations.add(granted)
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+        (group,) = response.context_data["services"]
+        assert group["plans"] == [public]
+
+        response = self.call_view(rf, granted_admin, slug=granted.slug)
+        (group,) = response.context_data["services"]
+        assert set(group["plans"]) == {public, private}
+
+    def test_a_nonprofit_sees_the_nonprofit_rate_where_there_is_one(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], nonprofit=True)
+        monthly = plan_price_factory(plan__name="Tier", plan__service=ServiceFactory())
+        nonprofit_monthly = plan_price_factory(
+            plan=monthly.plan, label="nonprofit", amount=5000
+        )
+        annual = plan_price_factory(plan=monthly.plan, interval="annual", amount=100000)
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        (group,) = response.context_data["services"]
+        assert group["plans"][0].display_prices == [annual, nonprofit_monthly]
+        assert group["plans"][0].nonprofit
+
+    def test_a_standard_organization_never_sees_the_nonprofit_rate(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        monthly = plan_price_factory(plan__name="Tier", plan__service=ServiceFactory())
+        plan_price_factory(plan=monthly.plan, label="nonprofit", amount=5000)
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        (group,) = response.context_data["services"]
+        assert group["plans"][0].display_prices == [monthly]
+        assert not group["plans"][0].nonprofit
+
+    def test_a_held_plan_offers_to_manage_it_instead_of_subscribing(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_price_factory,
+        subscription_item_factory,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        service = ServiceFactory()
+        held = plan_price_factory(plan__name="Held", plan__service=service).plan
+        other = plan_price_factory(plan__name="Other", plan__service=service).plan
+        subscription_item_factory(subscription__organization=organization, plan=held)
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+
+        assert b"/subscriptions/" in page.content
+        assert held.get_absolute_url().encode() not in page.content
+        assert other.get_absolute_url().encode() in page.content
+
+    def test_a_line_on_a_legacy_plan_row_holds_its_tier(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        plan_price_factory,
+        subscription_item_factory,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        # A migration seeds this row without a service, and the factory's
+        # get-or-create on name ignores one passed in.
+        tier = plan_factory(name="Organization")
+        tier.service = ServiceFactory()
+        tier.save()
+        plan_price_factory(plan=tier)
+        subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="Premium Org Comp"),
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        (group,) = response.context_data["services"]
+        assert group["plans"] == [tier]
+        assert group["plans"][0].held
+
+    def test_a_member_who_is_not_an_admin_is_denied(
+        self, rf, user_factory, organization_factory
+    ):
+        member = user_factory()
+        organization = organization_factory(users=[member])
+
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, member, slug=organization.slug)
 
 
 @pytest.mark.django_db()

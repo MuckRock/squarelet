@@ -47,6 +47,7 @@ from squarelet.payments.views import (
     BaseEndSubscription,
     BaseManageSubscriptions,
     BasePaymentsList,
+    BasePlans,
     BaseRemoveCard,
     BaseResubscribe,
     BaseUpdateCard,
@@ -65,6 +66,10 @@ class OrgSubscriptionView(OrganizationPermissionMixin):
 
 
 class ManageSubscriptions(OrgSubscriptionView, BaseManageSubscriptions):
+    pass
+
+
+class Plans(OrgSubscriptionView, BasePlans):
     pass
 
 

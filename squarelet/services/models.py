@@ -18,6 +18,13 @@ class Service(models.Model):
         upload_to=service_file_path, help_text="Icon for the service"
     )
     description = models.TextField(help_text="Short description of the service")
+    marketing_description = models.TextField(
+        blank=True,
+        help_text=(
+            "Description of the service for the plans page."
+            "If not set, falls back to the main description."
+        ),
+    )
     provider_name = models.CharField(
         max_length=255, help_text="Name of the service provider/maintainer"
     )
@@ -26,6 +33,17 @@ class Service(models.Model):
         blank=True,
         max_length=255,
         help_text="Base URL for the service (e.g. https://www.muckrock.com)",
+    )
+    theme_color = models.CharField(
+        blank=True,
+        choices=[
+            ("--blue-3", "Blue"),
+            ("--green-3", "Green"),
+            ("--yellow-3", "Yellow"),
+            ("--red-3", "Red"),
+            ("--orange-3", "Orange"),
+            ("--purple-3", "Purple"),
+        ],
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

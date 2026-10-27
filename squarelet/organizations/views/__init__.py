@@ -20,6 +20,7 @@ from .subscription import (
     ManageSubscriptions,
     PaymentsList,
     PDFChargeDetail,
+    Plans,
     RemoveCard,
     Resubscribe,
     UpdateCard,
@@ -34,6 +35,7 @@ __all__ = [
     "autocomplete",
     # Subscription views
     "ManageSubscriptions",
+    "Plans",
     "Resubscribe",
     "UpdateCard",
     "RemoveCard",
