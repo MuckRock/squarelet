@@ -199,6 +199,63 @@ class TestAnExtendedSunlightBasicLine:
 
 
 @pytest.mark.django_db()
+class TestDecidedLosses:
+    """Comps whose grant drops on purpose, from production's rows."""
+
+    ORGANIZATION = {"base_requests": 50, "requests_per_user": 10, "minimum_users": 5}
+
+    def test_startsmall_grants_drops_to_organization(self, targets, actor):
+        client = entitle(targets["organization"], self.ORGANIZATION).client
+        item = line(
+            "startsmall-grants",
+            billing=False,
+            quantity=20,
+            plan_fields={**GROUP, "minimum_users": 20, "base_price": 0},
+        )
+        entitle(
+            item.plan,
+            {"base_requests": 75, "requests_per_user": 0, "minimum_users": 30},
+            client=client,
+        )
+
+        out = run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan.slug == "organization"
+        assert "75 -> 50" in out
+
+    def test_guardian_becomes_a_plain_organization_comp(self, targets, actor):
+        client = entitle(targets["organization"], self.ORGANIZATION).client
+        item = line(
+            "organization-flexible-users-annual",
+            billing=False,
+            quantity=200,
+            plan_fields={**GROUP, "minimum_users": 200, "base_price": 0},
+            subscription__organization=OrganizationFactory(slug="guardian-us"),
+        )
+        entitle(item.plan, self.ORGANIZATION, client=client)
+
+        run(actor=actor)
+
+        item.refresh_from_db()
+        assert (item.plan.slug, item.quantity) == ("organization", 1)
+        assert not SubscriptionItem.objects.filter(plan__slug__in=PACK_SLUGS).exists()
+
+    def test_the_same_shape_for_anyone_else_is_still_refused(self, targets, actor):
+        client = entitle(targets["organization"], self.ORGANIZATION).client
+        item = line(
+            "organization-flexible-users-annual",
+            billing=False,
+            quantity=200,
+            plan_fields={**GROUP, "minimum_users": 200, "base_price": 0},
+        )
+        entitle(item.plan, self.ORGANIZATION, client=client)
+
+        with pytest.raises(CommandError, match="failed"):
+            run(actor=actor)
+
+
+@pytest.mark.django_db()
 @pytest.mark.usefixtures("targets")
 class TestACompedLineIsFree:
     """A $0 price belongs on the organization's free subscription."""
