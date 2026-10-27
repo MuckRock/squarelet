@@ -162,6 +162,17 @@ DROPPED_WITH_BLOCKS = frozenset({"base_ai_credits"})
 
 # Legacy plans whose grant changes on purpose when they consolidate.  Any
 # other change stops the migration.
+# Grants that drop on purpose when they consolidate, decided 2026-10-27.
+# Keyed by legacy plan, or by organization for a single subscriber.
+DECIDED_GRANT_LOSSES = {
+    "startsmall-grants": "Flat 75 MuckRock requests becomes Organization's 50.",
+}
+DECIDED_ORGANIZATION_LOSSES = {
+    "guardian-us": (
+        "A plain Organization comp while its 200-seat subscription is resolved."
+    ),
+}
+
 EXPECTED_GRANT_CHANGES = {
     "scoutpost-team": (
         "Blocks billed $10 each but granted nothing under an entitlement "

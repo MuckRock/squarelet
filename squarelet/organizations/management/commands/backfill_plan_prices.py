@@ -18,6 +18,8 @@ from squarelet.organizations.models.payment import (
 )
 from squarelet.organizations.plan_mapping import (
     COHORT_SLUG,
+    DECIDED_GRANT_LOSSES,
+    DECIDED_ORGANIZATION_LOSSES,
     DEFERRED_SLUGS,
     DROPPED_WITH_BLOCKS,
     EXPECTED_GRANT_CHANGES,
@@ -424,8 +426,8 @@ class Command(BaseCommand):
         """Refuse if the organization would receive a different amount.
 
         Returns a note when the change is one decided on: listed in
-        EXPECTED_GRANT_CHANGES, or a block-holder's DROPPED_WITH_BLOCKS
-        resources falling to the tier's base.
+        EXPECTED_GRANT_CHANGES (gains only) or a DECIDED_*_LOSSES list, or a
+        block-holder's DROPPED_WITH_BLOCKS resources falling to the tier's base.
         """
         before = resource_totals([(item.plan, item.quantity)])
         after = resource_totals(
@@ -434,6 +436,16 @@ class Command(BaseCommand):
         )
         if before == after:
             return None
+        loss = DECIDED_GRANT_LOSSES.get(
+            item.plan.slug
+        ) or DECIDED_ORGANIZATION_LOSSES.get(item.subscription.organization.slug)
+        if loss:
+            changed = {
+                key: f"{before[key]} -> {after[key]}"
+                for key in set(before) | set(after)
+                if before[key] != after[key]
+            }
+            return f"grant changes as decided: {loss} {changed}"
         # The decided changes are all gains; a loss is never one of them.
         gains_only = all(after[key] >= before[key] for key in before)
         if item.plan.slug in EXPECTED_GRANT_CHANGES and gains_only:
