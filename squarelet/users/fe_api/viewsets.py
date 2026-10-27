@@ -1,10 +1,12 @@
 # Django
 from django.contrib.postgres.search import SearchQuery, SearchVector
+from django.db.models import Q
 
 # Standard Library
 import re
 
 # Third Party
+from allauth.account.models import EmailAddress
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny
 
@@ -38,6 +40,12 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                     return User.objects.none()
                 qs = qs.filter(organizations__in=viewable_org).order_by("-last_login")
             if search:
+                # Only an exact, verified address matches
+                match = Q(
+                    id__in=EmailAddress.objects.filter(
+                        email__iexact=search, verified=True
+                    ).values("user_id")
+                )
                 # Full-text search with prefix matching.
                 # Strip tsquery special characters so raw queries are safe.
                 sanitized = re.sub(r"[&|!<>():*@.\\\"]", " ", search).strip()
@@ -46,6 +54,8 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                     terms = sanitized.split()
                     tsquery = " & ".join(f"{t}:*" for t in terms)
                     query = SearchQuery(tsquery, search_type="raw")
-                    qs = qs.annotate(search=vector).filter(search=query)
+                    qs = qs.annotate(search=vector)
+                    match |= Q(search=query)
+                qs = qs.filter(match)
             return qs
         return User.objects.prefetch_related("organizations")
