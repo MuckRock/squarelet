@@ -19,7 +19,7 @@ from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP
 
 logger = logging.getLogger(__name__)
 
-SKIP_SLUGS = {"sunlight-search"}
+SKIP_SLUGS = {"sunlight-search", "muckrock"}
 
 # Default page size for paginated search_read calls
 _PAGE_SIZE = 200
@@ -947,10 +947,10 @@ def _load_collaborative_data():
 
 
 def _build_org_queryset(collaborative_data):
-    """Return the queryset of all orgs to sync."""
-    sunlight_slugs = set(
+    """Return every group org with a subscription line, plus collaborative members."""
+    subscribed_slugs = set(
         Organization.objects.filter(
-            subscriptions__plans__wix=True,
+            subscriptions__items__isnull=False,
             individual=False,
         )
         .values_list("slug", flat=True)
@@ -959,7 +959,7 @@ def _build_org_queryset(collaborative_data):
     all_collaborative_member_slugs = set()
     for config in collaborative_data.values():
         all_collaborative_member_slugs |= config.member_slugs
-    all_slugs = (sunlight_slugs | all_collaborative_member_slugs) - SKIP_SLUGS
+    all_slugs = (subscribed_slugs | all_collaborative_member_slugs) - SKIP_SLUGS
     return Organization.objects.filter(slug__in=all_slugs).prefetch_related(
         "subscriptions__items__plan",
         "subscriptions__items__plan_price__plan",
@@ -1005,13 +1005,11 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
             dry_run=dry_run,
         )
 
-    # Members carry the org's Sunlight lines only, for now
-    member_lines = []
+    # Members carry all of their org's lines, own and inherited
+    member_lines = desired_lines
     member_line_keys = set()
     for spec in desired_lines:
-        if spec["wix"]:
-            member_lines.append(spec)
-            member_line_keys.add(_spec_key(spec))
+        member_line_keys.add(_spec_key(spec))
 
     for user in org.users.all():
         member_id = sync_member(user, org.name, odoo_org_id, dry_run=dry_run)
@@ -1071,7 +1069,7 @@ def _send_sync_report(buffer, failed):
 
 
 class Command(BaseCommand):
-    """Sync Accounts Sunlight orgs and members to Odoo"""
+    """Sync Accounts group orgs with subscriptions, and their members, to Odoo"""
 
     def add_arguments(self, parser):
         parser.add_argument(
