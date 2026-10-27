@@ -139,6 +139,8 @@ class Command(BaseCommand):
             Subscription.objects.select_related("organization")
             .prefetch_related("items__plan", "items__plan_price")
             .filter(subscription_id="", items__plan__base_price__gt=0)
+            # A free subscription never reaches Stripe, whatever its lines' plans.
+            .exclude(kind="free")
             .distinct()
         )
         if org_filter:
@@ -353,14 +355,14 @@ class Command(BaseCommand):
                 )
             )
 
-        # cancel_at_period_end → local `cancelled`
-        if bool(sub.cancelled) != bool(stripe_sub.cancel_at_period_end):
+        # Local `cancelled`.  Stripe ends a subscription at period end, on a
+        # `cancel_at` date, or through a schedule, which also sets `cancel_at`.
+        stripe_cancelling = bool(
+            stripe_sub.cancel_at_period_end or getattr(stripe_sub, "cancel_at", None)
+        )
+        if bool(sub.cancelled) != stripe_cancelling:
             diffs.append(
-                (
-                    "cancelled/cancel_at_period_end",
-                    sub.cancelled,
-                    bool(stripe_sub.cancel_at_period_end),
-                )
+                ("cancelled/cancel_at_period_end", sub.cancelled, stripe_cancelling)
             )
 
         # cancel_at (date) — use local tz to match how sub.cancel_at is derived
