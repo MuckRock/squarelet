@@ -12,6 +12,7 @@ import pytest
 from squarelet.organizations.entitlement_shape import grant_new, grant_old, reshape
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
+    EntitlementGrantFactory,
     PlanFactory,
     SubscriptionItemFactory,
 )
@@ -161,6 +162,26 @@ class TestPreflight:
 
 @pytest.mark.django_db()
 class TestTheRun:
+    def test_an_entitlement_nothing_grants_is_left_alone(self):
+        """Not a plan's, not a grant's: no one receives it to keep the same."""
+        orphan = EntitlementFactory(resources=dict(PACK))
+        tier_entitlement()
+
+        out = run()
+
+        orphan.refresh_from_db()
+        assert orphan.resources == PACK
+        assert "nothing grants it" in out
+
+    def test_one_reached_only_through_a_grant_is_still_reshaped(self):
+        granted = EntitlementFactory(resources=dict(TIER))
+        EntitlementGrantFactory(entitlements=[granted])
+
+        run()
+
+        granted.refresh_from_db()
+        assert granted.resources["requests_per_user"] == TIER["base_requests"]
+
     def test_a_tier_is_reshaped(self):
         entitlement = tier_entitlement()
 
