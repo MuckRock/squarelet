@@ -33,8 +33,8 @@ RUN update-ca-certificates
 # install NVM
 ENV NVM_DIR=/usr/local/nvm
 
-# use the latest minor version of Node 22
-ENV NODE_VERSION=22.17.1
+# use the latest minor version of Node 24
+ENV NODE_VERSION=24.22.1
 
 RUN mkdir $NVM_DIR
 RUN curl https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | sh \
