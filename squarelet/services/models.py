@@ -27,11 +27,29 @@ class Service(models.Model):
         max_length=255,
         help_text="Base URL for the service (e.g. https://www.muckrock.com)",
     )
+    user_url = models.CharField(
+        blank=True,
+        max_length=255,
+        help_text="URL of a user's page on the service, with {uuid} in place of "
+        "their UUID (e.g. https://www.muckrock.com/accounts/uuid/{uuid}/)",
+    )
+    organization_url = models.CharField(
+        blank=True,
+        max_length=255,
+        help_text="URL of an organization's page on the service, with {uuid} in "
+        "place of its UUID (e.g. https://www.muckrock.com/organization/uuid/{uuid}/)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
+
+    def url_for(self, subject, uuid):
+        """This user's (subject="users") or organization's page on the service,
+        or "" when no URL is set for that subject."""
+        pattern = self.user_url if subject == "users" else self.organization_url
+        return pattern.replace("{uuid}", str(uuid)) if pattern else ""
 
     class Meta:
         ordering = ["name"]
