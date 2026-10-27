@@ -104,7 +104,7 @@ click-repl==0.2.0
     #   celery
 collectfast==2.2.0
     # via -r requirements/production.in
-cryptography==44.0.3
+cryptography==50.0.0
     # via
     #   -r requirements/base.txt
     #   django-oidc-provider
@@ -229,7 +229,7 @@ executing==0.9.1
     # via
     #   -r requirements/base.txt
     #   stack-data
-fido2==1.2.0
+fido2==2.2.1
     # via
     #   -r requirements/base.txt
     #   django-allauth
@@ -355,7 +355,7 @@ pygments==2.21.0
     # via
     #   -r requirements/base.txt
     #   ipython
-pyjwt[crypto]==2.9.0
+pyjwt[crypto]==2.15.0
     # via
     #   -r requirements/base.txt
     #   django-allauth
@@ -394,7 +394,7 @@ redis==4.1.0
     # via
     #   -r requirements/base.txt
     #   django-redis
-requests==2.32.4
+requests==2.33.0
     # via
     #   -r requirements/base.txt
     #   django-allauth

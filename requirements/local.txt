@@ -123,7 +123,7 @@ coverage==7.6.1
     # via
     #   -r requirements/local.in
     #   django-coverage-plugin
-cryptography==44.0.3
+cryptography==50.0.0
     # via
     #   -r requirements/base.txt
     #   django-oidc-provider
@@ -254,7 +254,7 @@ factory-boy==3.2.1
     #   pytest-factoryboy
 faker==11.3.0
     # via factory-boy
-fido2==1.2.0
+fido2==2.2.1
     # via
     #   -r requirements/base.txt
     #   django-allauth
@@ -398,7 +398,7 @@ platformdirs==4.3.6
     #   black
     #   pip-audit
     #   pylint
-pluggy==1.0.0
+pluggy==1.7.0
     # via pytest
 premailer==3.0.0
     # via
@@ -443,16 +443,17 @@ pygments==2.21.0
     # via
     #   -r requirements/base.txt
     #   ipython
+    #   pytest
     #   rich
     #   sphinx
-pyjwt[crypto]==2.9.0
+pyjwt[crypto]==2.15.0
     # via
     #   -r requirements/base.txt
     #   django-allauth
     #   django-oidc-provider
     #   django-request-token
     #   djangorestframework-simplejwt
-pylint==4.0.4
+pylint==4.0.9
     # via
     #   -r requirements/local.in
     #   pylint-celery
@@ -476,7 +477,7 @@ pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
-pytest==7.4.4
+pytest==9.0.3
     # via
     #   -r requirements/local.in
     #   pytest-django
@@ -527,7 +528,7 @@ redis==4.1.0
     # via
     #   -r requirements/base.txt
     #   django-redis
-requests==2.32.4
+requests==2.33.0
     # via
     #   -r requirements/base.txt
     #   cachecontrol
@@ -652,7 +653,7 @@ webencodings==0.5.1
     #   cssselect2
     #   tinycss2
     #   tinyhtml5
-werkzeug==3.1.6
+werkzeug==3.1.9
     # via -r requirements/local.in
 wheel==0.46.2
     # via pip-tools

@@ -23,7 +23,8 @@
     "@types/d3-shape": "^3.2.0",
     "@types/node": "^24.1.0",
     "@types/stripe-v3": "^3.0.9",
-    "@vitest/ui": "^3.0.0",
+    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/ui": "^5.0.5",
     "d3-shape": "^3.2.0",
     "jsdom": "^27.2.0",
     "layerchart": "^2.8.1",
@@ -33,6 +34,6 @@
     "svelte": "^5.37.1",
     "typescript": "^3.3.3333",
     "vite": "^7.0.0",
-    "vitest": "^3.0.0"
+    "vitest": "^5.0.5"
   }
 }
