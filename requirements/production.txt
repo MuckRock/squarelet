@@ -212,7 +212,7 @@ django-storages[boto3]==1.14.6
     #   collectfast
 django-vite==3.0.4
     # via -r requirements/base.txt
-django-weasyprint==2.4.0
+django-weasyprint==2.6.0
     # via -r requirements/base.txt
 djangorestframework==3.18.3
     # via
