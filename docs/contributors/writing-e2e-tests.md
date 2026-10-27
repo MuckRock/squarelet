@@ -336,7 +336,7 @@ The Playwright config is in `playwright.config.ts`. Key settings:
 
 E2E tests run in GitHub Actions on pull requests into `master` (see `.github/workflows/e2e.yml`). CI runs only the `chromium` project to keep pipeline times reasonable.
 
-Pull requests also run a `visual` job, which is `inv test-visual --baseline=HEAD^1`: it screenshots the base branch and the pull request on the same runner and fails if any page changed. Its `visual-report` artifact holds the diffs and both screenshot folders. A styling change is expected to fail it, so it is not a required check.
+Pull requests also run a `visual` job, which is `inv test-visual --baseline=HEAD^1`: it screenshots the base branch and the pull request on the same runner. If any page changed, it comments on the pull request with before, after and diff images (hosted in the `muckrock-workflow-outputs` S3 bucket for 30 days) and leaves a pending **Visual changes** status on the head commit. The job itself fails only if a test broke for some other reason. Its `visual-report` artifact holds the full report and both screenshot folders. The pending status stays until the next push, so it is not a required check.
 
 When a CI run fails:
 1. Download the Playwright HTML report from the workflow's artifacts.

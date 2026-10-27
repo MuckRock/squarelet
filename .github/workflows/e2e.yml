@@ -37,16 +37,18 @@ jobs:
         if: failure()
         run: docker compose -f local.yml logs --tail=100
 
-  # Screenshots the pull request and its base on the same runner and fails on
-  # any changed page. A styling change is meant to fail it, so it should not
-  # be a required check.
+  # Screenshots the pull request and its base on the same runner. A changed
+  # page leaves a pending "Visual changes" status on the head commit that only
+  # the next push replaces, so it should not be a required check.
   visual:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
-      contents: write
+      contents: read
+      id-token: write
       pull-requests: write
+      statuses: write
 
     steps:
       - uses: actions/checkout@v4
@@ -56,13 +58,23 @@ jobs:
 
       - uses: ./.github/actions/dev-stack
 
+      # Playwright fails on a changed screenshot too, so the report step
+      # decides whether the job fails. A fork's read-only token can neither
+      # upload nor set the status, so its run fails on any change.
       - name: Compare against the base branch
         id: compare
+        continue-on-error: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: inv test-visual --baseline=HEAD^1
 
-      # A pull request from a fork gets a read-only token.
-      - name: Comment with the changed screenshots
-        if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
+      - name: Configure AWS credentials
+        if: steps.compare.outcome == 'failure'
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Report the changed screenshots
+        if: github.event.pull_request.head.repo.full_name == github.repository
         run: .github/scripts/comment_visual_changes.sh
         env:
           GH_TOKEN: ${{ github.token }}

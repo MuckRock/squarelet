@@ -76,5 +76,10 @@ export default defineConfig({
   // Platform-specific and compared only against a baseline recorded on the
   // same machine, so they are not committed.
   snapshotPathTemplate: `{testDir}/__screenshots__/${process.env.VISUAL_EXPECTED}/{projectName}/{arg}{ext}`,
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { open: "never" }],
+    // The visual CI job reads it to tell a changed screenshot from a broken test.
+    ["json", { outputFile: "test-results/results.json" }],
+  ],
 });
