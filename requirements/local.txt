@@ -43,7 +43,7 @@ billiard==4.2.1
     # via
     #   -r requirements/base.txt
     #   celery
-black==24.4.2
+black==25.12.0
     # via -r requirements/local.in
 bleach==6.1.0
     # via -r requirements/base.txt
@@ -63,7 +63,7 @@ botocore==1.42.65
     #   -r requirements/base.txt
     #   boto3
     #   s3transfer
-brotli==1.2.0
+brotli==1.2.1
     # via
     #   -r requirements/base.txt
     #   fonttools
@@ -156,7 +156,7 @@ deprecated==1.2.13
     #   redis
 dill==0.4.1
     # via pylint
-django==5.2.12
+django==5.2.18
     # via
     #   -r requirements/base.txt
     #   django-activity-stream
@@ -231,7 +231,7 @@ django-vite==3.0.4
     # via -r requirements/base.txt
 django-weasyprint==2.4.0
     # via -r requirements/base.txt
-djangorestframework==3.16.1
+djangorestframework==3.18.3
     # via
     #   -r requirements/base.txt
     #   djangorestframework-simplejwt
@@ -274,7 +274,7 @@ fuzzywuzzy==0.18.0
     # via -r requirements/base.txt
 html2text==2018.1.9
     # via -r requirements/base.txt
-idna==3.7
+idna==3.20
     # via
     #   -r requirements/base.txt
     #   requests
@@ -315,7 +315,7 @@ levenshtein==0.25.1
     #   python-levenshtein
 license-expression==30.4.1
     # via cyclonedx-python-lib
-lxml==6.0.2
+lxml==6.1.3
     # via
     #   -r requirements/base.txt
     #   premailer
@@ -341,7 +341,7 @@ more-itertools==10.8.0
     # via
     #   -r requirements/base.txt
     #   cssutils
-msgpack==1.1.0
+msgpack==1.2.4
     # via cachecontrol
 mypy-extensions==0.4.3
     # via black
@@ -381,7 +381,7 @@ pickleshare==0.7.5
     # via
     #   -r requirements/base.txt
     #   ipython
-pillow==12.1.1
+pillow==13.0.0
     # via
     #   -r requirements/base.txt
     #   weasyprint
@@ -439,7 +439,7 @@ pydyf==0.12.1
     #   weasyprint
 pyflakes==1.6.0
     # via flake8
-pygments==2.15.1
+pygments==2.21.0
     # via
     #   -r requirements/base.txt
     #   ipython
@@ -506,6 +506,8 @@ python-levenshtein==0.25.1
     # via -r requirements/base.txt
 python-slugify==1.2.5
     # via -r requirements/base.txt
+pytokens==0.4.1
+    # via black
 pytz==2024.2
     # via
     #   -r requirements/base.txt
@@ -575,7 +577,7 @@ sphinx==1.7.5
     # via -r requirements/local.in
 sphinxcontrib-websupport==1.1.0
     # via sphinx
-sqlparse==0.5.4
+sqlparse==0.6.0
     # via
     #   -r requirements/base.txt
     #   django
@@ -625,7 +627,7 @@ unidecode==1.0.22
     # via
     #   -r requirements/base.txt
     #   python-slugify
-urllib3==2.6.3
+urllib3==2.8.0
     # via
     #   -r requirements/base.txt
     #   botocore
@@ -640,7 +642,7 @@ wcwidth==0.1.7
     # via
     #   -r requirements/base.txt
     #   prompt-toolkit
-weasyprint==68.0
+weasyprint==70.0
     # via
     #   -r requirements/base.txt
     #   django-weasyprint
