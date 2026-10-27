@@ -40,6 +40,9 @@ class Service(models.Model):
             ("--blue-3", "Blue"),
             ("--green-3", "Green"),
             ("--yellow-3", "Yellow"),
+            ("--red-3", "Red"),
+            ("--orange-3", "Orange"),
+            ("--purple-3", "Purple"),
         ],
     )
     created_at = models.DateTimeField(auto_now_add=True)
