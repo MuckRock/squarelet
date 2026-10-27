@@ -35,7 +35,7 @@ billiard==4.2.1
     # via
     #   -r requirements/base.txt
     #   celery
-bleach==6.1.0
+bleach==6.4.0
     # via -r requirements/base.txt
 boto==2.49.0
     # via
@@ -416,7 +416,6 @@ six==1.16.0
     #   -r requirements/base.txt
     #   asttokens
     #   bcrypt
-    #   bleach
     #   click-repl
     #   django-autocomplete-light
     #   django-choices
