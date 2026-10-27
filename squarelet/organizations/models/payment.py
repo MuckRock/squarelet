@@ -1584,9 +1584,6 @@ class Plan(models.Model):
     def __str__(self):
         return self.name
 
-    def get_absolute_url(self):
-        return reverse("plan_detail", kwargs={"pk": self.pk, "slug": self.slug})
-
     @property
     def free(self):
         return self.base_price == 0 and self.price_per_user == 0
@@ -1665,7 +1662,10 @@ class Plan(models.Model):
         """
         if not Plan.objects.choices(organization).filter(pk=self.pk).exists():
             return None
-        if self.default_interval(organization.nonprofit) is None:
+        if (
+            not self.is_enterprise
+            and self.default_interval(organization.nonprofit) is None
+        ):
             return None
         if organization.individual:
             return reverse(

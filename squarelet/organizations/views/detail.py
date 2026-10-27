@@ -78,6 +78,8 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
             for plan in org.private_plans.filter(public=False).order_by("name")
             if tier_of(plan.slug) not in held_tiers
         ]
+        for plan in [upgrade_plan, *context["private_plans"]]:
+            plan.checkout_url = plan.get_checkout_url(org)
         context["member_count"] = len(users)
         context["admin_count"] = len(admins)
 

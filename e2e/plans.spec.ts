@@ -1,105 +1,131 @@
 import { test, expect } from "./fixtures";
-import { login } from "./helpers";
+import { E2E_PASSWORD, login, newAnonContext } from "./helpers";
+
+// Other apps send buyers to a plan link with purchase_redirect so that, once
+// they have paid, they land back where they started.
+const PURCHASE_REDIRECT = "https://dev.muckrock.com/accounts/";
+const LEGACY_PLAN_URL = `/plans/organization/?purchase_redirect=${encodeURIComponent(
+  PURCHASE_REDIRECT,
+)}`;
+const CHECKOUT_URL =
+  /\/organizations\/e2e-[^/]+\/plans\/organization\/annual\/\?purchase_redirect=https/;
 
 test.describe("Plan purchase redirects", () => {
-  test("purchase_redirect query param is preserved in hidden form input", async ({ page }) => {
-    await login(page, "e2e-admin");
-    await page.goto("/plans/e2e-test-plan/?purchase_redirect=https://example.com/callback");
-    // After redirect to canonical URL, verify the hidden input exists with the correct value
-    const hiddenInput = page.locator("input[name='purchase_redirect']");
-    await expect(hiddenInput).toHaveValue("https://example.com/callback");
+  test.describe("Org admin", () => {
+    test.beforeEach(async ({ page }) => {
+      await login(page, "e2e-admin");
+      await page.goto(LEGACY_PLAN_URL);
+    });
+
+    test("a legacy plan link lands on checkout carrying purchase_redirect", async ({
+      page,
+    }) => {
+      await expect(page).toHaveURL(CHECKOUT_URL);
+      await expect(page.locator("#subscribe-form")).toBeVisible();
+    });
+
+    test("every organization to switch to keeps purchase_redirect", async ({
+      page,
+    }) => {
+      const options = page.locator("#organization-select option");
+      await expect(options.first()).toBeAttached();
+      const values = await options.evaluateAll((els) =>
+        els.map((el) => (el as HTMLOptionElement).value),
+      );
+      expect(values.length).toBeGreaterThan(1);
+      for (const value of values) {
+        expect(value).toContain("purchase_redirect=https");
+      }
+    });
   });
 
-  test("plan redirect view preserves purchase_redirect query param", async ({ page }) => {
-    await login(page, "e2e-admin");
-    // Navigate to slug-only URL with purchase_redirect
-    await page.goto("/plans/e2e-test-plan/?purchase_redirect=https://example.com/callback");
-    // After redirect, URL should still contain purchase_redirect
-    expect(page.url()).toContain("purchase_redirect=https");
+  test.describe("Anonymous visitor", () => {
+    test("logs in and continues to checkout carrying purchase_redirect", async ({
+      browser,
+    }) => {
+      const anonContext = await newAnonContext(browser);
+      const page = await anonContext.newPage();
+
+      await page.goto(`https://dev.squarelet.com${LEGACY_PLAN_URL}`);
+      await expect(page).toHaveURL(/\/accounts\/login\/\?next=/);
+
+      await page.locator("#login_form input[name='login']").fill("e2e-admin");
+      await page.locator("#login_form input[name='password']").fill(E2E_PASSWORD);
+      await page.locator("#login_form button.primary").click();
+
+      await expect(page).toHaveURL(CHECKOUT_URL);
+
+      await anonContext.close();
+    });
   });
 });
 
-test.describe("Plan purchase organization selection", () => {
-  // The organization-selection block renders when the user has eligible
-  // organizations OR the plan is for groups (so a new org can be created).
-  // Otherwise the "no subscription options" message is shown instead.
-  const orgForm = "[data-plan-purchase-form]";
-
-  test.describe("Group plan, user with no group orgs", () => {
-    // e2e-regular is a member of no organizations, so the org queryset is
-    // empty for a groups-only plan. The form must still offer "Create a new
-    // organization" rather than the no-options message.
-    test.beforeEach(async ({ page }) => {
-      await login(page, "e2e-regular");
-      await page.goto("/plans/e2e-test-plan/");
-    });
-
-    test("renders the organization selection block", async ({ page }) => {
-      await expect(
-        page.locator(`${orgForm} .organization-selection`),
-      ).toBeVisible();
-    });
-
-    test("offers the create-new-organization option", async ({ page }) => {
-      await expect(
-        page.locator(`${orgForm} select.org-select option[value="new"]`),
-      ).toHaveCount(1);
-    });
-
-    test("does not show the no-subscription-options message", async ({ page }) => {
-      await expect(
-        page.locator(`${orgForm} .no-subscription-options`),
-      ).toHaveCount(0);
-    });
+test.describe("Enterprise plan page", () => {
+  // Enterprise is sold through a conversation, so its page offers contact
+  // links and the full description rather than a checkout.
+  test.beforeEach(async ({ page }) => {
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/plans/sunlight-enterprise/");
   });
 
-  test.describe("Group plan, user with no group orgs and unverified email", () => {
-    // A user must verify their email before they can create an organization.
-    // With no eligible orgs and an unverified email, the create-new option must
-    // be withheld and an email-verification message shown instead.
-    test.beforeEach(async ({ page }) => {
-      await login(page, "e2e-unverified");
-      await page.goto("/plans/e2e-test-plan/");
-    });
-
-    test("does not offer the create-new-organization option", async ({ page }) => {
-      await expect(
-        page.locator(`${orgForm} select.org-select option[value="new"]`),
-      ).toHaveCount(0);
-    });
-
-    test("shows the email-verification message", async ({ page }) => {
-      await expect(
-        page.locator(`${orgForm} .no-subscription-options.unverified-email`),
-      ).toBeVisible();
-    });
+  test("offers contact and learn-more links", async ({ page }) => {
+    await expect(page.locator('a[href^="https://calendar.app.google/"]')).toBeVisible();
+    await expect(
+      page.locator('a[href="https://sunlightresearch.net/launch"]'),
+    ).toBeVisible();
   });
 
-  test.describe("Individual-only plan", () => {
-    // The professional plan is for individuals only. The user's individual
-    // organization populates the queryset, so the selection renders without a
-    // create-new option and without the no-options message.
-    test.beforeEach(async ({ page }) => {
-      await login(page, "e2e-regular");
-      await page.goto("/plans/professional/");
-    });
+  test("shows no checkout", async ({ page }) => {
+    await expect(page.locator("#subscribe-form")).toHaveCount(0);
+    await expect(page.locator("#card-form")).toHaveCount(0);
+  });
 
-    test("renders the organization selection block", async ({ page }) => {
-      await expect(
-        page.locator(`${orgForm} .organization-selection`),
-      ).toBeVisible();
-    });
+  test("shows the full description", async ({ page }) => {
+    await expect(page.locator("section.plan-long-description")).toBeVisible();
+  });
+});
 
-    test("does not offer the create-new-organization option", async ({ page }) => {
-      await expect(
-        page.locator(`${orgForm} select.org-select option[value="new"]`),
-      ).toHaveCount(0);
-    });
+test.describe("Paying by invoice", () => {
+  // e2e-public-org has no card on file, so only an invoice lets it subscribe.
+  const checkout = (interval: string) =>
+    `/organizations/e2e-public-org/plans/organization/${interval}/`;
 
-    test("does not show the no-subscription-options message", async ({ page }) => {
-      await expect(
-        page.locator(`${orgForm} .no-subscription-options`),
-      ).toHaveCount(0);
-    });
+  test.beforeEach(async ({ page }) => {
+    await login(page, "e2e-admin");
+  });
+
+  test("choosing invoice on an annual plan enables subscribing without a card", async ({
+    page,
+  }) => {
+    await page.goto(checkout("annual"));
+    const subscribe = page.locator("#subscribe-button");
+    await expect(subscribe).toBeDisabled();
+
+    await page.locator('input[name="payment_method"][value="invoice"]').check();
+
+    await expect(subscribe).toBeEnabled();
+    await expect(page.locator("#card-form")).toBeHidden();
+  });
+
+  test("choosing invoice swaps the card charge for the invoice terms", async ({
+    page,
+  }) => {
+    await page.goto(checkout("annual"));
+    const cardRow = page.locator('.checkout-row[data-payment-label="card"]');
+    const invoiceRow = page.locator('.checkout-row[data-payment-label="invoice"]');
+    await expect(cardRow).toBeVisible();
+    await expect(invoiceRow).toBeHidden();
+
+    await page.locator('input[name="payment_method"][value="invoice"]').check();
+
+    await expect(cardRow).toBeHidden();
+    await expect(invoiceRow).toBeVisible();
+  });
+
+  test("a monthly plan offers no invoice", async ({ page }) => {
+    await page.goto(checkout("monthly"));
+    await expect(
+      page.locator('input[name="payment_method"][value="invoice"]'),
+    ).toHaveCount(0);
   });
 });

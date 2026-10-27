@@ -16,12 +16,13 @@ from oidc_provider.models import Client, ResponseType
 from squarelet.oidc.models import ClientProfile
 from squarelet.organizations.models import Membership, Organization
 from squarelet.organizations.models.invitation import Invitation, OrganizationInvitation
-from squarelet.organizations.models.payment import Customer, Plan
+from squarelet.organizations.models.payment import Customer, Plan, PlanPrice
 from squarelet.users.models import User
 
 E2E_PASSWORD = "e2e-test-password"
 
 OIDC_CLIENT_ID = "e2e-verify-client"
+E2E_STRIPE_PRICE_PREFIX = "price_e2e_"
 OIDC_REDIRECT_URL = "https://dev.squarelet.com/"
 
 USERS = [
@@ -119,27 +120,15 @@ class Command(BaseCommand):
             slug="organization",
             defaults={
                 "name": "Organization",
-                "minimum_users": 1,
-                "base_price": 0,
-                "price_per_user": 0,
-                "for_individuals": False,
-                "for_groups": True,
-            },
-        )
-
-        # Create a free group plan for e2e purchase redirect tests
-        Plan.objects.get_or_create(
-            slug="e2e-test-plan",
-            defaults={
-                "name": "E2E Test Plan",
-                "minimum_users": 1,
-                "base_price": 0,
-                "price_per_user": 0,
-                "for_individuals": False,
-                "for_groups": True,
                 "public": True,
+                "minimum_users": 1,
+                "base_price": 0,
+                "price_per_user": 0,
+                "for_individuals": False,
+                "for_groups": True,
             },
         )
+        self.seed_organization_price()
 
         # Create the professional plan (referenced by the user detail view
         # as the individual upgrade option)
@@ -233,6 +222,8 @@ class Command(BaseCommand):
 
             created_orgs[slug] = org
             self.stderr.write(f"Created org: {slug}")
+
+        self.seed_enterprise_offer(created_orgs["e2e-public-org"])
 
         # Create an OIDC client that gates features behind verification
         self._seed_verification_client()
@@ -330,6 +321,37 @@ class Command(BaseCommand):
 
         self.stdout.write(json.dumps({"status": "clear_invitations_complete"}))
 
+    def seed_organization_price(self):
+        """Price the organization plan, so its upgrade button links to checkout."""
+        plan = Plan.objects.get(slug="organization")
+        for interval, amount in (("monthly", 10000), ("annual", 100000)):
+            PlanPrice.objects.get_or_create(
+                plan=plan,
+                interval=interval,
+                label="standard",
+                code="",
+                defaults={
+                    "amount": amount,
+                    "stripe_price_id": (
+                        f"{E2E_STRIPE_PRICE_PREFIX}organization_{interval}"
+                    ),
+                },
+            )
+
+    def seed_enterprise_offer(self, organization):
+        """Offer the private enterprise plan to `organization`, as staff would."""
+        plan, _ = Plan.objects.get_or_create(
+            slug="sunlight-enterprise",
+            defaults={
+                "name": "Sunlight Research Center - Enterprise",
+                "description": "Built for **newsrooms** that need more.",
+                "for_individuals": False,
+                "for_groups": True,
+                "wix": True,
+            },
+        )
+        plan.private_organizations.add(organization)
+
     @transaction.atomic
     def teardown(self):
         # Delete users (cascades to memberships, email addresses)
@@ -352,6 +374,12 @@ class Command(BaseCommand):
         count, _ = Client.objects.filter(client_id=OIDC_CLIENT_ID).delete()
         if count:
             self.stderr.write(f"Deleted OIDC client {OIDC_CLIENT_ID}")
+
+        count, _ = PlanPrice.objects.filter(
+            stripe_price_id__startswith=E2E_STRIPE_PRICE_PREFIX
+        ).delete()
+        if count:
+            self.stderr.write("Deleted seeded organization plan prices")
 
         # Delete Staff group created by seed
         count, _ = Group.objects.filter(name="Staff").delete()

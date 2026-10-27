@@ -8,6 +8,7 @@ from django.db import connection
 from django.http.response import Http404
 from django.test.utils import CaptureQueriesContext, override_settings
 from django.utils import timezone
+from django.utils.http import urlencode
 
 # Standard Library
 import json
@@ -25,6 +26,7 @@ from freezegun import freeze_time
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.tests.mixins import ViewTestMixin
+from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.services.tests.factories import ServiceFactory
 
@@ -183,24 +185,51 @@ class TestDetail(ViewTestMixin):
         # Verify pending_requests is a queryset with the correct count
         assert response.context_data["pending_requests"].count() == 3
 
-    def test_an_admin_is_invited_to_each_private_plan_offered_to_the_org(
-        self, rf, organization_factory, user_factory, plan_factory
+    def test_a_priced_private_plan_is_offered_at_checkout(
+        self, rf, organization_factory, user_factory, plan_price_factory
     ):
         admin = user_factory()
         organization = organization_factory(admins=[admin])
-        newsroom = plan_factory(name="Newsroom Deal", public=False)
-        lab = plan_factory(name="Lab Deal", public=False)
-        newsroom.private_organizations.add(organization)
-        lab.private_organizations.add(organization)
-        plan_factory(name="Someone Else's Deal", public=False)
+        deal = plan_price_factory(plan__name="Newsroom Deal", plan__public=False).plan
+        plan_price_factory(plan=deal, interval="annual", amount=100_000)
+        deal.private_organizations.add(organization)
 
         page = self.call_view(rf, admin, slug=organization.slug).render()
 
-        assert page.context_data["private_plans"] == [lab, newsroom]
-        content = page.content.decode()
-        assert content.count("You are eligible to subscribe to a private plan") == 2
-        assert "invited to subscribe to <strong>Newsroom Deal</strong>." in content
-        assert f'href="{lab.get_absolute_url()}"' in content
+        checkout = f"/organizations/{organization.slug}/plans/{deal.slug}/"
+        assert f'href="{checkout}"' in page.content.decode()
+
+    def test_the_upgrade_goes_to_checkout_for_an_admin(
+        self, rf, organization_factory, user_factory, plan_price_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        upgrade = Plan.objects.get(slug="organization")
+        upgrade.public = True
+        upgrade.save()
+        upgrade.prices.all().delete()
+        plan_price_factory(plan=upgrade, interval="monthly")
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+
+        checkout = f"/organizations/{organization.slug}/plans/organization/"
+        assert page.content.decode().count(f'href="{checkout}"') == 2
+
+    def test_an_upgrade_the_org_may_not_buy_is_named_but_not_linked(
+        self, rf, organization_factory, user_factory, plan_price_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        upgrade = Plan.objects.get(slug="organization")
+        upgrade.public = False
+        upgrade.save()
+        upgrade.prices.all().delete()
+        plan_price_factory(plan=upgrade, interval="annual", amount=100_000)
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+
+        assert b"/plans/organization/" not in page.content
+        assert f'<span class="plan-name">{upgrade.name}</span>'.encode() in page.content
 
     def test_a_private_plan_already_held_is_not_offered(
         self,
@@ -1865,6 +1894,24 @@ class TestPlans(ViewTestMixin):
             for group in response.context_data["services"]
         ] == [(documentcloud, [premium]), (muckrock, [basic, pro])]
 
+    @pytest.mark.parametrize("label", ["comped", "nonprofit"])
+    def test_a_plan_with_no_price_for_the_org_is_left_out(
+        self, rf, user_factory, organization_factory, plan_price_factory, label
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        service = ServiceFactory()
+        sold = plan_price_factory(plan__name="Sold", plan__service=service).plan
+        plan_price_factory(
+            plan__name="Unsold", plan__service=service, label=label, amount=0
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        assert response.context_data["services"] == [
+            {"service": service, "plans": [sold]}
+        ]
+
     def test_plans_are_ranked_by_their_monthly_price(
         self, rf, user_factory, organization_factory, plan_price_factory
     ):
@@ -1982,30 +2029,47 @@ class TestPlans(ViewTestMixin):
         page = self.call_view(rf, admin, slug=organization.slug).render()
 
         assert b"/subscriptions/" in page.content
-        assert held.get_absolute_url().encode() not in page.content
-        assert other.get_absolute_url().encode() in page.content
+        assert f"/plans/{held.slug}/".encode() not in page.content
+        assert f"/plans/{other.slug}/".encode() in page.content
+
+    def test_subscribing_goes_to_the_plans_checkout(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        plan = plan_price_factory(plan__name="Tier", plan__service=ServiceFactory())
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+
+        checkout = f"/organizations/{organization.slug}/plans/{plan.plan.slug}/"
+        assert f'href="{checkout}"'.encode() in page.content
 
     def test_a_line_on_a_legacy_plan_row_holds_its_tier(
         self,
         rf,
         user_factory,
         organization_factory,
-        plan_factory,
         plan_price_factory,
         subscription_item_factory,
     ):
         admin = user_factory()
         organization = organization_factory(admins=[admin])
-        # A migration seeds this row without a service, and the factory's
-        # get-or-create on name ignores one passed in.
-        tier = plan_factory(name="Organization")
-        tier.service = ServiceFactory()
-        tier.save()
-        plan_price_factory(plan=tier)
-        subscription_item_factory(
-            subscription__organization=organization,
-            plan=plan_factory(name="Premium Org Comp"),
+        # Keyed on slug: the migrations seed these rows on a fresh database.
+        groups_only = {"public": True, "for_individuals": False, "for_groups": True}
+        tier, _ = Plan.objects.update_or_create(
+            slug="organization",
+            defaults={
+                "name": "Organization",
+                "service": ServiceFactory(),
+                **groups_only,
+            },
         )
+        plan_price_factory(plan=tier)
+        legacy, _ = Plan.objects.update_or_create(
+            slug="organization-annual",
+            defaults={"name": "Organization Annual", "service": None, **groups_only},
+        )
+        subscription_item_factory(subscription__organization=organization, plan=legacy)
 
         response = self.call_view(rf, admin, slug=organization.slug)
 
@@ -2021,6 +2085,657 @@ class TestPlans(ViewTestMixin):
 
         with pytest.raises(PermissionDenied):
             self.call_view(rf, member, slug=organization.slug)
+
+
+def sunlight_enterprise(**fields):
+    """The enterprise plan, keyed on slug as the migrations seed it on a fresh db."""
+    plan, _ = Plan.objects.update_or_create(
+        slug="sunlight-enterprise",
+        defaults={
+            "name": "Sunlight Enterprise",
+            "public": True,
+            "wix": True,
+            "for_individuals": False,
+            "for_groups": True,
+            **fields,
+        },
+    )
+    return plan
+
+
+@pytest.mark.django_db()
+class TestPlanCheckout(ViewTestMixin):
+    """Buying one plan at one interval with the card on file."""
+
+    view = views.PlanCheckout
+    url = "/organizations/{slug}/plans/{plan_slug}/{interval}/"
+
+    @pytest.fixture
+    def admin(self, user_factory):
+        return user_factory()
+
+    @pytest.fixture
+    def organization(self, organization_factory, admin, payment_method_factory):
+        organization = organization_factory(admins=[admin])
+        payment_method_factory(customer=organization.customer())
+        return organization
+
+    @pytest.fixture
+    def add_subscription(self, mocker):
+        return mocker.patch.object(Organization, "add_subscription")
+
+    def view_page(self, rf, admin, organization, plan, interval="monthly"):
+        return self.call_view(
+            rf,
+            admin,
+            slug=organization.slug,
+            plan_slug=plan.slug,
+            interval=interval,
+        )
+
+    def subscribe(
+        self,
+        rf,
+        admin,
+        organization,
+        plan,
+        interval="monthly",
+        params=None,
+        data=None,
+    ):
+        return self.call_view(
+            rf,
+            admin,
+            data or {},
+            params,
+            slug=organization.slug,
+            plan_slug=plan.slug,
+            interval=interval,
+        )
+
+    def test_an_annual_plan_is_paid_by_invoice_without_a_card(
+        self, rf, admin, organization_factory, plan_price_factory, add_subscription
+    ):
+        organization = organization_factory(admins=[admin])
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        response = self.subscribe(
+            rf,
+            admin,
+            organization,
+            plan,
+            "annual",
+            data={"payment_method": "invoice"},
+        )
+
+        assert response.status_code == 302
+        add_subscription.assert_called_once_with(
+            plan,
+            None,
+            admin,
+            payment_method="invoice",
+            nonprofit=False,
+            interval="annual",
+        )
+
+    @pytest.mark.parametrize("payment_method", ["invoice", "cheque"])
+    def test_a_monthly_plan_is_paid_only_by_card(
+        self,
+        rf,
+        admin,
+        organization,
+        plan_price_factory,
+        add_subscription,
+        payment_method,
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        response = self.subscribe(
+            rf, admin, organization, plan, data={"payment_method": payment_method}
+        )
+
+        assert response.status_code == 302
+        add_subscription.assert_not_called()
+
+    def test_invoicing_is_offered_only_on_an_annual_plan(
+        self, rf, admin, organization, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        annual = self.view_page(rf, admin, organization, plan, "annual").render()
+        monthly = self.view_page(rf, admin, organization, plan, "monthly").render()
+
+        assert b'value="invoice"' in annual.content
+        assert b'value="invoice"' not in monthly.content
+
+    def test_an_enterprise_plan_offers_contact_in_place_of_checkout(
+        self, rf, admin, organization, plan_price_factory
+    ):
+        plan = sunlight_enterprise()
+        plan_price_factory(plan=plan, interval="annual", amount=1_000_000)
+
+        page = self.view_page(rf, admin, organization, plan, "annual").render()
+
+        content = page.content.decode()
+        assert 'id="subscribe-form"' not in content
+        assert 'id="card-form"' not in content
+        assert 'href="https://calendar.app.google/fAWZF635MY89Sp5J9"' in content
+        assert 'href="https://sunlightresearch.net/launch"' in content
+
+    def test_an_enterprise_plan_shows_its_description_as_markdown(
+        self, rf, admin, organization
+    ):
+        plan = sunlight_enterprise(description="Built for **newsrooms**.")
+
+        page = self.view_page(rf, admin, organization, plan, "annual").render()
+
+        assert b"Built for <strong>newsrooms</strong>." in page.content
+
+    def test_an_unpriced_enterprise_plan_still_has_a_page(
+        self, rf, admin, organization
+    ):
+        plan = sunlight_enterprise()
+
+        response = self.view_page(rf, admin, organization, plan, "annual")
+
+        assert response.status_code == 200
+
+    def test_an_enterprise_plan_cannot_be_bought_here(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        plan = sunlight_enterprise()
+        plan_price_factory(plan=plan, interval="annual", amount=1_000_000)
+
+        response = self.subscribe(rf, admin, organization, plan, "annual")
+
+        assert response.status_code == 302
+        add_subscription.assert_not_called()
+
+    def test_subscribing_returns_the_buyer_to_the_app_that_sent_them(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        back = "https://dev.muckrock.com/accounts/"
+
+        response = self.subscribe(
+            rf, admin, organization, plan, params={"purchase_redirect": back}
+        )
+
+        add_subscription.assert_called_once()
+        assert response.url == back
+
+    def test_a_purchase_redirect_to_an_unknown_host_is_ignored(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        response = self.subscribe(
+            rf,
+            admin,
+            organization,
+            plan,
+            params={"purchase_redirect": "https://evil.example.com/"},
+        )
+
+        add_subscription.assert_called_once()
+        assert response.url == f"/organizations/{organization.slug}/subscriptions/"
+
+    def test_a_card_needing_authentication_returns_to_the_app_afterwards(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        add_subscription.side_effect = PaymentActionRequired("pi_1_secret_2", "pi_1")
+        back = "https://dev.muckrock.com/accounts/"
+        url = self.url.format(
+            slug=organization.slug, plan_slug=plan.slug, interval="monthly"
+        )
+        request = rf.post(
+            f"{url}?{urlencode({'purchase_redirect': back})}",
+            {},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        request.user = admin
+        # pylint: disable=protected-access
+        request._messages = MagicMock()
+        request.session = MagicMock()
+
+        response = self.view.as_view()(
+            request, slug=organization.slug, plan_slug=plan.slug, interval="monthly"
+        )
+
+        assert response.status_code == 402
+        assert json.loads(response.content)["redirect"] == back
+
+    def test_switching_interval_or_organization_keeps_the_purchase_redirect(
+        self, rf, admin, organization, organization_factory, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+        organization_factory(admins=[admin], name="Other")
+        query = urlencode({"purchase_redirect": "https://dev.muckrock.com/accounts/"})
+
+        response = self.call_view(
+            rf,
+            admin,
+            params={"purchase_redirect": "https://dev.muckrock.com/accounts/"},
+            slug=organization.slug,
+            plan_slug=plan.slug,
+            interval="monthly",
+        )
+
+        assert response.context_data["other_interval_url"].endswith(f"?{query}")
+        urls = [url for _org, url in response.context_data["organization_choices"]]
+        assert len(urls) > 1
+        assert all(url.endswith(f"?{query}") for url in urls)
+
+    def test_a_nonprofit_is_quoted_its_rate_beside_the_struck_list_price(
+        self, rf, admin, organization, plan_price_factory
+    ):
+        organization.nonprofit = True
+        organization.save()
+        standard = plan_price_factory(plan__name="Tier", amount=10_000)
+        nonprofit = plan_price_factory(
+            plan=standard.plan, label="nonprofit", amount=5_000
+        )
+
+        response = self.view_page(rf, admin, organization, standard.plan)
+
+        assert response.context_data["price"] == nonprofit
+        assert response.context_data["list_price"] == standard
+        assert b"<s>$100</s>" in response.render().content
+
+    def test_a_standard_organization_is_quoted_the_list_price_alone(
+        self, rf, admin, organization, plan_price_factory
+    ):
+        standard = plan_price_factory(plan__name="Tier", amount=10_000)
+        plan_price_factory(plan=standard.plan, label="nonprofit", amount=5_000)
+
+        response = self.view_page(rf, admin, organization, standard.plan)
+
+        assert response.context_data["price"] == standard
+        assert response.context_data["list_price"] is None
+        assert b"<s>" not in response.render().content
+
+    def test_the_interval_switch_appears_only_when_the_other_is_sold(
+        self, rf, admin, organization, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        response = self.view_page(rf, admin, organization, plan)
+        assert "other_interval_url" not in response.context_data
+
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+        response = self.view_page(rf, admin, organization, plan)
+        assert response.context_data["other_interval_url"] == (
+            f"/organizations/{organization.slug}/plans/{plan.slug}/annual/"
+        )
+
+    @pytest.mark.parametrize("interval", ["annual", "weekly"])
+    def test_an_interval_the_plan_is_not_sold_at_is_not_found(
+        self, rf, admin, organization, plan_price_factory, interval
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        with pytest.raises(Http404):
+            self.view_page(rf, admin, organization, plan, interval)
+
+    def test_a_private_plan_is_not_found_by_an_organization_not_granted_it(
+        self, rf, admin, organization, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Private", plan__public=False).plan
+
+        with pytest.raises(Http404):
+            self.view_page(rf, admin, organization, plan)
+
+    def test_subscribing_buys_the_plan_at_the_pages_interval_and_rate(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        organization.nonprofit = True
+        organization.save()
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+        plan_price_factory(
+            plan=plan, interval="annual", label="nonprofit", amount=50_000
+        )
+
+        response = self.subscribe(rf, admin, organization, plan, "annual")
+
+        assert response.status_code == 302
+        assert response.url == f"/organizations/{organization.slug}/subscriptions/"
+        add_subscription.assert_called_once_with(
+            plan,
+            None,
+            admin,
+            payment_method="card",
+            nonprofit=True,
+            interval="annual",
+        )
+
+    def test_subscribing_without_a_payment_method_is_refused(
+        self,
+        rf,
+        admin,
+        organization_factory,
+        plan_price_factory,
+        add_subscription,
+    ):
+        organization = organization_factory(admins=[admin])
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        response = self.subscribe(rf, admin, organization, plan)
+
+        assert response.status_code == 302
+        add_subscription.assert_not_called()
+
+    def test_a_full_sunlight_plan_puts_the_buyer_on_its_waitlist(  # pylint: disable=too-many-arguments
+        self,
+        rf,
+        admin,
+        organization_factory,
+        plan_price_factory,
+        add_subscription,
+        mocker,
+        settings,
+        django_capture_on_commit_callbacks,
+    ):
+        settings.MAX_SUNLIGHT_SUBSCRIPTIONS = 0
+        add_to_waitlist = mocker.patch("squarelet.payments.views.add_to_waitlist")
+        # No card on file: joining a waitlist charges nothing.
+        organization = organization_factory(admins=[admin])
+        plan = plan_price_factory(plan__name="Sunlight Tier", plan__wix=True).plan
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = self.subscribe(rf, admin, organization, plan)
+
+        assert response.status_code == 302
+        assert response.url == f"/organizations/{organization.slug}/plans/"
+        add_subscription.assert_not_called()
+        add_to_waitlist.delay.assert_called_once_with(
+            organization.pk, plan.pk, admin.pk
+        )
+
+    def test_a_full_sunlight_plan_offers_its_waitlist(
+        self, rf, admin, organization, plan_price_factory, settings
+    ):
+        settings.MAX_SUNLIGHT_SUBSCRIPTIONS = 0
+        plan = plan_price_factory(plan__name="Sunlight Tier", plan__wix=True).plan
+
+        content = self.view_page(rf, admin, organization, plan).render().content
+
+        assert b"Join the waitlist" in content
+        assert b"Subscribe to this plan" not in content
+
+    def test_a_held_plan_is_not_bought_again(
+        self,
+        rf,
+        admin,
+        organization,
+        plan_price_factory,
+        subscription_item_factory,
+        add_subscription,
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        subscription_item_factory(subscription__organization=organization, plan=plan)
+
+        response = self.subscribe(rf, admin, organization, plan)
+
+        assert response.status_code == 302
+        add_subscription.assert_not_called()
+
+    def test_a_held_plan_is_not_priced_on_stripe(
+        self,
+        rf,
+        admin,
+        organization,
+        plan_price_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        """Stripe refuses to preview adding a Price the subscription already has."""
+        due_on_start = mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.objects.due_on_start"
+        )
+        plan = plan_price_factory(plan__name="Tier").plan
+        subscription_item_factory(subscription__organization=organization, plan=plan)
+
+        response = self.view_page(rf, admin, organization, plan)
+
+        assert response.context_data["held"]
+        due_on_start.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "due, prorated", [(10_000, False), (4_000, True), (None, False)]
+    )
+    def test_the_proration_caption_shows_only_when_less_than_the_price_is_due(
+        self, rf, admin, organization, plan_price_factory, mocker, due, prorated
+    ):
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.objects.due_on_start",
+            return_value=due,
+        )
+        plan = plan_price_factory(plan__name="Tier", amount=10_000).plan
+
+        page = self.view_page(rf, admin, organization, plan).render()
+
+        assert page.context_data["prorated"] is prorated
+        assert (b"Prorated to your current billing period" in page.content) is prorated
+
+    def test_an_invoice_starts_its_own_year_at_the_full_price(
+        self, rf, admin, organization, plan_price_factory, subscription_factory, mocker
+    ):
+        # The card quote is prorated into the live annual card subscription.
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.objects.due_on_start",
+            return_value=40_000,
+        )
+        subscription_factory(
+            organization=organization, interval="annual", subscription_id="sub_card"
+        )
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        page = self.view_page(rf, admin, organization, plan, "annual").render()
+
+        assert page.context_data["invoice_joining"] is None
+        assert b"$400.00" in page.content
+        assert b"$1,000.00" in page.content
+
+    def test_an_invoice_joining_a_live_invoiced_year_waits_for_its_renewal(
+        self, rf, admin, organization, plan_price_factory, subscription_factory, mocker
+    ):
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.objects.due_on_start",
+            return_value=100_000,
+        )
+        invoiced = subscription_factory(
+            organization=organization,
+            interval="annual",
+            collection_method="send_invoice",
+            subscription_id="sub_invoiced",
+            current_period_end=datetime(2027, 3, 1, 12, tzinfo=dt_timezone.utc),
+        )
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        page = self.view_page(rf, admin, organization, plan, "annual").render()
+
+        assert page.context_data["invoice_joining"] == invoiced
+        assert b"March 1, 2027" in page.content
+
+    def test_a_card_needing_authentication_hands_back_its_secret(
+        self, rf, admin, organization, plan_price_factory, add_subscription
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        add_subscription.side_effect = PaymentActionRequired("pi_1_secret_2", "pi_1")
+        request = rf.post(
+            self.url.format(
+                slug=organization.slug, plan_slug=plan.slug, interval="monthly"
+            ),
+            {},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        request.user = admin
+        # pylint: disable=protected-access
+        request._messages = MagicMock()
+        request.session = MagicMock()
+
+        response = self.view.as_view()(
+            request, slug=organization.slug, plan_slug=plan.slug, interval="monthly"
+        )
+
+        assert response.status_code == 402
+        assert json.loads(response.content)["client_secret"] == "pi_1_secret_2"
+
+    def test_the_admin_can_switch_to_another_account_that_may_buy_the_plan(
+        self,
+        rf,
+        admin,
+        organization,
+        organization_factory,
+        plan_price_factory,
+        subscription_item_factory,
+    ):
+        plan = plan_price_factory(
+            plan__name="Tier", plan__for_individuals=True, plan__for_groups=True
+        ).plan
+        other = organization_factory(admins=[admin], name="Other")
+        holding = organization_factory(admins=[admin], name="Holding")
+        subscription_item_factory(subscription__organization=holding, plan=plan)
+        organization_factory(users=[admin], name="Member only")
+
+        response = self.view_page(rf, admin, organization, plan)
+
+        assert response.context_data["organization_choices"] == [
+            (
+                organization,
+                f"/organizations/{organization.slug}/plans/{plan.slug}/monthly/",
+            ),
+            (
+                admin.individual_organization,
+                f"/users/{admin.username}/plans/{plan.slug}/monthly/",
+            ),
+            (other, f"/organizations/{other.slug}/plans/{plan.slug}/monthly/"),
+        ]
+
+    def test_an_account_not_granted_a_private_plan_is_not_offered(
+        self, rf, admin, organization, organization_factory, plan_price_factory
+    ):
+        plan = plan_price_factory(
+            plan__name="Private", plan__public=False, plan__for_groups=True
+        ).plan
+        plan.private_organizations.add(organization)
+        organization_factory(admins=[admin], name="Other")
+
+        response = self.view_page(rf, admin, organization, plan)
+
+        assert [org for org, _url in response.context_data["organization_choices"]] == [
+            organization
+        ]
+        assert b'id="organization-select"' not in response.render().content
+
+
+@pytest.mark.django_db()
+class TestPlanCheckoutRedirect(ViewTestMixin):
+    """A plan's checkout link picks the interval."""
+
+    view = views.PlanCheckoutRedirect
+    url = "/organizations/{slug}/plans/{plan_slug}/"
+
+    def visit(self, rf, user_factory, organization_factory, plan, **org_kwargs):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], **org_kwargs)
+        response = self.call_view(
+            rf, admin, slug=organization.slug, plan_slug=plan.slug
+        )
+        return organization, response
+
+    def test_it_goes_to_annual_where_the_plan_is_sold_annually(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        organization, response = self.visit(
+            rf, user_factory, organization_factory, plan
+        )
+
+        assert response.status_code == 302
+        assert response.url == (
+            f"/organizations/{organization.slug}/plans/{plan.slug}/annual/"
+        )
+
+    def test_it_carries_the_purchase_redirect_to_checkout(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        params = {"purchase_redirect": "https://dev.muckrock.com/accounts/"}
+
+        response = self.call_view(
+            rf, admin, params=params, slug=organization.slug, plan_slug=plan.slug
+        )
+
+        assert response.url == (
+            f"/organizations/{organization.slug}/plans/{plan.slug}/monthly/"
+            f"?{urlencode(params)}"
+        )
+
+    def test_an_unpriced_enterprise_plan_goes_to_its_page(
+        self, rf, user_factory, organization_factory
+    ):
+        plan = sunlight_enterprise()
+
+        _organization, response = self.visit(
+            rf, user_factory, organization_factory, plan
+        )
+
+        assert response.url.endswith("/plans/sunlight-enterprise/annual/")
+
+    def test_it_goes_to_monthly_otherwise(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        organization, response = self.visit(
+            rf, user_factory, organization_factory, plan
+        )
+
+        assert response.url == (
+            f"/organizations/{organization.slug}/plans/{plan.slug}/monthly/"
+        )
+
+    def test_a_nonprofit_only_annual_rate_counts_for_a_nonprofit(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        plan_price_factory(
+            plan=plan, interval="annual", label="nonprofit", amount=50_000
+        )
+
+        _organization, response = self.visit(
+            rf, user_factory, organization_factory, plan, nonprofit=True
+        )
+
+        assert response.url.endswith(f"/plans/{plan.slug}/annual/")
+
+    def test_a_plan_sold_at_neither_interval_is_not_found(
+        self, rf, user_factory, organization_factory, plan_factory
+    ):
+        with pytest.raises(Http404):
+            self.visit(rf, user_factory, organization_factory, plan_factory())
+
+    def test_a_member_who_cannot_subscribe_is_refused(
+        self, rf, user_factory, organization_factory, plan_price_factory
+    ):
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, member, slug=organization.slug, plan_slug=plan.slug)
 
 
 @pytest.mark.django_db()
@@ -2245,6 +2960,16 @@ class TestResubscribe(ViewTestMixin):
 
         assert response.status_code == 302
         self.assert_message(messages.ERROR, "already has a live subscription")
+
+    def test_a_line_the_org_does_not_hold_is_not_found(
+        self, rf, user_factory, organization_factory, subscription_item_factory
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        elsewhere = subscription_item_factory()
+
+        with pytest.raises(Http404):
+            self.call_view(rf, admin, {}, slug=organization.slug, pk=elsewhere.pk)
 
 
 @pytest.mark.django_db()

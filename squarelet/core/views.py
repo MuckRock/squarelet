@@ -100,6 +100,11 @@ class SelectPlanView(TemplateView):
         context["sunlight_tiers"] = [
             sunlight_tiers[tier] for tier in tier_order if tier in sunlight_tiers
         ]
+        if not user.is_anonymous:
+            for tier in context["sunlight_tiers"]:
+                prices = tier["annual"] or tier["monthly"]
+                plan = prices["standard"] if isinstance(prices, dict) else prices
+                tier["checkout_url"] = plan and plan.get_checkout_url_for(user)
 
         return context
 
