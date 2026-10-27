@@ -54,9 +54,9 @@ class Command(BaseCommand):
         # Collected rather than raised at the first, so one dry run names all.
         changed_grants = []
         with transaction.atomic():
-            for entitlement in Entitlement.objects.prefetch_related("plans").order_by(
-                "pk"
-            ):
+            for entitlement in Entitlement.objects.prefetch_related(
+                "plans", "grants"
+            ).order_by("pk"):
                 counts[self._migrate(entitlement, changed_grants)] += 1
             if changed_grants:
                 raise CommandError(
@@ -69,7 +69,8 @@ class Command(BaseCommand):
 
         self.stdout.write(
             f"\n{counts['reshaped']} reshaped, {counts['unchanged']} already "
-            f"in shape, {counts['not_scaled']} do not scale with quantity"
+            f"in shape, {counts['not_scaled']} do not scale with quantity, "
+            f"{counts['unused']} granted by nothing"
         )
 
     def _preflight(self):
@@ -128,6 +129,11 @@ class Command(BaseCommand):
         return any(plan.slug not in PACK_SLUGS for plan in entitlement.plans.all())
 
     def _migrate(self, entitlement, changed_grants):
+        # Without a plan it can't be told pack from tier, and no one receives
+        # it: left as it is rather than guessed.
+        if not entitlement.plans.all() and not entitlement.grants.all():
+            self.stdout.write(f"  . {entitlement.slug}: nothing grants it, left alone")
+            return "unused"
         is_pack = self._is_pack(entitlement)
         target = reshape(entitlement.resources, is_pack=is_pack)
 
