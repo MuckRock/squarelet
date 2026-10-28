@@ -1,6 +1,5 @@
 # Django
 from django.contrib.postgres.search import SearchQuery, SearchVector
-from django.db.models import Q
 
 # Standard Library
 import re
@@ -39,13 +38,14 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                 if not viewable_org.exists():
                     return User.objects.none()
                 qs = qs.filter(organizations__in=viewable_org).order_by("-last_login")
-            if search:
+            if "@" in search:
                 # Only an exact, verified address matches
-                match = Q(
+                return qs.filter(
                     id__in=EmailAddress.objects.filter(
-                        email__iexact=search, verified=True
+                        email=search.lower(), verified=True
                     ).values("user_id")
                 )
+            if search:
                 # Full-text search with prefix matching.
                 # Strip tsquery special characters so raw queries are safe.
                 sanitized = re.sub(r"[&|!<>():*@.\\\"]", " ", search).strip()
@@ -54,8 +54,6 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                     terms = sanitized.split()
                     tsquery = " & ".join(f"{t}:*" for t in terms)
                     query = SearchQuery(tsquery, search_type="raw")
-                    qs = qs.annotate(search=vector)
-                    match |= Q(search=query)
-                qs = qs.filter(match)
+                    qs = qs.annotate(search=vector).filter(search=query)
             return qs
         return User.objects.prefetch_related("organizations")

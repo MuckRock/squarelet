@@ -316,3 +316,18 @@ def test_search_by_email_excludes_hidden_users(client, user_with_org):
     response = client.get("/fe_api/users/", {"search": "hidden@example.com"})
     assert response.status_code == status.HTTP_200_OK
     assert response.data["results"] == []
+
+
+@pytest.mark.django_db
+def test_search_with_an_at_sign_skips_name_matches(client, user_with_org):
+    user, _ = user_with_org
+    jane = User.objects.create_user(
+        username="jane", name="Jane Example", email="jane@example.com"
+    )
+    jane.individual_organization.hidden = False
+    jane.individual_organization.save()
+
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/", {"search": "jane@example"})
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["results"] == []
