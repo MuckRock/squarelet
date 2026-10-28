@@ -10,15 +10,23 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.entitlement_shape import grant_new, grant_old, reshape
+from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
     EntitlementGrantFactory,
     PlanFactory,
+    PlanPriceFactory,
     SubscriptionItemFactory,
 )
 
 TIER = {"base_requests": 50, "minimum_users": 5, "requests_per_user": 10}
 PACK = {"base_requests": 0, "minimum_users": 0, "requests_per_user": 10}
+
+
+@pytest.fixture(autouse=True)
+def retire_seeded_plans(db):  # pylint: disable=unused-argument
+    """Migrations seed plans with no price, which the preflight would refuse."""
+    Plan.objects.update(archived=True)
 
 
 def run(**kwargs):
@@ -158,6 +166,61 @@ class TestPreflight:
 
         with pytest.raises(CommandError, match="both a pack plan and a tier"):
             run()
+
+
+def unpriced_tier(**plan_fields):
+    """A scaling tier a purchase starts at 5 of, having no price to resolve to."""
+    plan = PlanFactory(
+        name="Unpriced Legacy Tier",
+        slug="unpriced-legacy-tier",
+        minimum_users=5,
+        **plan_fields,
+    )
+    EntitlementFactory(resources=dict(TIER)).plans.add(plan)
+    return plan
+
+
+@pytest.mark.django_db()
+class TestPurchasesAfterThePreflight:
+    """A purchase must not be able to land above quantity 1 once it has run."""
+
+    def test_a_scaling_plan_on_sale_with_no_price_aborts(self):
+        unpriced_tier()
+
+        with pytest.raises(CommandError, match="unpriced-legacy-tier"):
+            run()
+
+    def test_an_archived_plan_with_no_price_is_fine(self):
+        unpriced_tier(archived=True)
+
+        run()  # does not raise
+
+    def test_a_plan_a_purchase_resolves_to_a_price_is_fine(self):
+        PlanPriceFactory(plan=unpriced_tier())
+
+        run()  # does not raise
+
+    def test_an_unpriced_pack_is_fine(self):
+        """A pack bought at 5 is meant to grant 5 packs."""
+        pack, _ = Plan.objects.update_or_create(
+            slug="documentcloud-credit-pack",
+            defaults={
+                "name": "DocumentCloud Credit Pack",
+                "minimum_users": 5,
+                "archived": False,
+            },
+        )
+        EntitlementFactory(resources=dict(PACK)).plans.add(pack)
+
+        run()  # does not raise
+
+    def test_an_unpriced_plan_that_does_not_scale_is_fine(self):
+        flat = PlanFactory(
+            name="Unpriced Flat Tier", slug="unpriced-flat-tier", minimum_users=5
+        )
+        EntitlementFactory(resources={"base_requests": 20}).plans.add(flat)
+
+        run()  # does not raise
 
 
 @pytest.mark.django_db()

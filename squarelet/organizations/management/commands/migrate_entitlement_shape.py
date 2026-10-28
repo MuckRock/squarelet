@@ -13,7 +13,7 @@ from squarelet.organizations.entitlement_shape import (
     reshape,
     scaling_pairs,
 )
-from squarelet.organizations.models.payment import Entitlement, SubscriptionItem
+from squarelet.organizations.models.payment import Entitlement, Plan, SubscriptionItem
 from squarelet.organizations.plan_mapping import PACK_SLUGS
 
 
@@ -31,7 +31,8 @@ class Command(BaseCommand):
     will move to `base * quantity`; with `minimum_users = 1` and
     `per_user = base` they agree, so either client can switch at any time.
     Writes only `Entitlement.resources`.  Needs the pricing migration first,
-    which puts every tier line at quantity 1.
+    which puts every tier line at quantity 1, and `archive_legacy_plans`,
+    which stops new lines arriving above it.
     """
 
     help = "Move every entitlement onto a shape both grant formulas agree on"
@@ -74,7 +75,7 @@ class Command(BaseCommand):
         )
 
     def _preflight(self):
-        """Refuse while any line on a scaling tier is above quantity 1.
+        """Refuse while any line on a scaling tier is, or could be bought, above 1.
 
         The formulas agree only at quantity 1: an Organization line at 30
         would grant 1,500 instead of 300, to every client at once.  Packs
@@ -104,6 +105,27 @@ class Command(BaseCommand):
                 f"{len(carrying)} line(s) are not at quantity 1, and this "
                 f"step would multiply their grant instead of preserving it. "
                 f"Decompose or normalise them first:\n{lines}"
+            )
+
+        # `SubscriptionItem.objects.start` buys an unpriced plan at its
+        # minimum, a line the check above would have refused.
+        unpriced = [
+            plan.slug
+            for plan in Plan.objects.not_archived()
+            .exclude(slug__in=PACK_SLUGS)
+            .filter(minimum_users__gt=1)
+            .prefetch_related("entitlements")
+            if any(
+                scaling_pairs(entitlement.resources)
+                for entitlement in plan.entitlements.all()
+            )
+            and SubscriptionItem.objects.resolve_purchase(plan)[1] is None
+        ]
+        if unpriced:
+            raise CommandError(
+                "These plans are on sale with no price, so a purchase would "
+                "start above quantity 1 and be overgranted.  Archive them "
+                "first (archive_legacy_plans): " + ", ".join(sorted(unpriced))
             )
 
         mixed = [
