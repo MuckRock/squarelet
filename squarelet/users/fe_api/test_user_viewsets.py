@@ -47,7 +47,7 @@ def test_list_users_authenticated(client, user_with_org, user_without_org):
     results = response.data["results"]
     assert response.status_code == status.HTTP_200_OK
     assert len(results) == 2
-    assert all("id" in u and "username" in u for u in results)
+    assert all("id" in u and "username" in u and "uuid" in u for u in results)
 
 
 @pytest.mark.django_db
