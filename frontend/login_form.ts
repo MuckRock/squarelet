@@ -9,6 +9,10 @@ function csrfCookie(): string | undefined {
 
 /** Guard a sign-in form against being submitted with a stale CSRF token. */
 export function initLoginForm(form: HTMLFormElement) {
+
+  // Make a re-rendered POST result a plain GET entry so back, refresh or reload can't resubmit it
+  window.history.replaceState(window.history.state, "", window.location.href);
+
   // A different tab signing in rotates this before we submit.
   const cookieAtLoad = csrfCookie();
   let submitted = false;
