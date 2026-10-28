@@ -19,7 +19,14 @@ from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP
 
 logger = logging.getLogger(__name__)
 
-SKIP_SLUGS = {"sunlight-search", "muckrock"}
+SKIP_SLUGS = {
+    "sunlight-search",
+    "muckrock",
+    "bu-spark",
+    "muckrock-alumni",
+    "muckrock-proxies",
+    "sunlight-research-desk",
+}
 
 # Default page size for paginated search_read calls
 _PAGE_SIZE = 200
@@ -254,19 +261,32 @@ def _item_spec(item):
         "x_rate": rate,
         "x_code": code,
         "x_renews_on": renews_on.isoformat() if renews_on else False,
-        # One-off subscriptions are flagged cancelled at purchase; only renewing ones can be cancelling
+        # One-off subscriptions are flagged cancelled at purchase
+        # only renewing ones can be cancelling
         "x_cancelling": subscription.cancelled and subscription.kind != "one_off",
         "wix": item.plan.wix,
     }
 
 
 def _org_item_specs(org):
-    """Plan-line specs for every line on the org's own subscriptions, from the prefetch."""
+    """Plan-line specs for every line on the org's own subscriptions
+    from the prefetch."""
     specs = []
     for subscription in org.subscriptions.all():
         for item in subscription.items.all():
             specs.append(_item_spec(item))
     return specs
+
+
+def _member_copies(org_lines, odoo_org_id):
+    """Org lines as a member carries them: the org's own lines sourced from the org."""
+    copies = []
+    for spec in org_lines:
+        copy = dict(spec)
+        if copy["x_source_id"] is False:
+            copy["x_source_id"] = odoo_org_id
+        copies.append(copy)
+    return copies
 
 
 def _spec_key(spec):
@@ -333,8 +353,9 @@ def _write_plan_line(partner_id, label, spec, line, dry_run):
     logger.info("Updated plan line %s for %s: %s", spec["tier_slug"], label, changes)
 
 
-def _sync_plan_lines(partner_id, label, specs, dry_run):
-    """Make a partner's plan lines match specs; returns tier names of removed lines."""
+def _sync_plan_lines(partner_id, label, specs, dry_run, managed_sources=None):
+    """Make a partner's plan lines match specs, touching only lines from managed_sources
+    (None manages all); returns tier names of removed lines."""
     current = odoo_search_all(
         "x_plan_line",
         [["x_partner_id", "=", partner_id]],
@@ -342,6 +363,11 @@ def _sync_plan_lines(partner_id, label, specs, dry_run):
     )
     current_by_key = {}
     for line in current:
+        if (
+            managed_sources is not None
+            and _m2o_id(line["x_source_id"]) not in managed_sources
+        ):
+            continue  # owned by another pass, e.g. a personal plan or another org
         current_by_key[_line_key(line)] = line
     desired_by_key = {}
     for spec in specs:
@@ -615,7 +641,9 @@ def _member_vals(user, odoo_org_id, matched_via_secondary):
 
 
 def sync_member(user, org_name, odoo_org_id, dry_run=False):
-    """Create or update a member contact; returns its Odoo id, or None in dry-run create."""
+    """Create or update a member contact
+    returns its Odoo id, or None in dry-run create.
+    """
     odoo_id, matched_via_secondary = _find_member(user)
     vals = _member_vals(user, odoo_org_id, matched_via_secondary)
 
@@ -634,7 +662,6 @@ def sync_member(user, org_name, odoo_org_id, dry_run=False):
 
 
 def _update_member(user, org_name, odoo_id, vals, dry_run):
-    # pylint:disable=too-many-positional-arguments
     """Diff an existing member against desired vals and write if changed."""
     current = odoo_search(
         "res.partner",
@@ -770,6 +797,78 @@ def remove_departed_members(
             _flag_departed_member(member, org, dry_run)
 
 
+# --- Individuals ------------------------------------------------------------
+
+
+def _sync_individual(org, dry_run):
+    """Sync an individual subscriber's own plan lines onto their contact"""
+    user = org.user
+    specs = _org_item_specs(org)
+    odoo_id, matched_via_secondary = _find_member(user)
+    vals = _member_vals(user, None, matched_via_secondary)
+    del vals["parent_id"]  # leave any org link the contact already has alone
+
+    if odoo_id is None:
+        if dry_run:
+            tiers = []
+            for spec in specs:
+                tiers.append(spec["tier_slug"])
+            logger.info(
+                "[DRY RUN] Would create individual: %s (plans: %s)", user.email, tiers
+            )
+            return None
+        result = odoo_create("res.partner", vals)
+        if not result:
+            logger.error("Failed to create individual in Odoo: %s", user.email)
+            return None
+        odoo_id = result[0]
+        logger.info("Created individual: %s", user.email)
+    else:
+        _update_member(user, "individual", odoo_id, vals, dry_run)
+
+    _sync_plan_lines(odoo_id, user.email, specs, dry_run, managed_sources={False})
+    return odoo_id
+
+
+def _sweep_lapsed_personal_lines(active_contact_ids, dry_run=False):
+    """Remove personal (unsourced) lines from contacts
+    whose individual subscription ended."""
+    stale = odoo_search_all(
+        "x_plan_line",
+        [
+            ["x_source_id", "=", False],
+            ["x_partner_id.is_company", "=", False],
+            ["x_partner_id", "not in", sorted(active_contact_ids)],
+        ],
+        ["id", "x_partner_id", "x_tier_id"],
+    )
+    if not stale:
+        return
+    ids = []
+    for line in stale:
+        ids.append(line["id"])
+        logger.info(
+            "%sRemoving lapsed personal plan line %s from %s",
+            "[DRY RUN] " if dry_run else "",
+            _m2o_name(line["x_tier_id"]),
+            _m2o_name(line["x_partner_id"]),
+        )
+    if not dry_run:
+        odoo_unlink("x_plan_line", ids)
+
+
+def _build_individual_queryset():
+    """Return every individual org with a subscription line."""
+    return (
+        Organization.objects.filter(individual=True, subscriptions__items__isnull=False)
+        .distinct()
+        .prefetch_related(
+            "subscriptions__items__plan",
+            "subscriptions__items__plan_price__plan",
+        )
+    )
+
+
 # --- Sweeps -----------------------------------------------------------------
 
 
@@ -826,7 +925,7 @@ class CollaborativeConfig:
 
     def __init__(
         self, slug, tag_id, member_slugs, odoo_id, line_specs
-    ):  # pylint:disable=too-many-arguments,too-many-positional-arguments
+    ):
         self.slug = slug
         self.tag_id = tag_id
         self.member_slugs = member_slugs
@@ -835,7 +934,9 @@ class CollaborativeConfig:
 
 
 def remove_collaborative_tag(tagged, config, dry_run=False):
-    """Remove a collaborative tag and its sourced plan lines from an org and its contacts."""
+    """Remove a collaborative tag and its sourced
+    plan lines from an org and its contacts.
+    """
     if dry_run:
         logger.info(
             "[DRY RUN] Would remove %s Member tag and its plan lines from: %s "
@@ -891,11 +992,28 @@ def _sweep_stale_collaborative_tags(config, dry_run=False, only_slug=None):
             remove_collaborative_tag(tagged, config, dry_run=dry_run)
 
 
+def _collaborative_renewals(odoo_id):
+    """Renewal date per tier on a collaborative's own Odoo lines, where staff set it."""
+    renews_by_tier = {}
+    own_lines = odoo_search_all(
+        "x_plan_line",
+        [["x_partner_id", "=", odoo_id], ["x_source_id", "=", False]],
+        ["x_tier_id", "x_renews_on"],
+    )
+    for line in own_lines:
+        tier_slug = _TIER_SLUG_BY_ID.get(_m2o_id(line["x_tier_id"]))
+        if tier_slug and line["x_renews_on"]:
+            renews_by_tier[tier_slug] = line["x_renews_on"]
+    return renews_by_tier
+
+
 def _load_collaborative_data():
     """Load CollaborativeConfig for every collective-enabled org.
     Which orgs are collaboratives comes from the DB (collective_enabled);
     the Odoo tag id comes from settings.COLLABORATIVE_TAGS (slug -> tag id).
-    A collective-enabled org with no configured tag is skipped with a warning."""
+    A collective-enabled org with no configured tag is skipped with a warning.
+    Inherited lines with no Accounts renewal date take the one on the
+    collaborative's own Odoo line, so it is set in one place."""
     collaborative_data = {}
     collab_orgs = Organization.objects.filter(
         collective_enabled=True,
@@ -933,11 +1051,14 @@ def _load_collaborative_data():
                 "Collaborative not in Odoo, no inherited lines: %s", collab_org.slug
             )
         else:
+            renews_by_tier = _collaborative_renewals(odoo_id)
             for spec in _org_item_specs(collab_org):
                 if not spec["wix"]:
                     continue
                 spec["x_source_id"] = odoo_id
                 spec["x_rate"] = False
+                if spec["x_renews_on"] is False:
+                    spec["x_renews_on"] = renews_by_tier.get(spec["tier_slug"], False)
                 line_specs.append(spec)
 
         collaborative_data[collab_org.slug] = CollaborativeConfig(
@@ -976,12 +1097,15 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
     own_lines = _org_item_specs(org)
     desired_lines = list(own_lines)
     member_tag_ids = []
+    collab_odoo_ids = set()
     labels = []
     for config in collaborative_data.values():
         if org.slug in config.member_slugs:
             member_tag_ids.append(config.tag_id)
             labels.append(config.slug)
             desired_lines.extend(config.line_specs)
+            if config.odoo_id:
+                collab_odoo_ids.add(config.odoo_id)
 
     label_str = "/".join(labels) + " member " if labels else ""
     logger.info("Syncing %sorg: %s", label_str, org.name)
@@ -1005,16 +1129,23 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
             dry_run=dry_run,
         )
 
-    # Members carry all of their org's lines, own and inherited
-    member_lines = desired_lines
+    # Members carry all of their org's lines, sourced from the org or its collaborative
+    member_lines = _member_copies(desired_lines, odoo_org_id)
+    member_sources = {odoo_org_id} | collab_odoo_ids
     member_line_keys = set()
-    for spec in desired_lines:
+    for spec in member_lines:
         member_line_keys.add(_spec_key(spec))
 
     for user in org.users.all():
         member_id = sync_member(user, org.name, odoo_org_id, dry_run=dry_run)
         if member_id is not None:
-            _sync_plan_lines(member_id, user.email, member_lines, dry_run)
+            _sync_plan_lines(
+                member_id,
+                user.email,
+                member_lines,
+                dry_run,
+                managed_sources=member_sources,
+            )
 
     remove_departed_members(
         org,
@@ -1027,12 +1158,13 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
 
 
 def _run_sync(dry_run, remove_members, slug):
-    """Run the full sync pass: load tiers, sync orgs + members, then the
-    lapsed-org and stale-tag sweeps."""
+    """Run the full sync pass: load tiers, sync orgs + members, individuals, then
+    the lapsed-org, lapsed-personal-line and stale-tag sweeps."""
     if dry_run:
         logger.info("DRY RUN - no changes will be made")
     _load_tiers()
     collaborative_data = _load_collaborative_data()
+
     all_orgs = _build_org_queryset(collaborative_data)
     if slug:
         all_orgs = all_orgs.filter(slug=slug)
@@ -1041,7 +1173,19 @@ def _run_sync(dry_run, remove_members, slug):
         processed_slug = _sync_org(org, collaborative_data, dry_run, remove_members)
         if processed_slug:
             active_slugs.add(processed_slug)
+
+    individuals = _build_individual_queryset()
+    if slug:
+        individuals = individuals.filter(slug=slug)
+    active_contact_ids = set()
+    for org in individuals:
+        contact_id = _sync_individual(org, dry_run)
+        if contact_id is not None:
+            active_contact_ids.add(contact_id)
+
     _sweep_lapsed_orgs(active_slugs, dry_run=dry_run, only_slug=slug)
+    if not slug:
+        _sweep_lapsed_personal_lines(active_contact_ids, dry_run=dry_run)
     for config in collaborative_data.values():
         if config.member_slugs:
             _sweep_stale_collaborative_tags(config, dry_run=dry_run, only_slug=slug)
@@ -1069,7 +1213,7 @@ def _send_sync_report(buffer, failed):
 
 
 class Command(BaseCommand):
-    """Sync Accounts group orgs with subscriptions, and their members, to Odoo"""
+    """Sync Accounts subscribers (group orgs, their members, and individuals) to Odoo"""
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -1085,7 +1229,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--slug",
             type=str,
-            help="Limit sync to a single org by slug",
+            help="Limit sync to a single org (or individual) by slug",
         )
 
     def handle(self, *args, **kwargs):
