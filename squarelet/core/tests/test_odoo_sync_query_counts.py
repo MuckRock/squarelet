@@ -17,6 +17,16 @@ from squarelet.users.tests.factories import UserFactory
 # pylint:disable=protected-access
 
 
+@pytest.fixture(autouse=True)
+def clear_tier_caches():
+    """The tier caches are module-global; start every test cold like a real run."""
+    sync_odoo._TIER_ID_CACHE.clear()
+    sync_odoo._TIER_SLUG_BY_ID.clear()
+    yield
+    sync_odoo._TIER_ID_CACHE.clear()
+    sync_odoo._TIER_SLUG_BY_ID.clear()
+
+
 def _fake_odoo(endpoint, payload):  # pylint:disable=unused-argument
     """Fake Odoo where nothing exists yet and every create succeeds."""
     if endpoint.endswith("/search_read"):
@@ -28,7 +38,8 @@ def _fake_odoo(endpoint, payload):  # pylint:disable=unused-argument
 
 def _sync_query_count():
     """Run a full live sync against the fake Odoo; return the Django query count."""
-    sync_odoo._PLAN_ID_CACHE.clear()
+    sync_odoo._TIER_ID_CACHE.clear()
+    sync_odoo._TIER_SLUG_BY_ID.clear()
     with patch.object(sync_odoo, "_odoo_request", side_effect=_fake_odoo):
         with CaptureQueriesContext(connection) as ctx:
             sync_odoo._run_sync(dry_run=False, remove_members=False, slug=None)
@@ -45,8 +56,18 @@ class TestQueryCounts:
     """Sync query count must not grow with orgs, members, or collaborative members."""
 
     def test_flat_as_orgs_grow(self):
-        """More Sunlight orgs add no queries."""
+        """More subscribed orgs on the same plan add no queries."""
         plan = PlanFactory(name="Sunlight QC Orgs", wix=True)
+        _add_members(OrganizationFactory(plans=[plan]), 1)
+        baseline = _sync_query_count()
+
+        for _ in range(4):
+            _add_members(OrganizationFactory(plans=[plan]), 1)
+        assert _sync_query_count() == baseline
+
+    def test_flat_as_non_sunlight_orgs_grow(self):
+        """Orgs on non-Sunlight plans are synced too, and also add no queries."""
+        plan = PlanFactory(name="Organization QC", wix=False)
         _add_members(OrganizationFactory(plans=[plan]), 1)
         baseline = _sync_query_count()
 
