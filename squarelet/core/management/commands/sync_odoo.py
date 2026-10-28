@@ -17,6 +17,8 @@ from squarelet.organizations.models.organization import Organization
 from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP
 
+# pylint: disable=too-many-lines
+
 logger = logging.getLogger(__name__)
 
 SKIP_SLUGS = {
@@ -71,6 +73,7 @@ def _odoo_request(endpoint, payload):
     The exception propagates to handle, which catches it,
     sets failed = True, and emails the failure report."""
     url = f"{settings.ODOO_URL}/json/2/{endpoint}"
+    resp = None
     try:
         resp = _session.post(
             url,
@@ -81,7 +84,8 @@ def _odoo_request(endpoint, payload):
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as exc:
-        logger.error("Odoo request failed for %s: %s", endpoint, exc)
+        body = resp.text[:500] if resp is not None else ""
+        logger.error("Odoo request failed for %s: %s — %s", endpoint, exc, body)
         raise
 
 
@@ -335,10 +339,10 @@ def _write_plan_line(partner_id, label, spec, line, dry_run):
         logger.info("Added plan line %s for %s", spec["tier_slug"], label)
         return
     changes = {}
-    for field in vals:
+    for field, value in vals.items():
         current = _normalize_line_field(field, line.get(field))
-        if current != vals[field]:
-            changes[field] = (current, vals[field])
+        if current != value:
+            changes[field] = (current, value)
     if not changes:
         return
     if dry_run:
@@ -923,9 +927,7 @@ def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
 class CollaborativeConfig:
     """Holds resolved runtime data for a collaborative org."""
 
-    def __init__(
-        self, slug, tag_id, member_slugs, odoo_id, line_specs
-    ):
+    def __init__(self, slug, tag_id, member_slugs, odoo_id, line_specs):
         self.slug = slug
         self.tag_id = tag_id
         self.member_slugs = member_slugs
@@ -1089,26 +1091,61 @@ def _build_org_queryset(collaborative_data):
     )
 
 
+def _collaborative_context(org, collaborative_data):
+    """Inherited lines, member tag ids, collaborative Odoo ids and labels for an org."""
+    inherited_lines = []
+    tag_ids = []
+    odoo_ids = set()
+    labels = []
+    for config in collaborative_data.values():
+        if org.slug not in config.member_slugs:
+            continue
+        tag_ids.append(config.tag_id)
+        labels.append(config.slug)
+        inherited_lines.extend(config.line_specs)
+        if config.odoo_id:
+            odoo_ids.add(config.odoo_id)
+    return inherited_lines, tag_ids, odoo_ids, labels
+
+
+def _sync_members(org, odoo_org_id, member_lines, member_sources, dry_run):
+    """Sync each of the org's users and the plan lines they carry from it."""
+    for user in org.users.all():
+        member_id = sync_member(user, org.name, odoo_org_id, dry_run=dry_run)
+        if member_id is not None:
+            _sync_plan_lines(
+                member_id,
+                user.email,
+                member_lines,
+                dry_run,
+                managed_sources=member_sources,
+            )
+
+
+def _member_plan(desired_lines, odoo_org_id, collab_odoo_ids):
+    """Member copies of the org's lines, the sources they come from, and their keys."""
+    member_lines = _member_copies(desired_lines, odoo_org_id)
+    member_sources = {odoo_org_id} | collab_odoo_ids
+    member_line_keys = set()
+    for spec in member_lines:
+        member_line_keys.add(_spec_key(spec))
+    return member_lines, member_sources, member_line_keys
+
+
 def _sync_org(org, collaborative_data, dry_run, remove_members):
     """Sync a single org and its members. Returns the org slug if processed."""
     if org.slug in SKIP_SLUGS:
         return None
 
     own_lines = _org_item_specs(org)
-    desired_lines = list(own_lines)
-    member_tag_ids = []
-    collab_odoo_ids = set()
-    labels = []
-    for config in collaborative_data.values():
-        if org.slug in config.member_slugs:
-            member_tag_ids.append(config.tag_id)
-            labels.append(config.slug)
-            desired_lines.extend(config.line_specs)
-            if config.odoo_id:
-                collab_odoo_ids.add(config.odoo_id)
+    inherited_lines, member_tag_ids, collab_odoo_ids, labels = _collaborative_context(
+        org, collaborative_data
+    )
+    desired_lines = own_lines + inherited_lines
 
-    label_str = "/".join(labels) + " member " if labels else ""
-    logger.info("Syncing %sorg: %s", label_str, org.name)
+    logger.info(
+        "Syncing %sorg: %s", "/".join(labels) + " member " if labels else "", org.name
+    )
 
     odoo_org_id = get_or_create_org(
         org,
@@ -1130,22 +1167,10 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
         )
 
     # Members carry all of their org's lines, sourced from the org or its collaborative
-    member_lines = _member_copies(desired_lines, odoo_org_id)
-    member_sources = {odoo_org_id} | collab_odoo_ids
-    member_line_keys = set()
-    for spec in member_lines:
-        member_line_keys.add(_spec_key(spec))
-
-    for user in org.users.all():
-        member_id = sync_member(user, org.name, odoo_org_id, dry_run=dry_run)
-        if member_id is not None:
-            _sync_plan_lines(
-                member_id,
-                user.email,
-                member_lines,
-                dry_run,
-                managed_sources=member_sources,
-            )
+    member_lines, member_sources, member_line_keys = _member_plan(
+        desired_lines, odoo_org_id, collab_odoo_ids
+    )
+    _sync_members(org, odoo_org_id, member_lines, member_sources, dry_run)
 
     remove_departed_members(
         org,
