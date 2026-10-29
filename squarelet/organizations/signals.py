@@ -42,21 +42,50 @@ def should_sync_wix(org):
     dispatch_uid="squarelet.organizations.signals.make_stripe_plan",
 )
 def make_stripe_plan(sender, instance, created, raw, using, update_fields, **kwargs):
-    """Create a stripe plan on plan creation"""
+    """Give a new plan its Stripe Product and list Price.
+
+    On commit, so a price the admin saves alongside the plan is found rather
+    than collided with.
+    """
     # pylint: disable=unused-argument
     if created:
-        instance.make_stripe_plan()
+        transaction.on_commit(instance.make_stripe_plan)
+
+
+@receiver(
+    signals.pre_save,
+    sender=Plan,
+    dispatch_uid="squarelet.organizations.signals.archive_stripe_plan_on_retire",
+)
+def archive_stripe_plan_on_retire(sender, instance, raw=False, **kwargs):
+    """Retire a plan's Stripe objects when the plan is archived.
+
+    Archiving is how plans are retired; the delete hook below rarely fires,
+    since `PlanPrice.plan` is PROTECT.  Runs on commit: told before a
+    rollback, Stripe would leave a live row on a dead Price.
+    """
+    # pylint: disable=unused-argument,protected-access
+    if raw or instance._state.adding or not instance.pk:
+        return
+    was_archived = (
+        Plan.objects.filter(pk=instance.pk).values_list("archived", flat=True).first()
+    )
+    if was_archived is False and instance.archived:
+        transaction.on_commit(instance.archive_stripe_plan)
 
 
 @receiver(
     signals.pre_delete,
     sender=Plan,
-    dispatch_uid="squarelet.organizations.signals.delete_stripe_plan",
+    dispatch_uid="squarelet.organizations.signals.archive_stripe_plan",
 )
-def delete_stripe_plan(sender, instance, using, **kwargs):
-    """Create a stripe plan on plan creation"""
+def archive_stripe_plan(sender, instance, using, **kwargs):
+    """Deactivate a plan's Stripe objects when the plan is deleted.
+
+    Only a plan with no `PlanPrice` rows can be deleted.
+    """
     # pylint: disable=unused-argument
-    instance.delete_stripe_plan()
+    instance.archive_stripe_plan()
 
 
 @receiver(
