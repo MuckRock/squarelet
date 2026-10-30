@@ -9,7 +9,7 @@ from datetime import date, datetime, time, timedelta
 from allauth.mfa.models import Authenticator
 
 # Squarelet
-from squarelet.organizations.models import Organization
+from squarelet.organizations.models import Organization, SubscriptionItem
 from squarelet.statistics.mail import Digest
 from squarelet.statistics.models import Statistics
 from squarelet.users.models import User
@@ -18,12 +18,12 @@ from squarelet.users.models import User
 def paying_users(slug):
     """Users with a paid line on the plan, each once.
 
-    Comps share the paid plan's slug at a $0 price.  One filter call keeps
-    both conditions on the same line.
+    Comps share the paid plan's slug at a $0 price.
     """
     return User.objects.filter(
-        organizations__subscriptions__items__plan__slug=slug,
-        organizations__subscriptions__items__plan_price__amount__gt=0,
+        organizations__subscriptions__items__in=SubscriptionItem.objects.paid().filter(
+            plan__slug=slug
+        )
     ).distinct()
 
 
