@@ -49,10 +49,15 @@ class Command(BaseCommand):
             on_plan("organization").count() - paying_users("organization").count()
         )
 
+        rows = Statistics.objects.filter(date__gte=options["since"]).order_by("date")
+        if not rows.exists():
+            self.stdout.write(
+                self.style.WARNING(f"No statistics stored since {options['since']}")
+            )
+            return
+
         with transaction.atomic():
-            for stats in Statistics.objects.filter(date__gte=options["since"]).order_by(
-                "date"
-            ):
+            for stats in rows:
                 self._correct(stats, comped_pro, org_overcount)
             if options["dry_run"]:
                 self.stdout.write(self.style.WARNING("DRY RUN - nothing written"))
