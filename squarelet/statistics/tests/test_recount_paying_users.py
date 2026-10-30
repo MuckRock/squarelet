@@ -115,3 +115,8 @@ class TestRecountPayingUsers:
         _recount("--dry-run")
 
         self._assert_row(stats, [users["paying"], users["comped"]], 50)
+
+    def test_a_date_with_no_rows_says_so(self, users):
+        _stats(date(2026, 10, 14), [users["paying"], users["comped"]])
+
+        assert "No statistics stored" in _recount()
