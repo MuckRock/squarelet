@@ -16,59 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install invoke
-        run: pip install invoke
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: ".node-version"
-          cache: "npm"
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: Add hosts entries
-        run: |
-          echo "127.0.0.1 dev.squarelet.com" | sudo tee -a /etc/hosts
-          echo "127.0.0.1 dev.mailhog.com" | sudo tee -a /etc/hosts
-          echo "127.0.0.1 minio.documentcloud.org" | sudo tee -a /etc/hosts
-
-      - name: Generate environment files
-        run: python initialize_dotenvs.py
-
-      - name: Generate self-signed certificates
-        run: |
-          mkdir -p config/certs
-          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
-            -keyout config/certs/rootCA-key.pem \
-            -out config/certs/rootCA.pem \
-            -subj "/CN=Test Root CA"
-          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
-            -keyout config/certs/dev.squarelet.com-key.pem \
-            -out config/certs/dev.squarelet.com.pem \
-            -subj "/CN=dev.squarelet.com" \
-            -addext "subjectAltName=DNS:dev.squarelet.com,DNS:*.dev.documentcloud.org,DNS:dev.muckrock.com,DNS:dev.foiamachine.org,DNS:dev.mailhog.com,DNS:minio.documentcloud.org"
-
-      - name: Build and start services
-        run: docker compose -f local.yml up -d --build
-
-      - name: Wait for services to be ready
-        run: |
-          echo "Waiting for Django to be ready..."
-          timeout 120 bash -c '
-            until curl -sk -o /dev/null -w "%{http_code}" https://dev.squarelet.com/accounts/login/ | grep -qE "200|302"; do
-              echo "Still waiting..."
-              sleep 3
-            done
-          '
-          echo "Django is ready"
+      - uses: ./.github/actions/dev-stack
 
       - name: Run E2E tests
         run: npx playwright test --project=chromium
@@ -83,6 +31,67 @@ jobs:
           path: |
             playwright-report/
             test-results/
+          retention-days: 14
+
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose -f local.yml logs --tail=100
+
+  # Screenshots the pull request and its base on the same runner. A changed
+  # page leaves a pending "Visual changes" status on the head commit that only
+  # the next push replaces, so it should not be a required check.
+  visual:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+      statuses: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The merge commit and its first parent, the base branch.
+          fetch-depth: 2
+
+      - uses: ./.github/actions/dev-stack
+
+      # Playwright fails on a changed screenshot too, so the report step
+      # decides whether the job fails. A fork's read-only token can neither
+      # upload nor set the status, so its run fails on any change.
+      - name: Compare against the base branch
+        id: compare
+        continue-on-error: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: inv test-visual --baseline=HEAD^1
+
+      - name: Configure AWS credentials
+        if: steps.compare.outcome == 'failure'
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Report the changed screenshots
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: .github/scripts/comment_visual_changes.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          OUTCOME: ${{ steps.compare.outcome }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-report
+          path: |
+            playwright-report/
+            test-results/
+            e2e/__screenshots__/
           retention-days: 14
 
       - name: Show Docker logs on failure

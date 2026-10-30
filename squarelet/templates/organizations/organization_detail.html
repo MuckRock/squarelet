@@ -428,49 +428,57 @@
       <header>
         <h2>{% trans "Security Settings" %}</h2>
       </header>
-      <div class="card security">
+      <div class="card card--stack">
         {% comment %}
-        <div class="security-setting">
-          <h3>{% trans "Join requests" %}</h3>
-          <span class="badge green">{% trans "Enabled" %}</span>
-        </div>
-        <p class="help-text">{% trans "Users can request to join this organization" %}</p>
-        {% endcomment %}
-
-        <div class="security-setting">
-          <div class="security-description">
-            <h3>{% trans "Auto-join via verified email" %}</h3>
-            {% if security_settings.allow_auto_join %}
+        <li class="card-item">
+          <div class="card-item-body">
+            <div class="card-item-title">
+              <h3>{% trans "Join requests" %}</h3>
               <span class="badge green">{% trans "Enabled" %}</span>
-            {% else %}
-              <span class="badge">{% trans "Disabled" %}</span>
-            {% endif %}
-          {% if security_settings.allow_auto_join %}
-            <p class="help-text">{% trans "Users with a verified email matching a trusted domain can automatically join this organization." %}</p>
-          </div>
-          <div class="security-actions">
-            <a href="{% url 'organizations:manage-domains' organization.slug %}" class="btn ghost primary">
-              {% trans "Manage domains" %}
-            </a>
-            <form method="post">
-              {% csrf_token %}
-              <button class="btn danger ghost" type="submit" name="action" value="disable_autojoin">
-                {% trans "Disable auto-join" %}
-              </button>
-            </form>
-          </div>
-          {% else %}
-              <p class="help-text">{% trans "Enable auto-join to allow users with matching verified email domains to join your organization automatically." %}</p>
             </div>
-            <div class="security-actions">
+            <p class="help-text">{% trans "Users can request to join this organization" %}</p>
+          </div>
+        </li>
+        {% endcomment %}
+        <ul class="card-list">
+          <li class="card-item">
+            <div class="card-item-body">
+              <div class="card-item-title">
+                <h3>{% trans "Auto-join via verified email" %}</h3>
+                {% if security_settings.allow_auto_join %}
+                <span class="badge green">{% trans "Enabled" %}</span>
+                {% else %}
+                <span class="badge">{% trans "Disabled" %}</span>
+                {% endif %}
+              </div>
+              {% if security_settings.allow_auto_join %}
+              <p class="help-text">{% trans "Users with a verified email matching a trusted domain can automatically join this organization." %}</p>
+              {% else %}
+              <p class="help-text">{% trans "Enable auto-join to allow users with matching verified email domains to join your organization automatically." %}</p>
+              {% endif %}
+            </div>
+            <div class="actions row">
+              {% if security_settings.allow_auto_join %}
+              <a href="{% url 'organizations:manage-domains' organization.slug %}" class="btn ghost primary">
+                {% trans "Manage domains" %}
+              </a>
+              <form method="post">
+                {% csrf_token %}
+                <button class="btn danger ghost" type="submit" name="action" value="disable_autojoin">
+                  {% trans "Disable auto-join" %}
+                </button>
+              </form>
+              {% else %}
               <form method="post">
                 {% csrf_token %}
                 <button class="btn primary" type="submit" name="action" value="enable_autojoin">
                   {% trans "Enable auto-join" %}
                 </button>
               </form>
+              {% endif %}
             </div>
-        {% endif %}
+          </li>
+        </ul>
       </div>
     </section>
     {% endif %}
