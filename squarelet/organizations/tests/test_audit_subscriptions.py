@@ -2,10 +2,12 @@
 # pylint: disable=protected-access
 
 # Standard Library
+from datetime import datetime, timezone
 from unittest.mock import Mock
 
 # Third Party
 import pytest
+import stripe
 
 # Squarelet
 from squarelet.organizations.management.commands.audit_subscriptions import Command
@@ -135,3 +137,58 @@ class TestLoadLocalSubs:
         subs, _ = Command()._load_local_subs(None)
 
         assert len(subs) == 1
+
+
+@pytest.mark.django_db()
+class TestNoStripeId:
+    def test_a_comp_on_the_free_subscription_is_not_reported(
+        self, subscription_item_factory, plan_factory
+    ):
+        """Free subscriptions never reach Stripe, whatever plan the line is on."""
+        subscription_item_factory(
+            plan=plan_factory(name="Priced Tier", base_price=100),
+            subscription__subscription_id="",
+            subscription__kind="free",
+        )
+
+        assert Command()._report_no_stripe_id(None) == 0
+
+    def test_a_paid_subscription_without_one_is(
+        self, subscription_item_factory, plan_factory
+    ):
+        subscription_item_factory(
+            plan=plan_factory(name="Priced Tier", base_price=100),
+            subscription__subscription_id="",
+        )
+
+        assert Command()._report_no_stripe_id(None) == 1
+
+
+@pytest.mark.django_db()
+class TestCancellation:
+    ENDS = datetime(2027, 8, 9, 16, tzinfo=timezone.utc)
+
+    def _stripe(self, **fields):
+        values = {"status": "active", "cancel_at_period_end": False}
+        values.update(fields, items={"data": []}, discounts=[])
+        return stripe.Subscription.construct_from(values, "sk_test")
+
+    def _diff(self, sub, stripe_sub):
+        return [
+            diff
+            for diff in Command()._compare(sub, stripe_sub, timezone.utc)
+            if diff[0] == "cancelled/cancel_at_period_end"
+        ]
+
+    def test_a_dated_cancellation_counts_as_cancelling(self, subscription_factory):
+        """A `cancel_at` or a schedule that cancels, not only period end."""
+        sub = subscription_factory(cancelled=True, cancel_at=self.ENDS.date())
+        stripe_sub = self._stripe(cancel_at=int(self.ENDS.timestamp()))
+
+        assert not self._diff(sub, stripe_sub)
+
+    def test_one_side_not_cancelling_is_still_reported(self, subscription_factory):
+        sub = subscription_factory(cancelled=False, cancel_at=None)
+        stripe_sub = self._stripe(cancel_at=int(self.ENDS.timestamp()))
+
+        assert self._diff(sub, stripe_sub)
