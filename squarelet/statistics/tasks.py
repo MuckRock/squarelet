@@ -9,10 +9,22 @@ from datetime import date, datetime, time, timedelta
 from allauth.mfa.models import Authenticator
 
 # Squarelet
-from squarelet.organizations.models import Organization
+from squarelet.organizations.models import Organization, SubscriptionItem
 from squarelet.statistics.mail import Digest
 from squarelet.statistics.models import Statistics
 from squarelet.users.models import User
+
+
+def paying_users(slug):
+    """Users with a paid line on the plan, each once.
+
+    Comps share the paid plan's slug at a $0 price.
+    """
+    return User.objects.filter(
+        organizations__subscriptions__items__in=SubscriptionItem.objects.paid().filter(
+            plan__slug=slug
+        )
+    ).distinct()
 
 
 @shared_task
@@ -29,12 +41,8 @@ def store_statistics():
     kwargs["total_users_excluding_agencies"] = User.objects.exclude(
         is_agency=True
     ).count()
-    kwargs["total_users_pro"] = User.objects.filter(
-        organizations__subscriptions__plans__slug="professional"
-    ).count()
-    kwargs["total_users_org"] = User.objects.filter(
-        organizations__subscriptions__plans__slug="organization"
-    ).count()
+    kwargs["total_users_pro"] = paying_users("professional").count()
+    kwargs["total_users_org"] = paying_users("organization").count()
     kwargs["total_users_mfa"] = Authenticator.objects.distinct("user").count()
     kwargs["total_orgs"] = Organization.objects.exclude(
         individual=True, subscriptions__plans__isnull=True
@@ -48,9 +56,7 @@ def store_statistics():
     stats.users_today.set(
         User.objects.filter(last_login__range=(yesterday_midnight, today_midnight))
     )
-    stats.pro_users.set(
-        User.objects.filter(organizations__subscriptions__plans__slug="professional")
-    )
+    stats.pro_users.set(paying_users("professional"))
     stats.save()
 
 

@@ -27,6 +27,7 @@ from squarelet.organizations.tests.factories import (
     MembershipFactory,
     OrganizationFactory,
     PlanFactory,
+    PlanPriceFactory,
     SubscriptionItemFactory,
 )
 from squarelet.users.tests.factories import UserFactory
@@ -965,3 +966,35 @@ class TestInvoiceQuerySet(TestCase):
 
         # 15-day grace period should find all 9 invoices
         assert Invoice.objects.overdue(grace_period_days=15).count() == 9
+
+
+@pytest.mark.django_db()
+class TestPaidLines:
+    """`paid()` agrees with `is_free`, priced or not."""
+
+    @pytest.mark.parametrize(
+        "amount, base_price, paid",
+        [
+            (2000, 0, True),
+            (0, 20, False),
+            (None, 20, True),
+            (None, 0, False),
+        ],
+    )
+    def test_paid_matches_is_free(self, amount, base_price, paid):
+        plan = PlanFactory(base_price=base_price, price_per_user=0)
+        item = SubscriptionItemFactory(
+            plan=plan,
+            plan_price=(
+                None
+                if amount is None
+                else PlanPriceFactory(
+                    plan=plan,
+                    amount=amount,
+                    label="comped" if amount == 0 else "standard",
+                )
+            ),
+        )
+
+        assert item.is_free is not paid
+        assert SubscriptionItem.objects.paid().filter(pk=item.pk).exists() is paid
