@@ -571,6 +571,14 @@ class SubscriptionItemQuerySet(models.QuerySet):
         item.notify_started()
         return item, stripe_subscription
 
+    def paid(self):
+        """Lines that cost something: the SQL form of `not is_free`."""
+        return self.filter(
+            Q(plan_price__amount__gt=0)
+            | Q(plan_price__isnull=True)
+            & ~Q(plan__base_price=0, plan__price_per_user=0)
+        )
+
     def sunlight_active_count(self):
         """Count active Sunlight subscriptions across all variants"""
         return self.filter(
