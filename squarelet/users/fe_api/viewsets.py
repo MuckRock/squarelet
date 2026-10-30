@@ -5,6 +5,7 @@ from django.contrib.postgres.search import SearchQuery, SearchVector
 import re
 
 # Third Party
+from allauth.account.models import EmailAddress
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny
 
@@ -37,6 +38,13 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                 if not viewable_org.exists():
                     return User.objects.none()
                 qs = qs.filter(organizations__in=viewable_org).order_by("-last_login")
+            if "@" in search:
+                # Only an exact, verified address matches
+                return qs.filter(
+                    id__in=EmailAddress.objects.filter(
+                        email=search.lower(), verified=True
+                    ).values("user_id")
+                )
             if search:
                 # Full-text search with prefix matching.
                 # Strip tsquery special characters so raw queries are safe.
