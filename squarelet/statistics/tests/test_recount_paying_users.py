@@ -15,10 +15,8 @@ from squarelet.organizations.tests.factories import (
     ProfessionalPlanFactory,
     SubscriptionItemFactory,
 )
+from squarelet.statistics.models import Statistics
 from squarelet.users.tests.factories import UserFactory
-
-# Local
-from ..models import Statistics
 
 
 def _stats(day, comped):
