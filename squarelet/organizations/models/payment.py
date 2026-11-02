@@ -1073,6 +1073,13 @@ class SubscriptionItem(models.Model):
         plan_name = self.plan.name if self.plan else "Free"
         return f"SubscriptionItem: {self.subscription.organization} to {plan_name}"
 
+    def clean(self):
+        # The daily job won't end a paid line: Stripe would go on billing it.
+        if self.ends_on and not self.is_free:
+            raise ValidationError(
+                {"ends_on": _("Only a free line can end on a date of its own.")}
+            )
+
     @property
     def organization(self):
         """The owning organization, reached through the parent subscription.
