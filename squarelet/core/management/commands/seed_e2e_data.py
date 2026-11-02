@@ -3,20 +3,34 @@ from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 # Standard Library
 import json
+from datetime import datetime, timedelta
 
 # Third Party
 from allauth.account.models import EmailAddress
+from allauth.mfa.models import Authenticator
 from oidc_provider.models import Client, ResponseType
 
 # Squarelet
 from squarelet.oidc.models import ClientProfile
-from squarelet.organizations.models import Membership, Organization
+from squarelet.organizations.choices import RelationshipType
+from squarelet.organizations.models import (
+    Membership,
+    Organization,
+    OrganizationChangeLog,
+)
 from squarelet.organizations.models.invitation import Invitation, OrganizationInvitation
-from squarelet.organizations.models.payment import Customer, Plan
+from squarelet.organizations.models.payment import (
+    Customer,
+    PaymentMethod,
+    Plan,
+    Subscription,
+    SubscriptionItem,
+)
 from squarelet.users.models import User
 
 E2E_PASSWORD = "e2e-test-password"
@@ -91,6 +105,65 @@ ORGS = [
     },
 ]
 
+# Extra state for the visual snapshots in e2e/visual.spec.ts, seeded only for
+# that spec so the behavioural specs keep their free, empty organizations.
+VISUAL_USERS = [
+    # Admin of e2e-visual-org; both it and the user's own org are subscribed
+    "e2e-visual-member",
+    # Has a pending invitation, so onboarding stops at the join_org step
+    "e2e-visual-joiner",
+    # Never prompted for MFA, so onboarding stops at the MFA opt-in step
+    "e2e-visual-onboard",
+    # Has a TOTP authenticator with VISUAL_TOTP_SECRET
+    "e2e-visual-mfa",
+]
+
+VISUAL_ORG = "e2e-visual-org"
+
+# Must match TOTP_SECRET in e2e/helpers.ts
+VISUAL_TOTP_SECRET = "JBSWY3DPEHPK3PXP"
+
+BENEFITS = [
+    "Unlimited private documents",
+    "50 monthly requests",
+    "Priority support",
+    "Shared resources across your team",
+]
+
+VISUAL_PLANS = {
+    "e2e-visual-team-plan": {
+        "name": "E2E Team",
+        "for_individuals": False,
+        "for_groups": True,
+        "base_price": 100,
+        "price_per_user": 10,
+        "minimum_users": 5,
+    },
+    "sunlight-essential": {
+        "name": "Sunlight Essential",
+        "product": "sunlight",
+        "wix": True,
+        "base_price": 50,
+    },
+    "sunlight-essential-annual": {
+        "name": "Sunlight Essential (Annual)",
+        "product": "sunlight",
+        "wix": True,
+        "annual": True,
+        "base_price": 500,
+    },
+    "sunlight-enterprise": {
+        "name": "Sunlight Enterprise",
+        "product": "sunlight",
+        "wix": True,
+    },
+}
+
+
+def fixed_date(year, month, day):
+    """Dates on the page must not move between the baseline and the comparison."""
+    return timezone.make_aware(datetime(year, month, day, 12))
+
 
 class Command(BaseCommand):
     help = "Seed or teardown E2E test data"
@@ -98,7 +171,13 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--action",
-            choices=["seed", "teardown", "clear_invitations"],
+            choices=[
+                "seed",
+                "teardown",
+                "clear_invitations",
+                "seed_visual",
+                "teardown_visual",
+            ],
             required=True,
             help="Whether to seed, teardown, or clear invitation test data",
         )
@@ -111,6 +190,10 @@ class Command(BaseCommand):
             self.teardown()
         elif action == "clear_invitations":
             self.clear_invitations()
+        elif action == "seed_visual":
+            self.seed_visual()
+        elif action == "teardown_visual":
+            self.teardown_visual()
 
     @transaction.atomic
     def seed(self):
@@ -159,36 +242,17 @@ class Command(BaseCommand):
         created_users = {}
         for user_spec in USERS:
             username = user_spec["username"]
-            email = f"{username}@example.com"
 
             if User.objects.filter(username=username).exists():
                 self.stderr.write(f"User {username} already exists, skipping")
                 created_users[username] = User.objects.get(username=username)
                 continue
 
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=E2E_PASSWORD,
+            created_users[username] = self._create_user(
+                username,
                 is_staff=user_spec["is_staff"],
-            )
-
-            # create_user already creates the individual org and membership
-            # via Organization.objects.create_individual, but we still need
-            # a verified EmailAddress for allauth login
-            EmailAddress.objects.create(
-                user=user,
-                email=email,
-                primary=True,
                 verified=user_spec.get("verified", True),
             )
-
-            # Set last_mfa_prompt so the MFA onboarding step is snoozed,
-            # preventing onboarding from intercepting login redirects
-            user.last_mfa_prompt = timezone.now()
-            user.save(update_fields=["last_mfa_prompt"])
-
-            created_users[username] = user
             self.stderr.write(f"Created user: {username}")
 
         # Create "Staff" group with org permissions and add staff user
@@ -244,6 +308,30 @@ class Command(BaseCommand):
             "password": E2E_PASSWORD,
         }
         self.stdout.write(json.dumps(result))
+
+    def _create_user(self, username, is_staff=False, verified=True):
+        user = User.objects.create_user(
+            username=username,
+            email=f"{username}@example.com",
+            password=E2E_PASSWORD,
+            is_staff=is_staff,
+        )
+
+        # create_user already creates the individual org and membership
+        # via Organization.objects.create_individual, but we still need
+        # a verified EmailAddress for allauth login
+        EmailAddress.objects.create(
+            user=user,
+            email=user.email,
+            primary=True,
+            verified=verified,
+        )
+
+        # Set last_mfa_prompt so the MFA onboarding step is snoozed,
+        # preventing onboarding from intercepting login redirects
+        user.last_mfa_prompt = timezone.now()
+        user.save(update_fields=["last_mfa_prompt"])
+        return user
 
     def _seed_verification_client(self):
         """Create a confidential OIDC client with verification gating enabled."""
@@ -360,3 +448,153 @@ class Command(BaseCommand):
 
         self.stderr.write("Teardown complete")
         self.stdout.write(json.dumps({"status": "teardown_complete"}))
+
+    @transaction.atomic
+    def seed_visual(self):
+        """Replace the visual-snapshot state; prints the invitation uuids."""
+        self.teardown_visual()
+
+        Plan.objects.filter(slug__in=["professional", "organization"]).update(
+            benefits=BENEFITS
+        )
+        plans = {
+            slug: self._get_or_create_plan(slug, **fields)
+            for slug, fields in VISUAL_PLANS.items()
+        }
+
+        users = {username: self._create_user(username) for username in VISUAL_USERS}
+        User.objects.filter(username="e2e-visual-onboard").update(last_mfa_prompt=None)
+        Authenticator.objects.create(
+            user=users["e2e-visual-mfa"],
+            type=Authenticator.Type.TOTP,
+            data={"secret": VISUAL_TOTP_SECRET},
+        )
+        User.objects.filter(
+            username__in=[u["username"] for u in USERS] + VISUAL_USERS
+        ).update(created_at=fixed_date(2024, 3, 1))
+
+        member = users["e2e-visual-member"]
+        org = Organization.objects.create(
+            name="E2E Visual Newsroom",
+            slug=VISUAL_ORG,
+            verified_journalist=True,
+            max_users=5,
+            individual=False,
+        )
+        Membership.objects.create(user=member, organization=org, admin=True)
+
+        self._subscribe(
+            member.individual_organization, [Plan.objects.get(slug="professional")]
+        )
+        self._subscribe(
+            org, [plans["e2e-visual-team-plan"], plans["sunlight-essential"]]
+        )
+
+        public_org = Organization.objects.get(slug="e2e-public-org")
+        private_org = Organization.objects.get(slug="e2e-private-org")
+        regular = User.objects.get(username="e2e-regular")
+        requester = User.objects.get(username="e2e-requester")
+        member_invitation = Invitation.objects.create(
+            organization=public_org, email=member.email, user=member
+        )
+        invitations = [
+            member_invitation,
+            Invitation.objects.create(
+                organization=public_org,
+                email=users["e2e-visual-joiner"].email,
+                user=users["e2e-visual-joiner"],
+            ),
+            Invitation.objects.create(
+                organization=private_org, user=member, email=member.email, request=True
+            ),
+            Invitation.objects.create(
+                organization=public_org,
+                user=member,
+                email=member.email,
+                request=True,
+                rejected_at=fixed_date(2024, 4, 2),
+            ),
+            Invitation.objects.create(organization=org, email="invitee@example.com"),
+            Invitation.objects.create(
+                organization=org,
+                user=regular,
+                email=regular.email,
+                accepted_at=fixed_date(2024, 4, 3),
+            ),
+            Invitation.objects.create(
+                organization=org,
+                user=requester,
+                email=requester.email,
+                request=True,
+            ),
+        ]
+        # A minute apart, so tables sorted by date keep one order.
+        for minute, invitation in enumerate(invitations):
+            Invitation.objects.filter(pk=invitation.pk).update(
+                created_at=fixed_date(2024, 4, 1) + timedelta(minutes=minute)
+            )
+
+        group_invitation = OrganizationInvitation.objects.create(
+            from_user=User.objects.get(username="e2e-admin"),
+            from_organization=Organization.objects.get(slug="e2e-collective-org"),
+            to_organization=org,
+            relationship_type=RelationshipType.member,
+        )
+
+        self.stdout.write(
+            json.dumps(
+                {
+                    "member_invitation": str(member_invitation.uuid),
+                    "group_invitation": str(group_invitation.uuid),
+                }
+            )
+        )
+
+    def _get_or_create_plan(self, slug, base_price=0, price_per_user=0, **fields):
+        # Creating a paid plan makes it on Stripe; pricing it afterwards does not.
+        plan, _ = Plan.objects.get_or_create(
+            slug=slug,
+            defaults={
+                "public": True,
+                "benefits": BENEFITS,
+                "short_description": "A plan for visual snapshots.",
+                "description": "Everything a newsroom needs.\n\n- One\n- Two",
+                **fields,
+            },
+        )
+        Plan.objects.filter(pk=plan.pk).update(
+            base_price=base_price, price_per_user=price_per_user
+        )
+        plan.refresh_from_db()
+        return plan
+
+    def _subscribe(self, organization, plans):
+        """Subscribe in the database only; blank Stripe ids keep Stripe out."""
+        customer = organization.customer()
+        PaymentMethod.objects.create(
+            customer=customer, brand="visa", last4="4242", exp_month=4, exp_year=2031
+        )
+        subscription = Subscription.objects.create(
+            organization=organization, current_period_end=fixed_date(2030, 2, 1)
+        )
+        for plan in plans:
+            SubscriptionItem.objects.create(subscription=subscription, plan=plan)
+
+    @transaction.atomic
+    def teardown_visual(self):
+        """Remove the visual-snapshot state; the plans stay, as deleting one
+        calls Stripe."""
+        users = User.objects.filter(username__in=VISUAL_USERS)
+        orgs = Organization.objects.filter(
+            Q(slug=VISUAL_ORG) | Q(individual=True, users__in=users)
+        )
+        Invitation.objects.filter(user__in=users).delete()
+        OrganizationChangeLog.objects.filter(
+            Q(user__in=users) | Q(organization__in=orgs)
+        ).delete()
+        org_pks = list(orgs.values_list("pk", flat=True))
+        users.delete()
+        Organization.objects.filter(pk__in=org_pks).delete()
+        Plan.objects.filter(slug__in=["professional", "organization"]).update(
+            benefits=[]
+        )

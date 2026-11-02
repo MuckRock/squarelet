@@ -126,6 +126,50 @@
   flex: 1 1 16em;
 }
 
+.card-item-icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+.card-item-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.card-item-body {
+  flex: 1 1 16em;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.card-item-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  font-weight: 600;
+}
+
+.card-item-title :is(h3, h4) {
+  margin: 0;
+  font-size: var(--font-md, 1rem);
+  font-weight: 600;
+  color: var(--gray-5, #233944);
+  overflow-wrap: anywhere;
+}
+
+.card-item-title h4 {
+  font-size: var(--font-sm, 0.875rem);
+}
+
+/* A nested box inside a row, e.g. recovery codes under two-factor auth. */
+.card-item > .card-subsection {
+  flex-basis: 100%;
+}
+
 /* A trailing metadata line below a row's avatar+actions, e.g. "Created
    3 days ago" under a pending invitation's Resend/Withdraw buttons. */
 .card-item-timestamp {

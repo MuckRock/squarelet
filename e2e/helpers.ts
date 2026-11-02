@@ -5,6 +5,7 @@ import {
   expect,
 } from "@playwright/test";
 import { execSync } from "child_process";
+import { createHmac } from "crypto";
 
 export const E2E_PASSWORD = "e2e-test-password";
 
@@ -58,6 +59,30 @@ export async function login(page: Page, username: string) {
   await page.locator("#login_form button.primary").click();
   expect((await loginResponse).status()).toBe(302);
   await page.waitForURL((url) => !url.pathname.includes("/accounts/login/"));
+}
+
+/** Base32 secret of e2e-visual-mfa's authenticator, seeded by seed_visual. */
+export const TOTP_SECRET = "JBSWY3DPEHPK3PXP";
+
+/**
+ * The current six-digit TOTP code for a base32 secret (SHA1, 30s period).
+ * allauth rejects a code reused within its window, so log a user in with it
+ * once per period.
+ */
+export function totp(secret: string): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const bits = [...secret.replace(/=+$/, "")]
+    .map((c) => alphabet.indexOf(c).toString(2).padStart(5, "0"))
+    .join("");
+  const key = Buffer.from(
+    (bits.match(/.{8}/g) ?? []).map((byte) => parseInt(byte, 2)),
+  );
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)));
+  const hmac = createHmac("sha1", key).update(counter).digest();
+  const offset = hmac[hmac.length - 1] & 0xf;
+  const value = (hmac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
+  return value.toString().padStart(6, "0");
 }
 
 export async function expectFlashMessage(page: Page, level: string) {
