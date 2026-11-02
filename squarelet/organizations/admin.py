@@ -159,9 +159,10 @@ class SubscriptionItemInline(StripeLinkMixin, admin.TabularInline):
         "quantity",
         "cancelled",
         "cancel_at",
+        "ends_on",
         "stripe_item_id",
     )
-    readonly_fields = fields
+    readonly_fields = tuple(field for field in fields if field != "ends_on")
     extra = 0
     can_delete = False
 

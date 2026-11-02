@@ -4,6 +4,7 @@ from django.test import RequestFactory, override_settings
 
 # Standard Library
 import json
+from datetime import date
 
 # Third Party
 import pytest
@@ -224,6 +225,61 @@ class TestWhatALineBillsAgainst:
         assert "squarelet_plan_organization" in html
         assert "legacy" in html
         assert "href" not in html
+
+
+@pytest.mark.django_db
+class TestEndingAComp:
+    """Staff set when a comp ends; nothing else on a line is edited here."""
+
+    def _submit(self, user_factory, item, ends_on):
+        inline = SubscriptionItemInline(Subscription, AdminSite())
+        request = RequestFactory().post("/")
+        request.user = user_factory(is_staff=True, is_superuser=True)
+        formset_class = inline.get_formset(request, item.subscription)
+        prefix = formset_class.get_default_prefix()
+        formset = formset_class(
+            {
+                f"{prefix}-TOTAL_FORMS": "1",
+                f"{prefix}-INITIAL_FORMS": "1",
+                f"{prefix}-MIN_NUM_FORMS": "0",
+                f"{prefix}-MAX_NUM_FORMS": "1000",
+                f"{prefix}-0-id": str(item.pk),
+                f"{prefix}-0-subscription": str(item.subscription_id),
+                f"{prefix}-0-ends_on": ends_on,
+            },
+            instance=item.subscription,
+        )
+        if formset.is_valid():
+            formset.save()
+        return formset
+
+    def test_a_comp_takes_an_end_date(
+        self, user_factory, subscription_item_factory, plan_factory
+    ):
+        item = subscription_item_factory(
+            plan=plan_factory(name="Comp", base_price=0, price_per_user=0),
+            subscription__kind="free",
+        )
+
+        formset = self._submit(user_factory, item, "2027-01-31")
+
+        assert formset.is_valid(), formset.errors
+        item.refresh_from_db()
+        assert item.ends_on == date(2027, 1, 31)
+
+    def test_a_paid_line_refuses_one(
+        self, user_factory, subscription_item_factory, plan_factory
+    ):
+        """It ends with its subscription; Stripe would go on billing it."""
+        item = subscription_item_factory(
+            plan=plan_factory(name="Paid", base_price=100),
+        )
+
+        formset = self._submit(user_factory, item, "2027-01-31")
+
+        assert not formset.is_valid()
+        item.refresh_from_db()
+        assert item.ends_on is None
 
 
 class TestInvoiceAdmin:
