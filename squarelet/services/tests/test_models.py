@@ -35,3 +35,21 @@ class ServiceModelTest(TransactionTestCase):
         services = Service.objects.all()
         self.assertEqual(services[0], service1)
         self.assertEqual(services[1], service2)
+
+    def test_url_for_fills_in_the_uuid_for_each_subject(self):
+        service = ServiceFactory(
+            user_url="https://example.test/users/{uuid}/",
+            organization_url="https://example.test/orgs/{uuid}/",
+        )
+
+        self.assertEqual(
+            service.url_for("users", "abc"), "https://example.test/users/abc/"
+        )
+        self.assertEqual(
+            service.url_for("organizations", "abc"), "https://example.test/orgs/abc/"
+        )
+
+    def test_url_for_is_empty_without_a_url(self):
+        service = ServiceFactory()
+
+        self.assertEqual(service.url_for("users", "abc"), "")
