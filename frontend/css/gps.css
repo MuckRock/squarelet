@@ -63,7 +63,12 @@
 
   /* semantic aliases */
   --primary: var(--blue-3);
-  --premium: var(--green-3);
+  --premium-1: var(--purple-1);
+  --premium-2: var(--purple-2);
+  --premium-3: var(--purple-3);
+  --premium-4: var(--purple-4);
+  --premium-5: var(--purple-5);
+  --premium: var(--premium-3);
   --error: var(--red-3);
   --caution: var(--orange-3);
 
@@ -149,12 +154,18 @@ strong {
 }
 
 .badge.green,
-.badge.success,
-.badge.premium {
+.badge.success {
   fill: var(--green-4, #0e4450);
   color: var(--green-5, #0e4450);
   border: 1px solid var(--green-2, #9de3d3);
   background: var(--green-1, #ebf9f6);
+}
+
+.badge.premium {
+  fill: var(--premium-4, #343ba6);
+  color: var(--premium-5, #1e2b60);
+  border: 1px solid var(--premium-2, #dfd5fa);
+  background: var(--premium-1, #f4f1fe);
 }
 
 .badge.yellow {
@@ -264,20 +275,28 @@ strong {
   box-shadow: 0px 2px 0px 0px var(--blue-4, #1367d0);
 }
 
-/* Premium button */
-
-.btn.green,
-.btn.premium {
+.btn.green {
   border: 1px solid var(--green-4, #117383);
   background: var(--green-3, #27c6a2);
 }
 
 .btn.green:hover,
-.btn.green:focus,
+.btn.green:focus {
+  transform: translateY(-2px);
+  box-shadow: 0px 2px 0px 0px var(--green-4, #117383);
+}
+
+/* Premium button */
+
+.btn.premium {
+  border: 1px solid var(--premium-4, #343ba6);
+  background: var(--premium-3, #744af0);
+}
+
 .btn.premium:hover,
 .btn.premium:focus {
   transform: translateY(-2px);
-  box-shadow: 0px 2px 0px 0px var(--green-4, #117383);
+  box-shadow: 0px 2px 0px 0px var(--premium-4, #343ba6);
 }
 
 /* Caution button */
@@ -371,7 +390,6 @@ strong {
 }
 
 .btn.ghost.green,
-.btn.ghost.premium,
 .btn.ghost.success {
   color: var(--green-3, #27c6a2);
   fill: var(--green-3, #27c6a2);
@@ -379,11 +397,22 @@ strong {
 
 .btn.ghost.green:hover,
 .btn.ghost.green:focus,
-.btn.ghost.premium:hover,
-.btn.ghost.premium:focus,
 .btn.ghost.success:hover,
 .btn.ghost.success:focus {
   background: var(--green-1, #ebf9f6);
+  &.disabled {
+    background: transparent;
+  }
+}
+
+.btn.ghost.premium {
+  color: var(--premium-3, #744af0);
+  fill: var(--premium-3, #744af0);
+}
+
+.btn.ghost.premium:hover,
+.btn.ghost.premium:focus {
+  background: var(--premium-1, #f4f1fe);
   &.disabled {
     background: transparent;
   }

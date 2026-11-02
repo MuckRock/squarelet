@@ -96,7 +96,7 @@
 .existing-subscriptions {
   width: 100%;
   box-sizing: border-box;
-  background: var(--green-1);
+  background: var(--premium-1);
   padding: 1rem;
   border-radius: 0.5rem;
   margin-bottom: 1rem;
@@ -104,7 +104,7 @@
 
 .existing-subscriptions h3 {
   margin: 0;
-  color: var(--green-4);
+  color: var(--premium-4);
   opacity: 0.8;
 }
 
@@ -121,7 +121,7 @@
 }
 
 .plan-benefits .icon {
-  fill: var(--green-3);
+  fill: var(--premium-3);
 }
 
 .pay-period {

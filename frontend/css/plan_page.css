@@ -60,7 +60,7 @@
 }
 
 .heavy-underline.premium {
-  text-decoration-color: var(--green-3, #a0a0a0);
+  text-decoration-color: var(--premium, #744af0);
 }
 
 .plan header {
