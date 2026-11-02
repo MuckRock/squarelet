@@ -118,6 +118,15 @@
               <div class="subscription-row">
                 <h3 class="{% if subject == "organizations" %}organization{% else %}professional{% endif %}">{{ line.plan.name }}</h3>
                 <div class="subscription-group">
+                  {% if line.ends_on %}
+                    <span class="subscription-detail">
+                      <span class="icon">{% icon "calendar" %}</span>
+                      <span>
+                        {% trans "Free until" %}
+                        <strong>{{ line.ends_on }}</strong>
+                      </span>
+                    </span>
+                  {% endif %}
                   {% if sub.kind != "free" %}
                     <span class="subscription-detail">
                       <span class="icon">{% icon "tag" %}</span>
