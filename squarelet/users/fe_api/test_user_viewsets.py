@@ -47,7 +47,7 @@ def test_list_users_authenticated(client, user_with_org, user_without_org):
     results = response.data["results"]
     assert response.status_code == status.HTTP_200_OK
     assert len(results) == 2
-    assert all("id" in u and "username" in u for u in results)
+    assert all("id" in u and "username" in u and "uuid" in u for u in results)
 
 
 @pytest.mark.django_db
@@ -261,3 +261,73 @@ def test_filter_by_organization_with_search(client, user_with_org):
     returned_ids = {u["id"] for u in response.data["results"]}
     assert alice.id in returned_ids
     assert bob.id not in returned_ids
+
+
+@pytest.fixture
+def searchable_user(db):
+    other = User.objects.create_user(
+        username="emailed", email="primary@example.com", password="password"
+    )
+    other.individual_organization.hidden = False
+    other.individual_organization.save()
+    other.emailaddress_set.create(email="primary@example.com", verified=True)
+    other.emailaddress_set.create(email="second@example.com", verified=True)
+    other.emailaddress_set.create(email="pending@example.com", verified=False)
+    return other
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "email", ["primary@example.com", "second@example.com", "Second@Example.com"]
+)
+def test_search_finds_user_by_any_confirmed_email(
+    client, user_with_org, searchable_user, email
+):
+    user, _ = user_with_org
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/", {"search": email})
+    assert response.status_code == status.HTTP_200_OK
+    assert [u["id"] for u in response.data["results"]] == [searchable_user.id]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "search", ["pending@example.com", "second@example", "econd@example.com"]
+)
+def test_search_ignores_unconfirmed_and_partial_emails(
+    client, user_with_org, searchable_user, search
+):
+    user, _ = user_with_org
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/", {"search": search})
+    assert response.status_code == status.HTTP_200_OK
+    assert searchable_user.id not in {u["id"] for u in response.data["results"]}
+
+
+@pytest.mark.django_db
+def test_search_by_email_excludes_hidden_users(client, user_with_org):
+    user, _ = user_with_org
+    hidden_user = User.objects.create_user(
+        username="hidden_guy", email="hidden@example.com", password="password"
+    )
+    hidden_user.emailaddress_set.create(email="hidden@example.com", verified=True)
+
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/", {"search": "hidden@example.com"})
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["results"] == []
+
+
+@pytest.mark.django_db
+def test_search_with_an_at_sign_skips_name_matches(client, user_with_org):
+    user, _ = user_with_org
+    jane = User.objects.create_user(
+        username="jane", name="Jane Example", email="jane@example.com"
+    )
+    jane.individual_organization.hidden = False
+    jane.individual_organization.save()
+
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/", {"search": "jane@example"})
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["results"] == []
