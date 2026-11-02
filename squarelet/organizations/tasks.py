@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def restore_organization():
-    """Monthly refresh of subscriptions and entitlement grants"""
+    """End what is due today, and refresh organizations on their reset day"""
     today = date.today()
 
     # --- Subscriptions ---
@@ -56,30 +56,37 @@ def restore_organization():
         Organization.objects.filter(id__in=due_org_ids).values_list("uuid", flat=True)
     )
 
-    # Retire cancelled subscriptions for due orgs where the Stripe cancellation
-    # date has passed (or is null, which covers free plans and legacy records).
-    # A bulk delete cascades to the free and comped lines nobody cancelled.
-    due_cancelled = Subscription.objects.filter(
-        organization_id__in=due_org_ids,
-        cancelled=True,
-    ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True))
-    for subscription in due_cancelled:
+    # Cancellations end on their own date, so an annual plan or a one-off
+    # isn't served until the next reset day.  One with no date (free plans and
+    # legacy records) still waits for it.
+    ending = Subscription.objects.filter(cancelled=True).filter(
+        Q(cancel_at__lte=today)
+        | Q(cancel_at__isnull=True, organization_id__in=due_org_ids)
+    )
+    ended_org_ids = set()
+    for subscription in ending:
+        ended_org_ids.add(subscription.organization_id)
         retire_subscription(subscription)
+    ended_org_ids |= end_comps(today)
 
     # Determine which orgs still have active subscriptions
+    touched_org_ids = set(due_org_ids) | ended_org_ids
     orgs_with_subs = set(
-        Subscription.objects.filter(organization_id__in=due_org_ids).values_list(
+        Subscription.objects.filter(organization_id__in=touched_org_ids).values_list(
             "organization_id", flat=True
         )
     )
-    orgs_without_subs = set(due_org_ids) - orgs_with_subs
+    orgs_without_subs = touched_org_ids - orgs_with_subs
 
-    # Advance anchor date for orgs that still have subscriptions
-    Organization.objects.filter(id__in=orgs_with_subs).update(
+    # Advance anchor date for due orgs that still have subscriptions
+    Organization.objects.filter(id__in=set(due_org_ids) & orgs_with_subs).update(
         update_on=F("update_on") + Interval("1 month")
     )
-    # Clear anchor for orgs whose last subscription was just cancelled
+    # Clear anchor for orgs whose last subscription just ended
     Organization.objects.filter(id__in=orgs_without_subs).update(update_on=None)
+    ended_org_uuids = Organization.objects.filter(id__in=ended_org_ids).values_list(
+        "uuid", flat=True
+    )
 
     # --- Grant-only orgs ---
     # Orgs that have entitlement grants but no subscription have no stored
@@ -95,8 +102,33 @@ def restore_organization():
             union_qs = qs_list[0].union(*qs_list[1:])
             grant_uuids = {row["uuid"] for row in union_qs}
 
-    all_uuids = list({*due_org_uuids, *grant_uuids})
+    all_uuids = list({*due_org_uuids, *ended_org_uuids, *grant_uuids})
     send_cache_invalidations("organization", all_uuids)
+
+
+def end_comps(today):
+    """Remove the free lines whose `ends_on` has come, and any row they empty.
+
+    Returns the ids of the organizations that lost one.
+    """
+    org_ids = set()
+    for item in SubscriptionItem.objects.filter(ends_on__lte=today).select_related(
+        "subscription", "plan", "plan_price"
+    ):
+        subscription = item.subscription
+        if not item.is_free:
+            # Stripe would go on charging for a line deleted only here.
+            logger.error(
+                "[SUBSCRIPTION-ITEM] Paid line %s (%s) has an end date; not ending it",
+                item.pk,
+                item.plan,
+            )
+            continue
+        org_ids.add(subscription.organization_id)
+        item.delete()
+        if not subscription.subscription_id and not subscription.items.exists():
+            subscription.delete()
+    return org_ids
 
 
 def _resolve_invoice_details(charge_data):
