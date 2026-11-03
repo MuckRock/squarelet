@@ -16,7 +16,7 @@ from squarelet.organizations.models.payment import (
     sum_resources,
 )
 from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
-from squarelet.organizations.tests.factories import EntitlementFactory
+from squarelet.organizations.tests.factories import EntitlementFactory, PlanPriceFactory
 from squarelet.services.tests.factories import ServiceFactory
 
 # pylint: disable=too-many-public-methods
@@ -611,6 +611,51 @@ class TestCheckoutUrl:
         assert plan.get_checkout_url(organization) == (
             f"/organizations/{organization.slug}/plans/sunlight-enterprise/"
         )
+
+
+@pytest.mark.django_db()
+class TestCheckoutPrices:
+    """A price Stripe can't charge is not for sale."""
+
+    def test_a_paid_price_with_no_stripe_price_is_not_sold(
+        self, organization_factory, plan_factory
+    ):
+        organization = organization_factory()
+        plan = plan_factory(name="Unbillable", for_individuals=False, public=True)
+        PlanPriceFactory(plan=plan, interval="annual", stripe_price_id="")
+
+        assert plan.checkout_prices("annual", nonprofit=False) == (None, None)
+        assert plan.default_interval(nonprofit=False) is None
+        assert plan.get_checkout_url(organization) is None
+
+    def test_the_billable_interval_is_sold_instead(self, plan_factory):
+        plan = plan_factory(name="Half Billable")
+        PlanPriceFactory(plan=plan, interval="annual", stripe_price_id="")
+        monthly = PlanPriceFactory(plan=plan, interval="monthly")
+
+        assert plan.default_interval(nonprofit=False) == "monthly"
+        assert plan.checkout_prices("monthly", nonprofit=False) == (monthly, monthly)
+
+    def test_a_free_price_needs_no_stripe_price(self, plan_factory):
+        plan = plan_factory(name="Free Tier")
+        free = PlanPriceFactory(plan=plan, interval="monthly", amount=0)
+
+        assert plan.checkout_prices("monthly", nonprofit=False) == (free, free)
+
+    def test_an_unbillable_nonprofit_rate_falls_back_to_the_list_price(
+        self, plan_factory
+    ):
+        plan = plan_factory(name="Discounted")
+        standard = PlanPriceFactory(plan=plan, interval="annual")
+        PlanPriceFactory(
+            plan=plan,
+            interval="annual",
+            label="nonprofit",
+            amount=5000,
+            stripe_price_id="",
+        )
+
+        assert plan.checkout_prices("annual", nonprofit=True) == (standard, standard)
 
 
 class TestConsolidatePlanBenefits:
