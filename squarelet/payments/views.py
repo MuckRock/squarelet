@@ -364,7 +364,7 @@ class PlanDetailView(DetailView):
 
 class PlanRedirectView(RedirectView):
     """
-    Redirects legacy plan URLs to new org-scoped URL
+    Redirects ID-only or slug-only plan URLs to the canonical ID+slug format
     """
 
     permanent = True
@@ -384,17 +384,9 @@ class PlanRedirectView(RedirectView):
             else:
                 raise Http404("Invalid plan URL")
 
-            user = self.request.user
-            protect_private_plan(plan, user)
+            protect_private_plan(plan, self.request.user)
 
-            if user.is_anonymous:
-                # A cached 301 would keep sending the user to log in after they had.
-                self.permanent = False
-                query = urlencode({"next": self.request.get_full_path()})
-                return f"{reverse('account_login')}?{query}"
-            url = plan.get_checkout_url_for(user)
-            if url is None:
-                raise Http404("No account of yours may buy this plan")
+            url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
             if self.request.META.get("QUERY_STRING"):
                 url = f"{url}?{self.request.META['QUERY_STRING']}"
             return url
