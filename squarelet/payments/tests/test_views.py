@@ -1,6 +1,7 @@
 # Django
 from django.http import Http404
 from django.urls import reverse
+from django.utils.http import urlencode
 
 # Third Party
 import pytest
@@ -8,9 +9,8 @@ from autoslug.utils import slugify
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
-from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models import Organization
 from squarelet.payments import views
-from squarelet.services.models import Service
 
 # pylint: disable=too-many-positional-arguments
 
@@ -649,204 +649,194 @@ class TestPlanRedirectView(ViewTestMixin):
 
 
 @pytest.mark.django_db()
-class TestPlanDetailViewWithSlug(ViewTestMixin):
-    """Test the Plan Detail view with canonical URL format (ID + slug)"""
+class TestPlanDetailView(ViewTestMixin):
+    """A plan's page sells it to the accounts the user may buy it for."""
 
     view = views.PlanDetailView
     url = "/plans/{pk}-{slug}/"
 
-    def test_canonical_url_with_correct_slug(
-        self, rf, user_factory, plan_factory, mocker
-    ):
-        """Test that canonical URL with correct slug works"""
-        user = user_factory()
-        plan = plan_factory(name="Test Plan", public=True)
+    @pytest.fixture
+    def personal_plan(self, plan_factory, plan_price_factory):
+        plan = plan_factory(name="Personal", for_individuals=True, for_groups=False)
+        plan_price_factory(plan=plan)
+        return plan
 
-        # Mock Stripe customer to avoid API calls
-        mock_customer = mocker.MagicMock()
-        mock_customer.payment_details = None
-        mocker.patch.object(
-            user.individual_organization, "customer", return_value=mock_customer
+    @pytest.fixture
+    def group_plan(self, plan_factory, plan_price_factory):
+        plan = plan_factory(name="Group", for_individuals=False, for_groups=True)
+        plan_price_factory(plan=plan, interval="annual", amount=100000)
+        plan_price_factory(plan=plan)
+        return plan
+
+    def view_plan(self, rf, user, plan, params=None):
+        return self.call_view(rf, user, params=params, pk=plan.pk, slug=plan.slug)
+
+    def test_a_visitor_sees_the_prices_and_is_asked_to_sign_in(self, rf, group_plan):
+        response = self.view_plan(rf, None, group_plan)
+
+        assert response.status_code == 200
+        assert [p.interval for p in response.context_data["prices"]] == [
+            "annual",
+            "monthly",
+        ]
+        content = response.render().content.decode()
+        nxt = urlencode({"next": f"/plans/{group_plan.pk}-{group_plan.slug}/"})
+        assert f'href="{reverse("account_login")}?{nxt}"' in content
+        assert f'href="{reverse("account_signup")}?{nxt}"' in content
+
+    def test_a_personal_plan_goes_straight_to_the_users_checkout(
+        self, rf, user_factory, personal_plan
+    ):
+        user = user_factory()
+
+        response = self.view_plan(
+            rf, user, personal_plan, params={"purchase_redirect": "https://x.test"}
         )
 
-        # Access plan using canonical URL format
-        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
+        assert response.status_code == 302
+        checkout = reverse(
+            "users:plan",
+            kwargs={"username": user.username, "plan_slug": personal_plan.slug},
+        )
+        query = urlencode({"purchase_redirect": "https://x.test"})
+        assert response.url == f"{checkout}?{query}"
 
-        # Should return 200 OK (no redirect needed)
-        assert response.status_code == 200
-
-        # Verify matching_plan is in context (should be None for non-Sunlight plans)
-        assert "matching_plan" in response.context_data
-        assert response.context_data["matching_plan"] is None
-
-    def test_canonical_url_with_outdated_slug_still_works(
-        self, rf, user_factory, plan_factory, mocker
+    def test_an_admin_of_one_organization_goes_straight_to_its_checkout(
+        self, rf, user_factory, organization_factory, group_plan
     ):
-        """Test that canonical URL with outdated slug still works
-
-        Django's DetailView uses pk to fetch the object, so the slug
-        parameter is not validated. This means old bookmarks with outdated
-        slugs will still work without redirecting.
-
-        This is actually desirable behavior - it means we don't break
-        existing links when we rename plans.
-        """
         user = user_factory()
-        # Create plan with original name
-        plan = plan_factory(name="Sunlight Research Center - Basic", public=True)
-        plan_id = plan.pk
-        old_slug = plan.slug
+        organization = organization_factory(admins=[user])
+        organization_factory(users=[user])
 
-        # Mock Stripe customer to avoid API calls
-        mock_customer = mocker.MagicMock()
-        mock_customer.payment_details = None
-        mocker.patch.object(
-            user.individual_organization, "customer", return_value=mock_customer
+        response = self.view_plan(rf, user, group_plan)
+
+        assert response.status_code == 302
+        assert response.url == reverse(
+            "organizations:plan",
+            kwargs={"slug": organization.slug, "plan_slug": group_plan.slug},
         )
 
-        # Update the plan name and slug (simulating our migration)
-        plan.name = "Sunlight Research Desk Membership - Basic"
-        plan.slug = slugify(plan.name)
-        plan.save()
-        plan.refresh_from_db()
-        new_slug = plan.slug
+    def test_an_admin_of_several_organizations_picks_one(
+        self, rf, user_factory, organization_factory, group_plan
+    ):
+        user = user_factory()
+        beta = organization_factory(admins=[user], name="Beta")
+        alpha = organization_factory(admins=[user], name="Alpha")
 
-        # Verify slug changed
-        assert old_slug != new_slug
-        assert old_slug == "sunlight-research-center-basic"
-        assert new_slug == "sunlight-research-desk-membership-basic"
+        response = self.view_plan(rf, user, group_plan)
 
-        # Access plan using OLD slug with correct ID (like an old bookmark)
-        response = self.call_view(rf, user, pk=plan_id, slug=old_slug)
-
-        # Should return 200 OK - Django DetailView doesn't validate the slug
-        # The pk is correct, so it fetches the right plan
         assert response.status_code == 200
+        accounts = response.context_data["accounts"]
+        assert [a["organization"] for a in accounts] == [alpha, beta]
+        content = response.render().content.decode()
+        for organization in (alpha, beta):
+            checkout = reverse(
+                "organizations:plan",
+                kwargs={"slug": organization.slug, "plan_slug": group_plan.slug},
+            )
+            assert f'href="{checkout}"' in content
 
-        # The view should still work and load the correct plan
-        assert response.context_data["plan"].pk == plan_id
-        assert response.context_data["plan"].name == plan.name
+    def test_unsubscribed_organizations_are_listed_first(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        subscription_item_factory,
+        group_plan,
+    ):
+        user = user_factory()
+        subscribed = organization_factory(admins=[user], name="Alpha")
+        charlie = organization_factory(admins=[user], name="Charlie")
+        beta = organization_factory(admins=[user], name="Beta")
+        subscription_item_factory(
+            subscription__organization=subscribed, plan=group_plan
+        )
 
-    def test_canonical_url_with_wrong_slug_wrong_id_returns_404(
+        response = self.view_plan(rf, user, group_plan)
+
+        accounts = response.context_data["accounts"]
+        assert [a["organization"] for a in accounts] == [beta, charlie, subscribed]
+
+    def test_an_organization_already_subscribed_is_offered_its_management(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        subscription_item_factory,
+        group_plan,
+    ):
+        user = user_factory()
+        subscribed = organization_factory(admins=[user], name="Alpha")
+        organization_factory(admins=[user], name="Beta")
+        subscription_item_factory(
+            subscription__organization=subscribed, plan=group_plan
+        )
+
+        response = self.view_plan(rf, user, group_plan)
+
+        held = {a["organization"]: a["held"] for a in response.context_data["accounts"]}
+        assert held[subscribed] is True
+        manage = reverse(
+            "organizations:subscriptions", kwargs={"slug": subscribed.slug}
+        )
+        assert f'href="{manage}"' in response.render().content.decode()
+
+    def test_a_user_who_runs_no_organization_is_offered_to_create_one(
+        self, rf, user_factory, organization_factory, group_plan
+    ):
+        user = user_factory()
+        organization_factory(users=[user])
+
+        response = self.view_plan(rf, user, group_plan)
+
+        assert response.status_code == 200
+        assert response.context_data["accounts"] == []
+        create = reverse("organizations:create")
+        assert f'href="{create}"' in response.render().content.decode()
+
+    def test_an_organization_the_private_plan_is_not_for_is_not_offered(
+        self, rf, user_factory, organization_factory, group_plan
+    ):
+        user = user_factory()
+        organization_factory(admins=[user], name="Alpha")
+        beta = organization_factory(admins=[user], name="Beta")
+        group_plan.public = False
+        group_plan.save()
+        group_plan.private_organizations.add(beta)
+
+        response = self.view_plan(rf, user, group_plan)
+
+        assert response.url == reverse(
+            "organizations:plan",
+            kwargs={"slug": beta.slug, "plan_slug": group_plan.slug},
+        )
+
+    def test_an_enterprise_plan_offers_contact_without_redirecting(
         self, rf, user_factory, plan_factory
     ):
-        """Test that wrong ID returns 404, regardless of slug"""
         user = user_factory()
-        plan = plan_factory(name="Test Plan", public=True)
+        plan = plan_factory(name="Sunlight Enterprise", slug="sunlight-enterprise")
 
-        # Try to access with non-existent ID (slug doesn't matter)
+        response = self.view_plan(rf, user, plan)
+
+        assert response.status_code == 200
+        assert "calendar.app.google" in response.render().content.decode()
+
+    def test_an_outdated_slug_still_finds_the_plan(self, rf, group_plan):
+        response = self.call_view(rf, pk=group_plan.pk, slug="old-name")
+
+        assert response.context_data["plan"] == group_plan
+
+    def test_a_missing_plan_is_not_found(self, rf):
         with pytest.raises(Http404):
-            self.call_view(rf, user, pk=99999, slug=plan.slug)
+            self.call_view(rf, pk=99999, slug="gone")
 
-
-@pytest.mark.django_db()
-class TestGetMatchingPlanTier:
-    """Test the get_matching_plan_tier helper function"""
-
-    def test_non_sunlight_plan_returns_none(self, plan_factory):
-        """Test that non-Sunlight plans return None"""
-        plan = plan_factory(name="Regular Plan", public=True)
-
-        result = views.get_matching_plan_tier(plan)
-        assert result is None
-
-    def test_finds_matching_sunlight_plan_if_exists(self):
-        """Test that it finds matching Sunlight plans from the database"""
-        # Try to find the actual Sunlight plans from the migration
-        monthly = Plan.objects.filter(slug="sunlight-essential").first()
-        annual = Plan.objects.filter(slug="sunlight-essential-annual").first()
-
-        # Only test if both plans exist in the database
-        if monthly and annual:
-            result_from_monthly = views.get_matching_plan_tier(monthly)
-            assert result_from_monthly == annual
-
-            result_from_annual = views.get_matching_plan_tier(annual)
-            assert result_from_annual == monthly
-
-
-@pytest.mark.django_db()
-class TestEnterpriseTemplateSelection(ViewTestMixin):
-    """Test that Enterprise plans use the custom template"""
-
-    view = views.PlanDetailView
-    url = "/plans/{pk}-{slug}/"
-
-    def test_enterprise_plan_uses_custom_template(
-        self, rf, user_factory, plan_factory, mocker
-    ):
-        """Test that Enterprise plans use the plan_enterprise.html template"""
-        user = user_factory()
-        plan = plan_factory(
-            name="Sunlight Enterprise",
-            slug="sunlight-enterprise",
-            public=True,
+    def test_a_private_plan_is_hidden_from_a_visitor(self, rf, group_plan):
+        group_plan.public = False
+        group_plan.save()
+        group_plan.private_organizations.add(
+            Organization.objects.create(name="Private")
         )
 
-        # Mock Stripe customer to avoid API calls
-        mock_customer = mocker.MagicMock()
-        mock_customer.payment_details = None
-        mocker.patch.object(
-            user.individual_organization, "customer", return_value=mock_customer
-        )
-
-        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
-
-        # Should return 200 OK
-        assert response.status_code == 200
-
-        # Verify custom template is used
-        assert response.template_name == ["payments/plan_enterprise.html"]
-
-    def test_enterprise_annual_plan_uses_custom_template(
-        self, rf, user_factory, plan_factory, mocker
-    ):
-        """Test that Enterprise annual plans use the plan_enterprise.html template"""
-        user = user_factory()
-        plan = plan_factory(
-            name="Sunlight Enterprise Annual",
-            slug="sunlight-enterprise-annual",
-            public=True,
-            annual=True,
-        )
-
-        # Mock Stripe customer to avoid API calls
-        mock_customer = mocker.MagicMock()
-        mock_customer.payment_details = None
-        mocker.patch.object(
-            user.individual_organization, "customer", return_value=mock_customer
-        )
-
-        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
-
-        # Should return 200 OK
-        assert response.status_code == 200
-
-        # Verify custom template is used
-        assert response.template_name == ["payments/plan_enterprise.html"]
-
-    def test_non_enterprise_plan_uses_default_template(
-        self, rf, user_factory, plan_factory, mocker
-    ):
-        """Test that non-Enterprise plans use the default template"""
-        user = user_factory()
-        plan = plan_factory(
-            name="Sunlight Essential",
-            slug="sunlight-essential",
-            public=True,
-        )
-
-        # Mock Stripe customer to avoid API calls
-        mock_customer = mocker.MagicMock()
-        mock_customer.payment_details = None
-        mocker.patch.object(
-            user.individual_organization, "customer", return_value=mock_customer
-        )
-
-        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
-
-        # Should return 200 OK
-        assert response.status_code == 200
-
-        # Verify default template is used
-        assert response.template_name == ["payments/plan.html"]
+        with pytest.raises(Http404):
+            self.view_plan(rf, None, group_plan)
