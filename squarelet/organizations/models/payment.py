@@ -1037,12 +1037,7 @@ class SubscriptionItem(models.Model):
         to="organizations.PlanPrice",
         on_delete=models.PROTECT,
         related_name="subscription_items",
-        blank=True,
-        null=True,
-        help_text=_(
-            "The price this subscription is billed at.  Nullable until every "
-            "subscription has been migrated off the legacy plan foreign key."
-        ),
+        help_text=_("The price this line is billed at"),
     )
 
     granted_reason = models.TextField(
