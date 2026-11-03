@@ -29,6 +29,7 @@ from squarelet.organizations.models.payment import (
     Customer,
     PaymentMethod,
     Plan,
+    PlanPrice,
     Subscription,
     SubscriptionItem,
 )
@@ -589,7 +590,18 @@ class Command(BaseCommand):
             organization=organization, current_period_end=fixed_date(2030, 2, 1)
         )
         for plan in plans:
-            SubscriptionItem.objects.create(subscription=subscription, plan=plan)
+            # Billed at the plan's own price, so the cards read as before.
+            price, _ = PlanPrice.objects.get_or_create(
+                plan=plan,
+                interval="monthly",
+                label="standard",
+                code="",
+                active=True,
+                defaults={"amount": plan.base_price * 100, "currency": "usd"},
+            )
+            SubscriptionItem.objects.create(
+                subscription=subscription, plan=plan, plan_price=price
+            )
 
     @transaction.atomic
     def teardown_visual(self):

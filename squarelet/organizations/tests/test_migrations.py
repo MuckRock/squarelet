@@ -26,6 +26,7 @@ APP = "organizations"
 PARENT = "subscription_parent"
 ITEM_CANCELLATION = "subscription_item_cancellation"
 KIND = "subscription_kind"
+PRICE_REQUIRED = "plan_price_required"
 
 
 def _bracket(suffix):
@@ -396,3 +397,33 @@ class TestClassifySubscriptions:
 
         with pytest.raises(RuntimeError, match="one-off beside Pack, Paid"):
             migrate_to(_bracket(KIND)[1])
+
+
+@pytest.mark.django_db(transaction=True)
+class TestRequireAPrice:
+    """0089 makes every line name a price, and names those that do not."""
+
+    @pytest.fixture(autouse=True)
+    def _leave_the_database_migrated(self):
+        yield
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM organizations_subscriptionitem")
+            cursor.execute("DELETE FROM organizations_subscription")
+        migrate_to_latest()
+
+    def test_a_line_with_no_price_is_named(self):
+        old = migrate_to(_bracket(PRICE_REQUIRED)[0])
+        organization = old.get_model(APP, "Organization").objects.create(
+            name="Unpriced", slug="unpriced"
+        )
+        old.get_model(APP, "SubscriptionItem").objects.create(
+            subscription=old.get_model(APP, "Subscription").objects.create(
+                organization=organization
+            ),
+            plan=old.get_model(APP, "Plan").objects.create(
+                name="Legacy", slug="legacy"
+            ),
+        )
+
+        with pytest.raises(RuntimeError, match="unpriced: legacy"):
+            migrate_to(_bracket(PRICE_REQUIRED)[1])
