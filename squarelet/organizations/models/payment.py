@@ -1,7 +1,7 @@
 # Django
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone, localtime
@@ -437,6 +437,12 @@ class Cancellable:
         self.cancel_at = None
 
 
+LIVE_ON_THE_SAME_BILLING = (
+    "This organization already has a live subscription on the same billing.  "
+    "These plans can be added to it once this one ends."
+)
+
+
 class Subscription(Cancellable, models.Model):
     """A subscription on Stripe.
 
@@ -841,10 +847,7 @@ class Subscription(Cancellable, models.Model):
             .exclude(pk=self.pk)
             .exists()
         ):
-            raise SubscriptionError(
-                "This organization already has a live subscription on the same "
-                "billing.  These plans can be added to it once this one ends."
-            )
+            raise SubscriptionError(LIVE_ON_THE_SAME_BILLING)
         customer = self.organization.customer()
         if not customer.stripe_payment_method_id:
             raise ValidationError(
@@ -853,16 +856,25 @@ class Subscription(Cancellable, models.Model):
                     "Please add a payment method before re-subscribing."
                 )
             )
-        if self.stripe_subscription:
-            updated = (
-                get_payment_provider()
-                .get_subscription_service()
-                .uncancel(self.stripe_subscription)
-            )
-            if updated:
-                self.cache_stripe_subscription_fields(updated)
-        self.clear_cancellation()
-        self.save()
+        with transaction.atomic():
+            # Saved before Stripe hears of it: a same-shape purchase made since
+            # the check fails here, not after Stripe has resumed billing.
+            self.clear_cancellation()
+            try:
+                with transaction.atomic():
+                    self.save()
+            except IntegrityError as exc:
+                self.refresh_from_db()
+                raise SubscriptionError(LIVE_ON_THE_SAME_BILLING) from exc
+            if self.stripe_subscription:
+                updated = (
+                    get_payment_provider()
+                    .get_subscription_service()
+                    .uncancel(self.stripe_subscription)
+                )
+                if updated:
+                    self.cache_stripe_subscription_fields(updated)
+                    self.save()
 
     def sync_to_stripe(self, payment_method="card"):
         """Make Stripe match this subscription, from whatever state it is in.
