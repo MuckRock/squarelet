@@ -28,7 +28,7 @@ import pytest
 import stripe
 
 # Squarelet
-from squarelet.organizations.models import Subscription, SubscriptionItem
+from squarelet.organizations.models import PlanPrice, Subscription, SubscriptionItem
 from squarelet.organizations.models.payment import _proration_for
 from squarelet.organizations.payments.exceptions import SubscriptionError
 
@@ -57,12 +57,7 @@ def sandbox(settings):
     settings.STRIPE_SECRET_KEY = key
     stripe.api_key = key
 
-    created = {
-        "subscriptions": [],
-        "customers": [],
-        "plans": [],
-        "legacy_plans": [],
-    }
+    created = {"subscriptions": [], "customers": [], "prices": []}
     yield created
 
     # Subscriptions first: a customer cannot be deleted out from under one.
@@ -76,75 +71,43 @@ def sandbox(settings):
             stripe.Customer.delete(customer_id)
         except stripe.StripeError:
             pass
-    for plan in created["plans"]:
+    # Stripe keeps Prices for good, and a Product while it has any, so both
+    # are retired instead.
+    for price in created["prices"]:
         try:
-            plan.archive_stripe_plan()
-        except stripe.StripeError:
-            pass
-    for plan_id in created["legacy_plans"]:
-        try:
-            stripe.Plan.delete(plan_id)
+            stripe.Price.modify(price.stripe_price_id, active=False)
+            stripe.Product.modify(price.plan.stripe_product_id, active=False)
         except stripe.StripeError:
             pass
 
 
-def paid_plan(plan_factory, sandbox, price=25):
-    """A plan that exists on Stripe, named uniquely for this run.
+def paid_plan(plan_factory, sandbox, price=25, annual=False):
+    """A plan with a list price that exists on Stripe, unique to this run.
 
     Unique because Stripe objects outlive the test: reusing a name would
-    silently adopt a plan a previous run created at a different price, and
+    silently adopt a Price a previous run created at a different amount, and
     the assertions here are about amounts.
-
-    This is the one place that knows *what* the branch bills against.  Once
-    the stack moves subscriptions onto PlanPrice, this becomes
-    `PlanPrice.ensure_stripe_price()`; nothing else below should need to
-    change.
     """
     name = f"Sandbox {uuid4().hex[:8]}"
     plan = plan_factory(
-        name=name, slug=slugify(name), base_price=price, price_per_user=0
+        name=name, slug=slugify(name), base_price=price, price_per_user=0, annual=annual
     )
-    plan.make_stripe_plan()
-    sandbox["plans"].append(plan)
+    plan_price = PlanPrice.objects.create(
+        plan=plan,
+        interval="annual" if annual else "monthly",
+        label="standard",
+        amount=price * 100,
+    )
+    plan_price.ensure_stripe_price()
+    sandbox["prices"].append(plan_price)
     return plan
 
 
-def tiered_plan(plan_factory, sandbox):
-    """A legacy group plan, billed the way the real ones still are.
-
-    `billing_scheme: tiered` with `tiers_mode: graduated`: a flat amount up
-    to `minimum_users`, then per block beyond it.  Quantity *selects* a tier
-    here.  Every new PlanPrice is `per_unit`, where quantity *multiplies* -
-    reading one as the other overcharges a five-seat subscriber fivefold,
-    which is the largest single risk in this migration and the reason these
-    assert amounts rather than price ids.
-
-    Built against Stripe directly: the app makes flat Prices, but production
-    bills this shape until the backfill runs.  No `PlanPrice`, so the line
-    bills the legacy id.
-    """
-    name = f"Sandbox Tiered {uuid4().hex[:8]}"
-    plan = plan_factory(
-        name=name,
-        slug=slugify(name),
-        for_groups=True,
-        minimum_users=5,
-        base_price=100,
-        price_per_user=10,
-    )
-    stripe.Plan.create(
-        id=plan.stripe_id,
-        currency="usd",
-        interval="month",
-        product={"name": name, "unit_label": "Seats"},
-        billing_scheme="tiered",
-        tiers_mode="graduated",
-        tiers=[
-            {"flat_amount": 100 * plan.base_price, "up_to": plan.minimum_users},
-            {"unit_amount": 100 * plan.price_per_user, "up_to": "inf"},
-        ],
-    )
-    sandbox["legacy_plans"].append(plan.stripe_id)
+def free_plan(plan_factory):
+    """A plan whose price costs nothing, so it never reaches Stripe."""
+    name = f"Sandbox Free {uuid4().hex[:8]}"
+    plan = plan_factory(name=name, slug=slugify(name), base_price=0, price_per_user=0)
+    PlanPrice.objects.create(plan=plan, interval="monthly", label="standard", amount=0)
     return plan
 
 
@@ -201,12 +164,12 @@ class TestAPriceStripeNeverMade:
     ):
         name = f"Sandbox Unmade {uuid4().hex[:8]}"
         plan = plan_factory(name=name, slug=slugify(name), base_price=25)
-        sandbox["plans"].append(plan)
         plan.prices.create(interval="monthly", label="standard", amount=2_500)
         organization = organization_factory()
         with_card(organization, sandbox)
 
         item = start(organization, plan, sandbox)
+        sandbox["prices"].append(item.plan_price)
 
         assert item.plan_price.stripe_price_id.startswith("price_")
         assert invoice_total(item.subscription.subscription_id) == 2_500
@@ -303,17 +266,9 @@ class TestChangingAPlan:
         with_card(organization, sandbox)
         item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
         subscription_id = item.subscription.subscription_id
-        free_name = f"Sandbox Free {uuid4().hex[:8]}"
 
         with pytest.raises(SubscriptionError, match="never share a subscription"):
-            item.modify(
-                plan_factory(
-                    name=free_name,
-                    slug=slugify(free_name),
-                    base_price=0,
-                    price_per_user=0,
-                )
-            )
+            item.modify(free_plan(plan_factory))
 
         assert stripe.Subscription.retrieve(subscription_id).status == "active"
 
@@ -383,39 +338,26 @@ class TestRemovingOnePlan:
 
 
 class TestWhatTheCustomerIsCharged:
-    """Identity is not enough: the amount is the thing that can be wrong.
+    """Identity is not enough: the amount is the thing that can be wrong."""
 
-    The tiered cases cover plans production bills until the backfill, whose
-    money check trusts `legacy_bill_cents` to reproduce these numbers.
-    """
-
-    def test_a_tiered_plan_at_its_minimum_bills_the_flat_amount(
+    def test_quantity_multiplies_a_per_unit_price(
         self, organization_factory, plan_factory, sandbox
     ):
-        """Quantity selects the tier; it does not multiply it.
+        """Every price is per unit: seven $10 packs are $70.
 
-        Five seats on a $100 plan with a five-seat minimum is $100, not
-        $500.  Most group subscribers sit exactly here.
+        Legacy plans were tiered, where quantity selected a tier rather than
+        multiplying; reading one as the other misbills by the quantity.
         """
         organization = organization_factory()
         with_card(organization, sandbox)
         item = start(
-            organization, tiered_plan(plan_factory, sandbox), sandbox, quantity=5
+            organization,
+            paid_plan(plan_factory, sandbox, price=10),
+            sandbox,
+            quantity=7,
         )
 
-        assert invoice_total(item.subscription.subscription_id) == 100_00
-
-    def test_a_tiered_plan_above_its_minimum_bills_per_block(
-        self, organization_factory, plan_factory, sandbox
-    ):
-        """$100 base, then $10 for each block past the fifth."""
-        organization = organization_factory()
-        with_card(organization, sandbox)
-        item = start(
-            organization, tiered_plan(plan_factory, sandbox), sandbox, quantity=7
-        )
-
-        assert invoice_total(item.subscription.subscription_id) == 120_00
+        assert invoice_total(item.subscription.subscription_id) == 70_00
 
 
 class TestCancellingOnStripe:
@@ -460,17 +402,7 @@ class TestCancellingOnStripe:
         item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
         item.subscription.cancel()
 
-        free_name = f"Sandbox Free {uuid4().hex[:8]}"
-        start(
-            organization,
-            plan_factory(
-                name=free_name,
-                slug=slugify(free_name),
-                base_price=0,
-                price_per_user=0,
-            ),
-            sandbox,
-        )
+        start(organization, free_plan(plan_factory), sandbox)
 
         live = stripe.Subscription.retrieve(item.subscription.subscription_id)
         assert live["cancel_at_period_end"] is True
@@ -508,17 +440,7 @@ class TestCancellingOnStripe:
         organization = organization_factory()
         with_card(organization, sandbox)
         paid = start(organization, paid_plan(plan_factory, sandbox), sandbox)
-        free_name = f"Sandbox Free {uuid4().hex[:8]}"
-        start(
-            organization,
-            plan_factory(
-                name=free_name,
-                slug=slugify(free_name),
-                base_price=0,
-                price_per_user=0,
-            ),
-            sandbox,
-        )
+        start(organization, free_plan(plan_factory), sandbox)
 
         assert stripe_prices(paid.subscription.subscription_id) == {
             paid.stripe_price_id
@@ -565,30 +487,12 @@ class TestProratedInvoicing:
         """
         organization = organization_factory()
         with_card(organization, sandbox)
-        name = f"Sandbox Annual {uuid4().hex[:8]}"
-        plan = plan_factory(
-            name=name,
-            slug=slugify(name),
-            annual=True,
-            base_price=300,
-            price_per_user=0,
-        )
-        plan.make_stripe_plan()
-        sandbox["plans"].append(plan)
+        plan = paid_plan(plan_factory, sandbox, price=300, annual=True)
         item = start(organization, plan, sandbox, payment_method="invoice")
         subscription_id = item.subscription.subscription_id
         before = stripe_invoice_ids(subscription_id)
 
-        second_name = f"Sandbox Annual {uuid4().hex[:8]}"
-        second = plan_factory(
-            name=second_name,
-            slug=slugify(second_name),
-            annual=True,
-            base_price=120,
-            price_per_user=0,
-        )
-        second.make_stripe_plan()
-        sandbox["plans"].append(second)
+        second = paid_plan(plan_factory, sandbox, price=120, annual=True)
         start(organization, second, sandbox, payment_method="invoice")
 
         assert stripe_invoice_ids(subscription_id) == before
@@ -605,16 +509,7 @@ class TestAnnualInvoicing:
         """
         organization = organization_factory()
         with_card(organization, sandbox)
-        name = f"Sandbox Annual {uuid4().hex[:8]}"
-        plan = plan_factory(
-            name=name,
-            slug=slugify(name),
-            annual=True,
-            base_price=300,
-            price_per_user=0,
-        )
-        plan.make_stripe_plan()
-        sandbox["plans"].append(plan)
+        plan = paid_plan(plan_factory, sandbox, price=300, annual=True)
 
         item = start(organization, plan, sandbox, payment_method="invoice")
 
@@ -637,16 +532,7 @@ class TestAddingToAnAnnualSubscription:
         """
         organization = organization_factory()
         with_card(organization, sandbox)
-        name = f"Sandbox Annual Card {uuid4().hex[:8]}"
-        annual = plan_factory(
-            name=name,
-            slug=slugify(name),
-            annual=True,
-            base_price=300,
-            price_per_user=0,
-        )
-        annual.make_stripe_plan()
-        sandbox["plans"].append(annual)
+        annual = paid_plan(plan_factory, sandbox, price=300, annual=True)
         item = start(organization, annual, sandbox)
         subscription_id = item.subscription.subscription_id
         assert (
@@ -654,16 +540,7 @@ class TestAddingToAnAnnualSubscription:
             == "charge_automatically"
         )
 
-        second = f"Sandbox Annual Card 2 {uuid4().hex[:8]}"
-        other = plan_factory(
-            name=second,
-            slug=slugify(second),
-            annual=True,
-            base_price=400,
-            price_per_user=0,
-        )
-        other.make_stripe_plan()
-        sandbox["plans"].append(other)
+        other = paid_plan(plan_factory, sandbox, price=400, annual=True)
         start(organization, other, sandbox)
 
         live = stripe.Subscription.retrieve(subscription_id)

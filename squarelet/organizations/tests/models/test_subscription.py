@@ -12,6 +12,7 @@ import stripe
 # Squarelet
 from squarelet.organizations.models import SubscriptionItem
 from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.tests.factories import for_sale
 
 # Local
 from .test_invoice import Invoice, create_mock_stripe_invoice
@@ -415,7 +416,7 @@ class TestSubscription:
             items=[
                 {
                     "id": "si_mod",
-                    "plan": item.plan.stripe_id,
+                    "plan": item.plan_price.stripe_price_id,
                     "quantity": item.quantity,
                 }
             ],
@@ -606,7 +607,7 @@ class TestSubscriptionItem:
             plan=professional_plan_factory(),
             subscription__subscription_id="sub_live",
         )
-        plan = professional_plan_factory(name="Other Paid", base_price=30)
+        plan = for_sale(professional_plan_factory(name="Other Paid", base_price=30))
         # `modify` identifies the line on Stripe before changing its
         # plan; nothing here is exercising that.
         mocker.patch(
@@ -640,7 +641,7 @@ class TestSubscriptionItem:
         started = mocker.patch("squarelet.organizations.models.Subscription.start")
         mocker.patch("squarelet.organizations.models.Subscription.stripe_modify")
 
-        item.modify(professional_plan_factory())
+        item.modify(for_sale(professional_plan_factory()))
 
         started.assert_called_once()
 
@@ -657,7 +658,9 @@ class TestSubscriptionItem:
         )
 
         with pytest.raises(SubscriptionError, match="never share a subscription"):
-            item.modify(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
+            item.modify(
+                for_sale(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
+            )
 
         service.delete.assert_not_called()
         service.modify.assert_not_called()
@@ -677,7 +680,7 @@ class TestSubscriptionItem:
             subscription__subscription_id="sub_monthly",
             subscription__interval="monthly",
         )
-        annual = plan_factory(name="Annual Plan", annual=True, base_price=300)
+        annual = for_sale(plan_factory(name="Annual Plan", annual=True, base_price=300))
 
         with pytest.raises(SubscriptionError, match="bills annual"):
             item.modify(annual)
@@ -734,7 +737,7 @@ class TestSubscriptionItem:
         specs = paid.subscription.stripe_items()
 
         assert len(specs) == 1
-        assert specs[0]["plan"] == paid.plan.stripe_id
+        assert specs[0]["plan"] == paid.plan_price.stripe_price_id
 
     @pytest.mark.django_db()
     def test_cancel_last_item_cancels_the_subscription(
@@ -820,7 +823,7 @@ class TestLinesAreIdentifiedBeforeTheyAreDescribed:
         )
         mocker.patch(
             "squarelet.organizations.models.Subscription.stripe_subscription",
-            self._stripe_sub(item.plan.stripe_id),
+            self._stripe_sub(item.plan_price.stripe_price_id),
         )
         service = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
@@ -833,7 +836,7 @@ class TestLinesAreIdentifiedBeforeTheyAreDescribed:
         sent = service.modify.call_args.kwargs["items"]
         assert sent == [
             {
-                "plan": item.plan.stripe_id,
+                "plan": item.plan_price.stripe_price_id,
                 "quantity": item.quantity,
                 "id": "si_existing",
             }

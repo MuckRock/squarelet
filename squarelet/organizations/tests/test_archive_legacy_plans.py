@@ -173,7 +173,12 @@ class TestACancelledLineStillBlocksIt:
 
     def test_once_the_sweep_has_removed_it_the_plan_is_archived(self):
         plan = legacy_plan()
-        item = SubscriptionItemFactory(plan=plan, subscription__cancelled=True)
+        # Billed at a price since retired; an active one would keep it on sale.
+        item = SubscriptionItemFactory(
+            plan=plan,
+            plan_price=PlanPriceFactory(plan=plan, active=False),
+            subscription__cancelled=True,
+        )
         item.delete()  # what restore_organization does when cancel_at arrives
 
         run()

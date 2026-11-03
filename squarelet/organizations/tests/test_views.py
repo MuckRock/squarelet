@@ -1983,13 +1983,11 @@ class TestRemovingAPlan(ViewTestMixin):
 
         assert removes_now.call_count == 1
 
-    def test_the_price_comes_with_the_plan(self, rf, line, plan_price_factory, mocker):
+    def test_the_price_comes_with_the_plan(self, rf, line, mocker):
         mocker.patch(
             "squarelet.organizations.models.SubscriptionItem.removal_credit",
             return_value=1240,
         )
-        line.plan_price = plan_price_factory(plan=line.plan)
-        line.save()
 
         with CaptureQueriesContext(connection) as queries:
             self.call_view(
