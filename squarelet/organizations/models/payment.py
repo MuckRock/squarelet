@@ -1147,7 +1147,8 @@ class SubscriptionItem(models.Model):
 
         Raises SubscriptionError for a change of interval or kind, which
         belongs on another subscription; from a negotiated rate, which belongs
-        to one tier; and for a nonprofit line to a plan with no nonprofit rate.
+        to one tier; for a nonprofit line to a plan with no nonprofit rate;
+        and to a plan with no price at all.
         """
         if self.plan_price_id and self.plan_price.code:
             raise SubscriptionError(
@@ -1162,6 +1163,10 @@ class SubscriptionItem(models.Model):
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: {plan} has no "
                 f"nonprofit rate."
+            )
+        if plan_price is None:
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan}: {plan} has no price"
             )
         if plan_price:
             interval = plan_price.interval

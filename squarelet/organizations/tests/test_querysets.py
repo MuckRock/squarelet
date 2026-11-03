@@ -29,6 +29,7 @@ from squarelet.organizations.tests.factories import (
     PlanFactory,
     PlanPriceFactory,
     SubscriptionItemFactory,
+    for_sale,
 )
 from squarelet.users.tests.factories import UserFactory
 
@@ -383,7 +384,8 @@ def test_joining_a_live_subscription_settles_the_charge(mocker):
     )
 
     SubscriptionItem.objects.start(
-        organization=organization, plan=PlanFactory(name="Joining Plan", base_price=30)
+        organization=organization,
+        plan=for_sale(PlanFactory(name="Joining Plan", base_price=30)),
     )
 
     settle.assert_called_once_with(updated)
@@ -417,7 +419,7 @@ class TestWhereANewLineGoes:
 
         item, _ = SubscriptionItem.objects.start(
             organization=leaving.organization,
-            plan=PlanFactory(name="Arriving Plan", base_price=100),
+            plan=for_sale(PlanFactory(name="Arriving Plan", base_price=100)),
         )
 
         assert item.subscription != leaving
@@ -429,7 +431,9 @@ class TestWhereANewLineGoes:
 
         item, _ = SubscriptionItem.objects.start(
             organization=leaving.organization,
-            plan=PlanFactory(name="Free Arrival", base_price=0, price_per_user=0),
+            plan=for_sale(
+                PlanFactory(name="Free Arrival", base_price=0, price_per_user=0)
+            ),
         )
 
         assert item.subscription.kind == "free"
@@ -439,12 +443,12 @@ class TestWhereANewLineGoes:
         organization = OrganizationFactory()
         first, _ = SubscriptionItem.objects.start(
             organization=organization,
-            plan=PlanFactory(name="Free One", base_price=0, price_per_user=0),
+            plan=for_sale(PlanFactory(name="Free One", base_price=0, price_per_user=0)),
         )
 
         second, _ = SubscriptionItem.objects.start(
             organization=organization,
-            plan=PlanFactory(name="Free Two", base_price=0, price_per_user=0),
+            plan=for_sale(PlanFactory(name="Free Two", base_price=0, price_per_user=0)),
         )
 
         assert second.subscription == first.subscription
@@ -453,7 +457,7 @@ class TestWhereANewLineGoes:
         """Anchoring it to the billing day would end it at the next anchor."""
         start = mocker.patch("squarelet.organizations.models.Subscription.start")
         organization = OrganizationFactory(billing_anchor=date(2026, 9, 1))
-        plan = PlanFactory(name="Pack", base_price=25)
+        plan = for_sale(PlanFactory(name="Pack", base_price=25))
         plan.auto_renew = False
         plan.save()
 
@@ -466,7 +470,8 @@ class TestWhereANewLineGoes:
         organization = OrganizationFactory(billing_anchor=date(2026, 9, 1))
 
         SubscriptionItem.objects.start(
-            organization=organization, plan=PlanFactory(name="Paid", base_price=25)
+            organization=organization,
+            plan=for_sale(PlanFactory(name="Paid", base_price=25)),
         )
 
         assert start.call_args.kwargs["anchor_day"] == 1
@@ -478,7 +483,7 @@ class TestWhereANewLineGoes:
 
         SubscriptionItem.objects.start(
             organization=organization,
-            plan=PlanFactory(name="Paid Annual", base_price=250, annual=True),
+            plan=for_sale(PlanFactory(name="Paid Annual", base_price=250, annual=True)),
         )
 
         assert start.call_args.kwargs["anchor_day"] is None
@@ -487,7 +492,7 @@ class TestWhereANewLineGoes:
         organization = OrganizationFactory()
         packs = []
         for name in ("Pack One", "Pack Two"):
-            plan = PlanFactory(name=name, base_price=25)
+            plan = for_sale(PlanFactory(name=name, base_price=25))
             plan.auto_renew = False
             plan.save()
             item, _ = SubscriptionItem.objects.start(
@@ -511,7 +516,7 @@ class TestWhereANewLineGoes:
 
         SubscriptionItem.objects.start(
             organization=item.subscription.organization,
-            plan=PlanFactory(name="Second Plan", base_price=100),
+            plan=for_sale(PlanFactory(name="Second Plan", base_price=100)),
         )
 
         assert item.subscription.items.count() == 2
@@ -533,7 +538,7 @@ def test_a_free_plan_still_announces_itself(mocker):
 
     SubscriptionItem.objects.start(
         organization=OrganizationFactory(),
-        plan=PlanFactory(name="Free Tier", base_price=0, price_per_user=0),
+        plan=for_sale(PlanFactory(name="Free Tier", base_price=0, price_per_user=0)),
     )
 
     notify.assert_called_once()
