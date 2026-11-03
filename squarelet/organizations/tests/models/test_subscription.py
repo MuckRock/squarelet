@@ -931,3 +931,67 @@ class TestWhatEachKindAllows:
         staying.subscription.refresh_from_db()
         assert not staying.subscription.cancelled
         assert SubscriptionItem.objects.filter(pk=staying.pk).exists()
+
+
+class TestRevivingASubscription:
+    """`uncancel` writes locally first, so Stripe only resumes what is saved."""
+
+    @pytest.mark.django_db()
+    def test_a_purchase_racing_the_uncancel_stops_it_before_stripe(
+        self, subscription_item_factory, subscription_factory, mocker
+    ):
+        """Bought between the check and the save, the live subscription wins.
+
+        Stripe must not resume billing one the database then refuses to revive.
+        """
+        item = subscription_item_factory(
+            subscription__subscription_id="sub_old", subscription__cancelled=True
+        )
+        subscription = item.subscription
+
+        def buy_meanwhile():
+            subscription_factory(
+                organization=subscription.organization, subscription_id="sub_new"
+            )
+            return mocker.Mock(stripe_payment_method_id="pm_test")
+
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            side_effect=buy_meanwhile,
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        service.uncancel.return_value = None
+
+        with pytest.raises(SubscriptionError, match="already has a live"):
+            subscription.uncancel()
+
+        service.uncancel.assert_not_called()
+        subscription.refresh_from_db()
+        assert subscription.cancelled
+
+    @pytest.mark.django_db()
+    def test_a_stripe_failure_leaves_it_cancelled(
+        self, subscription_item_factory, mocker
+    ):
+        item = subscription_item_factory(
+            subscription__subscription_id="sub_old", subscription__cancelled=True
+        )
+        subscription = item.subscription
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=mocker.Mock(stripe_payment_method_id="pm_test"),
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        service.uncancel.side_effect = stripe.error.APIConnectionError("down")
+
+        with pytest.raises(stripe.error.APIConnectionError):
+            subscription.uncancel()
+
+        subscription.refresh_from_db()
+        assert subscription.cancelled
