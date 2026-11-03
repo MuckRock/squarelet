@@ -271,7 +271,7 @@ class PlanDetailView(DetailView):
         Returns an HttpResponse for early exits (waitlist, 3DS, Stripe errors),
         or None to signal the caller should build the success response.
         """
-        if plan.slug.startswith("sunlight-") and plan.wix:
+        if plan.is_sunlight_plan and plan.wix:
             return self._handle_sunlight_subscription(request, plan, result)
         return self._handle_regular_subscription(request, plan, result)
 
