@@ -4,6 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Q
+from django.db.models.signals import post_save
 from django.utils import timezone
 
 # Standard Library
@@ -31,6 +32,7 @@ from squarelet.organizations.models.payment import (
     Subscription,
     SubscriptionItem,
 )
+from squarelet.organizations.signals import make_stripe_plan
 from squarelet.users.models import User
 
 E2E_PASSWORD = "e2e-test-password"
@@ -457,10 +459,24 @@ class Command(BaseCommand):
         Plan.objects.filter(slug__in=["professional", "organization"]).update(
             benefits=BENEFITS
         )
-        plans = {
-            slug: self._get_or_create_plan(slug, **fields)
-            for slug, fields in VISUAL_PLANS.items()
-        }
+        # A new plan gets its Stripe Product and Price on commit, at whatever
+        # price it holds by then; snapshots must not reach Stripe.
+        post_save.disconnect(
+            make_stripe_plan,
+            sender=Plan,
+            dispatch_uid="squarelet.organizations.signals.make_stripe_plan",
+        )
+        try:
+            plans = {
+                slug: self._get_or_create_plan(slug, **fields)
+                for slug, fields in VISUAL_PLANS.items()
+            }
+        finally:
+            post_save.connect(
+                make_stripe_plan,
+                sender=Plan,
+                dispatch_uid="squarelet.organizations.signals.make_stripe_plan",
+            )
 
         users = {username: self._create_user(username) for username in VISUAL_USERS}
         User.objects.filter(username="e2e-visual-onboard").update(last_mfa_prompt=None)
@@ -550,9 +566,8 @@ class Command(BaseCommand):
             )
         )
 
-    def _get_or_create_plan(self, slug, base_price=0, price_per_user=0, **fields):
-        # Creating a paid plan makes it on Stripe; pricing it afterwards does not.
-        plan, _ = Plan.objects.get_or_create(
+    def _get_or_create_plan(self, slug, **fields):
+        plan, _ = Plan.objects.update_or_create(
             slug=slug,
             defaults={
                 "public": True,
@@ -562,10 +577,6 @@ class Command(BaseCommand):
                 **fields,
             },
         )
-        Plan.objects.filter(pk=plan.pk).update(
-            base_price=base_price, price_per_user=price_per_user
-        )
-        plan.refresh_from_db()
         return plan
 
     def _subscribe(self, organization, plans):
