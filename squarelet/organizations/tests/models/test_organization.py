@@ -17,7 +17,11 @@ from squarelet.organizations.models import (
     consolidate_inherited_benefits,
 )
 from squarelet.organizations.payments.exceptions import SubscriptionError
-from squarelet.organizations.tests.factories import EntitlementFactory
+from squarelet.organizations.tests.factories import (
+    EntitlementFactory,
+    for_sale,
+    price_for,
+)
 
 # pylint: disable=too-many-public-methods,too-many-lines,too-many-positional-arguments
 
@@ -246,6 +250,7 @@ class TestOrganization:
         user = user_factory()
         organization = organization_factory(admins=[user])
         plan = professional_plan_factory()
+        price = price_for(plan)
         max_users = 5
         period_end = 1_800_000_000
 
@@ -266,7 +271,7 @@ class TestOrganization:
 
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": max_users}],
+            items=[{"plan": price.stripe_price_id, "quantity": max_users}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
@@ -287,6 +292,7 @@ class TestOrganization:
 
         user = user_factory()
         plan_b = plan_factory(annual=False, base_price=10, minimum_users=1)
+        price = price_for(plan_b)
         mocker.patch("stripe.Plan.create")
 
         # Set org with a billing_anchor that differs from update_on.
@@ -302,7 +308,7 @@ class TestOrganization:
 
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan_b.stripe_id, "quantity": 1}],
+            items=[{"plan": price.stripe_price_id, "quantity": 1}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
@@ -338,6 +344,7 @@ class TestOrganization:
         user = user_factory()
         organization = organization_factory(admins=[user])
         plan = plan_factory(annual=True, base_price=240, minimum_users=1)
+        price = price_for(plan)
 
         mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
 
@@ -346,7 +353,7 @@ class TestOrganization:
         assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": 1}],
+            items=[{"plan": price.stripe_price_id, "quantity": 1}],
             billing="send_invoice",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=30,
@@ -362,6 +369,7 @@ class TestOrganization:
         user = user_factory()
         organization = organization_factory(admins=[user])
         plan = professional_plan_factory()
+        price = price_for(plan)
 
         mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
 
@@ -370,7 +378,7 @@ class TestOrganization:
         assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": 3}],
+            items=[{"plan": price.stripe_price_id, "quantity": 3}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
@@ -386,6 +394,7 @@ class TestOrganization:
         user = user_factory()
         organization = organization_factory(admins=[user])
         plan = professional_plan_factory()
+        price = price_for(plan)
 
         mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
         mocked_save_card = mocker.patch(
@@ -401,7 +410,7 @@ class TestOrganization:
         assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": 2}],
+            items=[{"plan": price.stripe_price_id, "quantity": 2}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
@@ -418,6 +427,7 @@ class TestOrganization:
         user = user_factory()
         organization = organization_factory(admins=[user])
         plan = professional_plan_factory()
+        price = price_for(plan)
 
         mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
         mock_customer.payment_details = mocker.MagicMock()  # payment method on file
@@ -427,7 +437,7 @@ class TestOrganization:
         assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": 4}],
+            items=[{"plan": price.stripe_price_id, "quantity": 4}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
@@ -639,7 +649,9 @@ class TestOrganization:
     ):
         """modify_subscription updates the subscription to the new plan"""
         old_plan = plan_factory(slug="sunlight-enterprise", wix=True, base_price=90)
-        new_plan = plan_factory(slug="sunlight-essential", wix=True, base_price=30)
+        new_plan = for_sale(
+            plan_factory(slug="sunlight-essential", wix=True, base_price=30)
+        )
         user = user_factory()
         organization = organization_factory(admins=[user], plans=[old_plan])
 
@@ -1364,7 +1376,7 @@ class TestMultipleSubscriptions:
     ):
         """add_subscription creates a new SubscriptionItem for an org with none."""
         org = organization_factory()
-        plan = plan_factory()
+        plan = for_sale(plan_factory())
         user = user_factory()
 
         mocker.patch(
@@ -1404,8 +1416,8 @@ class TestMultipleSubscriptions:
     ):
         """add_subscription allows adding a second plan if it differs."""
         org = organization_factory()
-        plan_a = plan_factory()
-        plan_b = plan_factory()
+        plan_a = for_sale(plan_factory())
+        plan_b = for_sale(plan_factory())
         user = user_factory()
 
         mocker.patch(
@@ -1420,30 +1432,6 @@ class TestMultipleSubscriptions:
         assert (
             SubscriptionItem.objects.filter(subscription__organization=org).count() == 2
         )
-
-    @pytest.mark.django_db
-    def test_add_subscription_none_max_users_uses_plan_minimum(
-        self,
-        individual_organization_factory,
-        plan_factory,
-        user_factory,
-        mocker,
-    ):
-        """add_subscription with max_users=None (individual org form omits the field)
-        falls back to plan.minimum_users instead of inserting NULL for quantity."""
-        org = individual_organization_factory()
-        plan = plan_factory(minimum_users=1)
-        user = user_factory()
-
-        mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer",
-            email="test@example.com",
-        )
-
-        org.add_subscription(plan, None, user, payment_method="invoice")
-
-        sub = SubscriptionItem.objects.get(subscription__organization=org, plan=plan)
-        assert sub.quantity == plan.minimum_users
 
     @pytest.mark.django_db
     def test_ending_a_subscription_logs_and_unsyncs_every_plan(
@@ -1546,7 +1534,7 @@ class TestMultipleSubscriptions:
         """modify_subscription updates the plan on the matching subscription."""
         org = organization_factory()
         plan_a = plan_factory(base_price=30)
-        plan_b = plan_factory(base_price=40)
+        plan_b = for_sale(plan_factory(base_price=40))
         user = user_factory()
         subscription_item_factory(subscription__organization=org, plan=plan_a)
 

@@ -145,9 +145,36 @@ class SubscriptionItemFactory(factory.django.DjangoModelFactory):
         "squarelet.organizations.tests.factories.SubscriptionFactory"
     )
     plan = factory.SubFactory("squarelet.organizations.tests.factories.PlanFactory")
+    # A built plan has no row to hang a price on.
+    plan_price = factory.LazyAttribute(
+        lambda item: price_for(item.plan) if item.plan.pk else None
+    )
 
     class Meta:
         model = "organizations.SubscriptionItem"
+
+
+def for_sale(plan):
+    """`plan`, with the list price a purchase needs."""
+    price_for(plan)
+    return plan
+
+
+def price_for(plan):
+    """The plan's active list price, made from its own fields if it has none.
+
+    Every line needs a price; reusing one keeps a second line on the plan
+    clear of the one-active-price constraint.
+    """
+    price = plan.prices.filter(active=True, code="").order_by("pk").first()
+    if price is not None:
+        return price
+    return PlanPriceFactory(
+        plan=plan,
+        interval="annual" if plan.annual else "monthly",
+        label="standard",
+        amount=plan.base_price * 100,
+    )
 
 
 @factory.django.mute_signals(signals.pre_save, signals.post_save)
