@@ -85,8 +85,14 @@
   gap: 0.5rem;
 }
 
-.checkout-actions :last-child {
+.checkout-actions :last-child:not(:first-child) {
   margin-left: auto;
+}
+
+.checkout-actions--divided {
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--gray-2, #d8dee2);
 }
 
 .nonprofit {
@@ -176,4 +182,22 @@
 
 .payment-method input[type="radio"] {
   margin: 0;
+}
+
+.account-rows {
+  padding: 0;
+  list-style: none;
+}
+
+.account-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.checkout-sign-in {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }

@@ -8,9 +8,7 @@
 
 {% block container %}
   <article id="{% block layout_id %}{% endblock %}" class="modal-layout {% block layout_class %}{% endblock %}">
-    <header>
-      {% block header %}{% endblock %}
-    </header>
+    <header>{% block header %}{% endblock %}</header>
     <main class="{% block main_class %}card card--stack{% endblock %}">
       {% block main %}{% endblock %}
     </main>
