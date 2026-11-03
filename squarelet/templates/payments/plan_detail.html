@@ -1,0 +1,114 @@
+{% extends "layouts/modal_layout.html" %}
+{% load humanize django_vite i18n %}
+{% load icon markdown %}
+
+{% block title %}{{ plan.name }}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/plan_detail.ts" %}
+{% endblock vite %}
+
+{% block layout_id %}plan_detail{% endblock %}
+{% block layout_class %}wide{% endblock %}
+{% block main_class %}checkout-cards{% endblock %}
+
+{% block main %}
+  <section class="card card--stack plan-card"{% if plan.service.theme_color %} style="--service-color: var({{ plan.service.theme_color }})"{% endif %}>
+    {% include "subscriptions/includes/plan_summary.html" %}
+    {% if plan.is_enterprise %}
+      {% include "subscriptions/includes/enterprise_actions.html" %}
+    {% endif %}
+  </section>
+
+  {% if plan.is_enterprise %}
+    {% if plan.description %}
+      <section class="card card--stack plan-long-description">
+        {{ plan.description|markdown }}
+      </section>
+    {% endif %}
+  {% else %}
+    <section class="card card--stack">
+      <div class="plan-card-actions">
+        <h3>{% trans "Pricing" %}</h3>
+        {% if prices %}
+          <div class="plan-prices">
+            {% for price in prices %}
+              {% if not forloop.first %}
+                <span class="plan-price-separator">{% trans "or" %}</span>
+              {% endif %}
+              <div class="plan-price">
+                <strong>${{ price.amount_dollars|floatformat:"-2"|intcomma }}</strong>
+                <span>
+                  &nbsp;/
+                  {% if price.interval == "annual" %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+      {% if not prices %}
+        <p class="caption">{% trans "This plan is not currently available." %}</p>
+      {% endif %}
+
+      {% if prices and not user.is_authenticated %}
+        <div class="checkout-actions checkout-actions--divided">
+          <a href="{% url 'account_signup' %}?next={{ request.get_full_path|urlencode:"" }}" class="btn premium">
+            {% trans "Sign up to subscribe" %}
+          </a>
+          <span class="checkout-sign-in">
+            <span class="caption">{% trans "Already have an account?" %}</span>
+            <a href="{% url 'account_login' %}?next={{ request.get_full_path|urlencode:"" }}" class="btn ghost primary">
+              {% trans "Sign in" %}
+            </a>
+          </span>
+        </div>
+      {% endif %}
+    </section>
+
+    {% if prices and user.is_authenticated and not plan.for_individuals %}
+      <section class="card card--stack">
+        {% if accounts %}
+          <h3>{% trans "Subscribe to this plan" %}</h3>
+          <ul class="checkout-rows account-rows">
+            {% for account in accounts %}
+              <li class="checkout-row">
+                <span class="account-name">
+                  {{ account.organization.name }}
+                  {% if account.organization.nonprofit %}
+                    <span class="badge">{% trans "Non-profit" %}</span>
+                  {% endif %}
+                </span>
+                {% if account.held %}
+                  <a href="{{ account.manage_url }}" class="btn primary ghost">
+                    {% icon "gear" %}
+                    {% trans "Manage subscription" %}
+                  </a>
+                {% else %}
+                  <a href="{{ account.checkout_url }}" class="btn premium">
+                    {% trans "Subscribe" %}
+                  </a>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <h3>{% trans "Create an organization to subscribe" %}</h3>
+          <div class="checkout-actions">
+            <a href="{% url 'organizations:create' %}" class="btn primary">
+              {% icon "plus-circle" %}
+              {% trans "Create an organization" %}
+            </a>
+          </div>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    {% if plan.description %}
+      <section class="card card--stack plan-long-description">
+        {{ plan.description|markdown }}
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock main %}
