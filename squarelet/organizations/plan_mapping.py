@@ -136,6 +136,10 @@ LEGACY_PLAN_MAP = {
 # Plans the migration leaves on their legacy rows.
 DEFERRED_SLUGS = set()
 
+# The Service Sunlight Research Center plans are marketed under; it decides
+# which plans count toward the Sunlight subscription cap.
+SUNLIGHT_SERVICE_SLUG = "sunlight"
+
 # Bills at both cadences, which one map entry cannot say.
 COHORT_SLUG = "election-accountability-cohort"
 

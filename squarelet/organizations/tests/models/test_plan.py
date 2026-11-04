@@ -16,6 +16,7 @@ from squarelet.organizations.models.payment import (
     sum_resources,
 )
 from squarelet.organizations.tests.factories import EntitlementFactory
+from squarelet.services.tests.factories import ServiceFactory
 
 # pylint: disable=too-many-public-methods
 
@@ -347,7 +348,9 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """Sunlight wix plan under limit has available slots"""
         sunlight_plan = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug="sunlight"),
+            wix=True,
         )
 
         # Create 10 active subscriptions (under limit of 15)
@@ -364,7 +367,9 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """Sunlight wix plan at limit has no available slots"""
         sunlight_plan = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug="sunlight"),
+            wix=True,
         )
 
         # Create 15 active subscriptions (at limit)
@@ -381,7 +386,9 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """Sunlight wix plan over limit has no available slots"""
         sunlight_plan = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug="sunlight"),
+            wix=True,
         )
 
         # Create 20 active subscriptions (over limit)
@@ -398,10 +405,14 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """Limit is shared across all Sunlight plan variants"""
         sunlight_basic = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug="sunlight"),
+            wix=True,
         )
         sunlight_premium = plan_factory(
-            slug="sunlight-enhanced-annual", product="sunlight", wix=True
+            slug="sunlight-enhanced-annual",
+            service=ServiceFactory(slug="sunlight"),
+            wix=True,
         )
 
         # Create 10 subscriptions for basic, 5 for premium (total 15)
@@ -425,7 +436,9 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """cancelled=True means pending cancellation — counts toward limit."""
         sunlight_plan = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug="sunlight"),
+            wix=True,
         )
 
         # Create 10 active and 5 pending-cancellation subscriptions (total 15 = limit)
@@ -437,10 +450,20 @@ class TestArchivingRetiresTheStripeObjects:
         # 15 total subscriptions = at the limit, no slots available
         assert sunlight_plan.has_available_slots() is False
 
-    def test_is_sunlight_plan_is_the_product(self, plan_factory):
-        """`product` says what a plan is marketed as, not its slug prefix."""
-        assert plan_factory.build(product="sunlight").is_sunlight_plan is True
-        assert plan_factory.build(product="muckrock").is_sunlight_plan is False
+    def test_is_sunlight_plan_is_the_service(self, plan_factory):
+        """`service` says what a plan is marketed as, not its slug prefix."""
+        assert (
+            plan_factory.build(
+                service=ServiceFactory.build(slug="sunlight")
+            ).is_sunlight_plan
+            is True
+        )
+        assert (
+            plan_factory.build(
+                service=ServiceFactory.build(slug="muckrock")
+            ).is_sunlight_plan
+            is False
+        )
         assert plan_factory.build(slug="sunlight-legacy").is_sunlight_plan is False
 
     def test_nonprofit_variant_slug_for_regular_sunlight(self, plan_factory):

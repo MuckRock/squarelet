@@ -1,6 +1,7 @@
 # Django
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Q
@@ -33,7 +34,9 @@ from squarelet.organizations.models.payment import (
     Subscription,
     SubscriptionItem,
 )
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.organizations.signals import make_stripe_plan
+from squarelet.services.models import Service
 from squarelet.users.models import User
 
 E2E_PASSWORD = "e2e-test-password"
@@ -144,23 +147,29 @@ VISUAL_PLANS = {
     },
     "sunlight-essential": {
         "name": "Sunlight Essential",
-        "product": "sunlight",
+        "service": SUNLIGHT_SERVICE_SLUG,
         "wix": True,
         "base_price": 50,
     },
     "sunlight-essential-annual": {
         "name": "Sunlight Essential (Annual)",
-        "product": "sunlight",
+        "service": SUNLIGHT_SERVICE_SLUG,
         "wix": True,
         "annual": True,
         "base_price": 500,
     },
     "sunlight-enterprise": {
         "name": "Sunlight Enterprise",
-        "product": "sunlight",
+        "service": SUNLIGHT_SERVICE_SLUG,
         "wix": True,
     },
 }
+
+
+ICON_SVG = (
+    b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+    b'<circle cx="8" cy="8" r="8" fill="#888"/></svg>'
+)
 
 
 def fixed_date(year, month, day):
@@ -568,6 +577,8 @@ class Command(BaseCommand):
         )
 
     def _get_or_create_plan(self, slug, **fields):
+        if "service" in fields:
+            fields["service"] = self._get_or_create_service(fields["service"])
         plan, _ = Plan.objects.update_or_create(
             slug=slug,
             defaults={
@@ -579,6 +590,20 @@ class Command(BaseCommand):
             },
         )
         return plan
+
+    def _get_or_create_service(self, slug):
+        # The plan pages show each service's icon, so it needs a file.
+        service, created = Service.objects.get_or_create(
+            slug=slug,
+            defaults={
+                "name": slug.title(),
+                "description": "A service for visual snapshots.",
+                "provider_name": "MuckRock",
+            },
+        )
+        if created:
+            service.icon.save(f"{slug}.svg", ContentFile(ICON_SVG), save=True)
+        return service
 
     def _subscribe(self, organization, plans):
         """Subscribe in the database only; blank Stripe ids keep Stripe out."""
