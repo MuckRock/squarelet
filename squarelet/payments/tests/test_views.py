@@ -395,6 +395,32 @@ class TestOldPlanUrls(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["object"] == row
 
+    def test_an_archived_entry_row_still_redirects(self, rf, plan_factory, tier):
+        """The Sunlight site keeps linking to it after `archive_legacy_plans`."""
+        entry = plan_with_slug(
+            plan_factory,
+            "Sunlight Essential (Annual)",
+            "sunlight-essential-annual",
+            archived=True,
+        )
+
+        response = self.call_view(rf, pk=entry.pk, slug=entry.slug)
+
+        assert response.status_code == 301
+        assert response.url == tier.get_absolute_url()
+
+    @pytest.mark.usefixtures("tier")
+    def test_an_archived_negotiated_row_is_not_found(self, rf, plan_factory):
+        row = plan_with_slug(
+            plan_factory,
+            "Sunlight Basic (Annual)",
+            "sunlight-basic-annual",
+            archived=True,
+        )
+
+        with pytest.raises(Http404):
+            self.call_view(rf, pk=row.pk, slug=row.slug)
+
     @pytest.mark.usefixtures("tier")
     def test_a_post_from_an_open_tab_returns_to_the_page_and_says_so(
         self, rf, plan_factory
