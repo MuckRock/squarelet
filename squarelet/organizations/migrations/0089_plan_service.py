@@ -3,12 +3,16 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+# Products whose Service has another slug; the rest match by name.
+PRODUCT_SERVICES = {"sunlight": "sunlight-research-desk"}
+
+
 def product_to_service(apps, schema_editor):
     Plan = apps.get_model("organizations", "Plan")
     Service = apps.get_model("services", "Service")
     services = {s.slug: s for s in Service.objects.all()}
     for plan in Plan.objects.exclude(product=""):
-        service = services.get(plan.product)
+        service = services.get(PRODUCT_SERVICES.get(plan.product, plan.product))
         if service is not None:
             plan.service = service
             plan.save(update_fields=["service"])
@@ -16,9 +20,12 @@ def product_to_service(apps, schema_editor):
 
 def service_to_product(apps, schema_editor):
     Plan = apps.get_model("organizations", "Plan")
-    for plan in Plan.objects.exclude(service=None).select_related("service"):
-        plan.product = plan.service.slug[:20]
-        plan.save(update_fields=["product"])
+    products = {slug: product for product, slug in PRODUCT_SERVICES.items()}
+    # Only these columns: a sibling branch may already have dropped others that
+    # this state still lists.
+    rows = Plan.objects.exclude(service=None).values_list("pk", "service__slug")
+    for pk, slug in rows:
+        Plan.objects.filter(pk=pk).update(product=products.get(slug, slug)[:20])
 
 
 class Migration(migrations.Migration):

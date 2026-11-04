@@ -19,6 +19,7 @@ from squarelet.organizations.models import (
     Plan,
     SubscriptionItem,
 )
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
     InvoiceFactory,
@@ -562,12 +563,12 @@ class TestSubscriptionItemQuerySet(TestCase):
         # Create Sunlight plans
         sunlight_plan1 = PlanFactory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
         sunlight_plan2 = PlanFactory(
             slug="sunlight-enhanced-annual",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
 
@@ -584,7 +585,7 @@ class TestSubscriptionItemQuerySet(TestCase):
         """cancelled=True means pending cancellation — still counts toward limit."""
         sunlight_plan = PlanFactory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
 
@@ -602,12 +603,12 @@ class TestSubscriptionItemQuerySet(TestCase):
         """Test count excludes Sunlight plans with wix=False"""
         sunlight_wix = PlanFactory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
         sunlight_no_wix = PlanFactory(
             slug="sunlight-enhanced-annual",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=False,
         )
 
@@ -622,7 +623,7 @@ class TestSubscriptionItemQuerySet(TestCase):
         """Wix syncs other services too; only Sunlight's count toward its cap."""
         sunlight = PlanFactory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
         other = PlanFactory(
@@ -639,7 +640,7 @@ class TestSubscriptionItemQuerySet(TestCase):
         """Test count with mix of Sunlight and non-Sunlight subscriptions"""
         sunlight_plan = PlanFactory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
         regular_plan = PlanFactory(slug="professional", wix=False)

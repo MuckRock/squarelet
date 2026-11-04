@@ -12,6 +12,7 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.payments.forms import PlanPurchaseForm
 from squarelet.services.tests.factories import ServiceFactory
 
@@ -179,7 +180,7 @@ class TestPlanPurchaseFormInit:
         # Create a plan that looks like a Sunlight plan (slug starts with sunlight-)
         plan = plan_factory(
             slug="sunlight-test",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             public=True,
             for_individuals=True,
             for_groups=False,
@@ -197,7 +198,7 @@ class TestPlanPurchaseFormInit:
         """Ticking it would change nothing."""
         plan = plan_factory(
             slug="sunlight-test",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             public=True,
             for_individuals=True,
             for_groups=False,
@@ -590,7 +591,7 @@ class TestNonprofitPriceComesFromPlanPrice:
         plan = plan_factory(
             name="Sunlight Essential",
             slug="sunlight-essential",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
         )
         plan_price_factory(
             plan=plan, interval="monthly", label="standard", amount=68_000
@@ -609,7 +610,7 @@ class TestNonprofitPriceComesFromPlanPrice:
         plan = plan_factory(
             name="Sunlight Essential",
             slug="sunlight-essential",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
         )
         plan_price_factory(
             plan=plan, interval="monthly", label="standard", active=False
@@ -624,7 +625,7 @@ class TestNonprofitPriceComesFromPlanPrice:
         plan = plan_factory(
             name="Sunlight Essential",
             slug="sunlight-essential",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
         )
         plan_price_factory(plan=plan, label="nonprofit", amount=35_000)
         form = PlanPurchaseForm(plan=plan)
