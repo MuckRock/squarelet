@@ -82,9 +82,12 @@ class TestQueryCounts:
         assert _sync_query_count() == baseline
 
     def test_fixed_query_budget(self, django_assert_num_queries):
-        """Pin the total for one Sunlight org with two members."""
+        """Pin the total for one Sunlight org with two members.
+
+        Includes one query per plan for its list price.
+        """
         plan = PlanFactory(name="Sunlight QC Budget", wix=True)
         _add_members(OrganizationFactory(plans=[plan]), 2)
         with patch.object(sync_odoo, "_odoo_request", side_effect=_fake_odoo):
-            with django_assert_num_queries(10):
+            with django_assert_num_queries(11):
                 sync_odoo._run_sync(dry_run=False, remove_members=False, slug=None)
