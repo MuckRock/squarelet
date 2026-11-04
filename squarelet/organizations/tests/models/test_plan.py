@@ -15,6 +15,7 @@ from squarelet.organizations.models.payment import (
     format_benefits,
     sum_resources,
 )
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.organizations.tests.factories import EntitlementFactory
 from squarelet.services.tests.factories import ServiceFactory
 
@@ -349,7 +350,7 @@ class TestArchivingRetiresTheStripeObjects:
         """Sunlight wix plan under limit has available slots"""
         sunlight_plan = plan_factory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
 
@@ -368,7 +369,7 @@ class TestArchivingRetiresTheStripeObjects:
         """Sunlight wix plan at limit has no available slots"""
         sunlight_plan = plan_factory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
 
@@ -387,7 +388,7 @@ class TestArchivingRetiresTheStripeObjects:
         """Sunlight wix plan over limit has no available slots"""
         sunlight_plan = plan_factory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
 
@@ -406,12 +407,12 @@ class TestArchivingRetiresTheStripeObjects:
         """Limit is shared across all Sunlight plan variants"""
         sunlight_basic = plan_factory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
         sunlight_premium = plan_factory(
             slug="sunlight-enhanced-annual",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
 
@@ -437,7 +438,7 @@ class TestArchivingRetiresTheStripeObjects:
         """cancelled=True means pending cancellation — counts toward limit."""
         sunlight_plan = plan_factory(
             slug="sunlight-essential-monthly",
-            service=ServiceFactory(slug="sunlight"),
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             wix=True,
         )
 
@@ -454,7 +455,7 @@ class TestArchivingRetiresTheStripeObjects:
         """`service` says what a plan is marketed as, not its slug prefix."""
         assert (
             plan_factory.build(
-                service=ServiceFactory.build(slug="sunlight")
+                service=ServiceFactory.build(slug=SUNLIGHT_SERVICE_SLUG)
             ).is_sunlight_plan
             is True
         )
