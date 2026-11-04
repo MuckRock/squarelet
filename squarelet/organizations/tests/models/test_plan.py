@@ -585,6 +585,34 @@ class TestArchivingRetiresTheStripeObjects:
         ]
 
 
+@pytest.mark.django_db()
+class TestCheckoutUrl:
+    """Where a plan's buy button sends an organization."""
+
+    def test_an_unpriced_plan_has_no_checkout(self, organization_factory, plan_factory):
+        organization = organization_factory()
+        plan = plan_factory(name="Unpriced", for_individuals=False)
+
+        assert plan.get_checkout_url(organization) is None
+
+    def test_an_unpriced_enterprise_plan_still_has_a_page(self, organization_factory):
+        organization = organization_factory()
+        # Keyed on slug: the migrations seed this row on a fresh database.
+        plan, _ = Plan.objects.update_or_create(
+            slug="sunlight-enterprise",
+            defaults={
+                "name": "Sunlight Enterprise",
+                "public": True,
+                "for_individuals": False,
+                "for_groups": True,
+            },
+        )
+
+        assert plan.get_checkout_url(organization) == (
+            f"/organizations/{organization.slug}/plans/sunlight-enterprise/"
+        )
+
+
 class TestConsolidatePlanBenefits:
     """Unit tests for consolidate_plan_benefits"""
 
