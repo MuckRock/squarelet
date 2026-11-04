@@ -14,7 +14,7 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.exceptions import NotForSale
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.plan_mapping import (
     LEGACY_PLAN_MAP,
@@ -507,7 +507,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
 
         canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
         if plan_price is None:
-            raise SubscriptionError(f"{plan} is not for sale: it has no price")
+            raise NotForSale(f"{plan} is not for sale: it has no price")
         # Before anything is saved: a plan's price is made on Stripe after
         # the plan commits, so a failure then leaves it without one.
         plan_price.ensure_stripe_price()
