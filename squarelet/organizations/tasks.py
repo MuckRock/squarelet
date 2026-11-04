@@ -56,11 +56,14 @@ def restore_organization():
         Organization.objects.filter(id__in=due_org_ids).values_list("uuid", flat=True)
     )
 
-    # Cancellations end on their own date, so an annual plan or a one-off
-    # isn't served until the next reset day.  One with no date (free plans and
-    # legacy records) still waits for it.
+    # Cancellations end on their own date, rather than being served on to the
+    # next reset day.  Stripe ends its own during that last day, and its
+    # deletion event retires them then, so the sweep only catches a missed
+    # one the day after.  One with no date (free plans and legacy records)
+    # still waits for the reset day.
     ending = Subscription.objects.filter(cancelled=True).filter(
-        Q(cancel_at__lte=today)
+        Q(cancel_at__lt=today)
+        | Q(cancel_at=today, subscription_id="")
         | Q(cancel_at__isnull=True, organization_id__in=due_org_ids)
     )
     ended_org_ids = set()

@@ -214,6 +214,40 @@ class TestEndingOnTheirOwnDate:
         assert organization.update_on is None
         assert organization.uuid in quiet.call_args[0][1]
 
+    def test_a_stripe_cancellation_is_served_through_its_last_day(
+        self, organization_plan_factory
+    ):
+        """Stripe ends it during that day; ending it at midnight takes the day."""
+        item = SubscriptionItemFactory(
+            plan=organization_plan_factory(),
+            subscription__organization=self._not_due(),
+            subscription__subscription_id="sub_ending",
+            subscription__cancelled=True,
+            subscription__cancel_at=date.today(),
+        )
+
+        tasks.restore_organization()
+
+        assert SubscriptionItem.objects.filter(pk=item.pk).exists()
+
+    def test_a_stripe_cancellation_ends_the_day_after(
+        self, organization_plan_factory, quiet
+    ):
+        """For when Stripe's deletion event never reached us."""
+        organization = self._not_due()
+        item = SubscriptionItemFactory(
+            plan=organization_plan_factory(),
+            subscription__organization=organization,
+            subscription__subscription_id="sub_ended",
+            subscription__cancelled=True,
+            subscription__cancel_at=date.today() - timedelta(1),
+        )
+
+        tasks.restore_organization()
+
+        assert not SubscriptionItem.objects.filter(pk=item.pk).exists()
+        assert organization.uuid in quiet.call_args[0][1]
+
     def test_a_later_cancellation_waits(self, organization_plan_factory):
         organization = self._not_due()
         item = SubscriptionItemFactory(
