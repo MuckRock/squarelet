@@ -28,6 +28,7 @@ from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.services.tests.factories import ServiceFactory
 
 # Local
@@ -2580,7 +2581,11 @@ class TestPlanCheckout(ViewTestMixin):
         add_to_waitlist = mocker.patch("squarelet.payments.views.add_to_waitlist")
         # No card on file: joining a waitlist charges nothing.
         organization = organization_factory(admins=[admin])
-        plan = plan_price_factory(plan__name="Sunlight Tier", plan__wix=True).plan
+        plan = plan_price_factory(
+            plan__name="Sunlight Tier",
+            plan__service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            plan__wix=True,
+        ).plan
 
         with django_capture_on_commit_callbacks(execute=True):
             response = self.subscribe(rf, admin, organization, plan)
@@ -2596,7 +2601,11 @@ class TestPlanCheckout(ViewTestMixin):
         self, rf, admin, organization, plan_price_factory, settings
     ):
         settings.MAX_SUNLIGHT_SUBSCRIPTIONS = 0
-        plan = plan_price_factory(plan__name="Sunlight Tier", plan__wix=True).plan
+        plan = plan_price_factory(
+            plan__name="Sunlight Tier",
+            plan__service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            plan__wix=True,
+        ).plan
 
         content = self.view_page(rf, admin, organization, plan).render().content
 
