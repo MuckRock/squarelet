@@ -21,7 +21,7 @@ class Service(models.Model):
     marketing_description = models.TextField(
         blank=True,
         help_text=(
-            "Description of the service for the plans page."
+            "Description of the service for the plans page. "
             "If not set, falls back to the main description."
         ),
     )
