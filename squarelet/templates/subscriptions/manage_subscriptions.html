@@ -118,11 +118,11 @@
               <div class="subscription-row">
                 <h3 class="{% if subject == "organizations" %}organization{% else %}professional{% endif %}">{{ line.plan.name }}</h3>
                 <div class="subscription-group">
-                  {% if line.ends_on %}
+                  {% if line.ends_on and line.is_free %}
                     <span class="subscription-detail">
                       <span class="icon">{% icon "calendar" %}</span>
                       <span>
-                        {% trans "Free until" %}
+                        {% trans "Ends on" %}
                         <strong>{{ line.ends_on }}</strong>
                       </span>
                     </span>
