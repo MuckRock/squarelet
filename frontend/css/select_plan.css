@@ -32,10 +32,6 @@
   fill: var(--blue-3);
 }
 
-.professional.plan .checkmark {
-  fill: var(--green-3);
-}
-
 .professional.plan,
 .organization.plan {
   display: flex;

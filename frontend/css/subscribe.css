@@ -85,13 +85,14 @@ header .title {
   border-bottom-color: var(--tone-1);
 }
 
-/* An inactive tab's bottom edge continues the active panel's border. */
-.tab-group[data-active-tab="individual"] .tab.group {
-  border-bottom-color: var(--blue-2);
-}
-
+/* Both tabs share the premium tone, so the inactive one is muted to tell them apart.
+   Its bottom edge continues the active panel's border. */
+.tab-group[data-active-tab="individual"] .tab.group,
 .tab-group[data-active-tab="group"] .tab.individual {
-  border-bottom-color: var(--purple-2);
+  border-bottom-color: var(--premium-2);
+  background: transparent;
+  color: var(--gray-4);
+  fill: var(--gray-4);
 }
 
 .tab-group[data-active-tab="individual"] .tab-content.individual,

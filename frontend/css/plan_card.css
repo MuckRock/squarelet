@@ -73,7 +73,7 @@ a.plan-name {
 }
 
 .plan-upgrade .plan-benefits .checklist-item .icon svg {
-  fill: var(--green-3);
+  fill: var(--premium-3);
 }
 
 .plan-upgrade .btn {

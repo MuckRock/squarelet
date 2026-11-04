@@ -2052,23 +2052,16 @@ a.service-provider:focus {
   gap: 1rem;
 }
 
-/* Plan tones: individual plans are blue, group plans purple. */
+/* Plan tones: every plan is premium; the icon and label carry the audience. */
 .professional,
-.individual {
-  --tone-1: var(--blue-1);
-  --tone-2: var(--blue-2);
-  --tone-3: var(--blue-3);
-  --tone-4: var(--blue-4);
-  --tone-5: var(--blue-5);
-}
-
+.individual,
 .organization,
 .group {
-  --tone-1: var(--purple-1);
-  --tone-2: var(--purple-2);
-  --tone-3: var(--purple-3);
-  --tone-4: var(--purple-4);
-  --tone-5: var(--purple-5);
+  --tone-1: var(--premium-1);
+  --tone-2: var(--premium-2);
+  --tone-3: var(--premium-3);
+  --tone-4: var(--premium-4);
+  --tone-5: var(--premium-5);
 }
 
 /* Checklist: a list of benefits or features, each with a leading icon. */
