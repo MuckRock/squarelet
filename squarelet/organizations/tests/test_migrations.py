@@ -21,25 +21,27 @@ from datetime import date
 # Third Party
 import pytest
 
+# Squarelet
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
+from squarelet.services.tests.factories import ServiceFactory
+
 APP = "organizations"
 # Found by name, not number: branches above add migrations of their own.
 PARENT = "subscription_parent"
 ITEM_CANCELLATION = "subscription_item_cancellation"
 KIND = "subscription_kind"
+# By full name: the merge migration above it ends in the same words.
+PLAN_SERVICE = ("0088_organization_nonprofit", "0089_plan_service")
 
 
 def _bracket(suffix):
     """Return the named migration and the one immediately before it."""
     loader = MigrationLoader(connection)
     target = next(
-        name
-        for app, name in loader.graph.nodes
-        if app == APP and name.endswith(suffix)
+        name for app, name in loader.graph.nodes if app == APP and name.endswith(suffix)
     )
     before = next(
-        name
-        for app, name in loader.graph.node_map[(APP, target)].parents
-        if app == APP
+        name for app, name in loader.graph.node_map[(APP, target)].parents if app == APP
     )
     return before, target
 
@@ -374,9 +376,7 @@ class TestClassifySubscriptions:
         Subscription = new.get_model(APP, "Subscription")
         row = Subscription.objects.get(pk=trial.pk)
         assert (row.kind, row.cancelled, row.cancel_at) == ("free", False, None)
-        assert list(row.items.values_list("ends_on", flat=True)) == [
-            date(2099, 12, 31)
-        ]
+        assert list(row.items.values_list("ends_on", flat=True)) == [date(2099, 12, 31)]
 
     def test_a_free_row_still_naming_stripe_is_refused(self):
         """Deleting or keeping it would orphan a Stripe subscription."""
@@ -396,3 +396,64 @@ class TestClassifySubscriptions:
 
         with pytest.raises(RuntimeError, match="one-off beside Pack, Paid"):
             migrate_to(_bracket(KIND)[1])
+
+
+@pytest.mark.django_db(transaction=True)
+class TestPlanProductBecomesItsService:
+    """0089 moves `Plan.product` onto the Service it names, then drops it."""
+
+    @pytest.fixture(autouse=True)
+    def _leave_the_database_migrated(self):
+        yield
+        migrate_to_latest()
+
+    @staticmethod
+    def _plans_with_products(apps):
+        """A Sunlight plan, a MuckRock one, and one with no Service to land on."""
+        Plan = apps.get_model(APP, "Plan")
+        # The current model: only the organizations app is rolled back.
+        for slug in ("sunlight-research-desk", "muckrock"):
+            ServiceFactory(slug=slug)
+        for slug, product in [
+            ("svc-sunlight", "sunlight"),
+            ("svc-muckrock", "muckrock"),
+            ("svc-scoutpost", "scoutpost"),
+        ]:
+            Plan.objects.create(name=slug, slug=slug, product=product)
+
+    def test_sunlight_lands_on_the_sunlight_research_desk(self):
+        before, target = PLAN_SERVICE
+        self._plans_with_products(migrate_to(before))
+
+        new = migrate_to(target)
+
+        Plan = new.get_model(APP, "Plan")
+        services = dict(
+            Plan.objects.filter(slug__startswith="svc-").values_list(
+                "slug", "service__slug"
+            )
+        )
+        assert services == {
+            "svc-sunlight": "sunlight-research-desk",
+            "svc-muckrock": "muckrock",
+            "svc-scoutpost": None,
+        }
+        # The cap counts plans by this constant, so it must name the same row.
+        assert services["svc-sunlight"] == SUNLIGHT_SERVICE_SLUG
+
+    def test_rolling_back_restores_the_product(self):
+        before, target = PLAN_SERVICE
+        self._plans_with_products(migrate_to(before))
+        migrate_to(target)
+
+        old = migrate_to(before)
+
+        Plan = old.get_model(APP, "Plan")
+        products = dict(
+            Plan.objects.filter(slug__startswith="svc-").values_list("slug", "product")
+        )
+        assert products == {
+            "svc-sunlight": "sunlight",
+            "svc-muckrock": "muckrock",
+            "svc-scoutpost": "",
+        }

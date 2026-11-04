@@ -535,6 +535,7 @@ class OrganizationAdmin(VersionAdmin):
         "verified_journalist",
         "hub_eligible",
         "allow_auto_join",
+        "nonprofit",
         "max_users",
         "update_on",
         "billing_anchor",

@@ -21,6 +21,7 @@ from squarelet.organizations.models import (
     Plan,
     SubscriptionItem,
 )
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
     InvoiceFactory,
@@ -29,7 +30,10 @@ from squarelet.organizations.tests.factories import (
     PlanFactory,
     SubscriptionItemFactory,
 )
+from squarelet.services.tests.factories import ServiceFactory
 from squarelet.users.tests.factories import UserFactory
+
+# pylint: disable=too-many-lines
 
 
 class TestOrganizationQuerySet(TestCase):
@@ -556,10 +560,14 @@ class TestSubscriptionItemQuerySet(TestCase):
         """Test count returns correct number of active Sunlight subscriptions"""
         # Create Sunlight plans
         sunlight_plan1 = PlanFactory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
         sunlight_plan2 = PlanFactory(
-            slug="sunlight-enhanced-annual", product="sunlight", wix=True
+            slug="sunlight-enhanced-annual",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
 
         # Create active subscriptions
@@ -574,7 +582,9 @@ class TestSubscriptionItemQuerySet(TestCase):
     def test_sunlight_active_count_includes_cancelled(self):
         """cancelled=True means pending cancellation — still counts toward limit."""
         sunlight_plan = PlanFactory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
 
         # Create active and pending-cancellation subscriptions
@@ -590,10 +600,14 @@ class TestSubscriptionItemQuerySet(TestCase):
     def test_sunlight_active_count_excludes_non_wix(self):
         """Test count excludes Sunlight plans with wix=False"""
         sunlight_wix = PlanFactory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
         sunlight_no_wix = PlanFactory(
-            slug="sunlight-enhanced-annual", product="sunlight", wix=False
+            slug="sunlight-enhanced-annual",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=False,
         )
 
         SubscriptionItemFactory(plan=sunlight_wix, subscription__cancelled=False)
@@ -603,10 +617,29 @@ class TestSubscriptionItemQuerySet(TestCase):
         assert count == 1
 
     @pytest.mark.django_db
+    def test_sunlight_active_count_excludes_other_services(self):
+        """Wix syncs other services too; only Sunlight's count toward its cap."""
+        sunlight = PlanFactory(
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
+        )
+        other = PlanFactory(
+            slug="other-wix-plan", service=ServiceFactory(slug="muckrock"), wix=True
+        )
+
+        SubscriptionItemFactory(plan=sunlight, subscription__cancelled=False)
+        SubscriptionItemFactory(plan=other, subscription__cancelled=False)
+
+        assert SubscriptionItem.objects.sunlight_active_count() == 1
+
+    @pytest.mark.django_db
     def test_sunlight_active_count_mixed_subscriptions(self):
         """Test count with mix of Sunlight and non-Sunlight subscriptions"""
         sunlight_plan = PlanFactory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
         regular_plan = PlanFactory(slug="professional", wix=False)
 
