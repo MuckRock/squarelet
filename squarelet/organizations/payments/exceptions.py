@@ -17,6 +17,10 @@ class SubscriptionError(PaymentError):
     """Raised when a subscription operation fails."""
 
 
+class NotForSale(SubscriptionError):
+    """Raised when a plan has no price to sell it at."""
+
+
 class InvoiceError(PaymentError):
     """Raised when an invoice operation fails."""
 

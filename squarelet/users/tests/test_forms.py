@@ -11,7 +11,7 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.models import Organization
-from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.exceptions import NotForSale, SubscriptionError
 from squarelet.users import forms
 from squarelet.users.models import User
 
@@ -432,3 +432,25 @@ def test_premium_subscription_form_save_unique_violation(plan_factory, user, moc
     assert form.is_valid()
     assert form.save(user) is False
     assert form.errors == {"__all__": ["This organization already has a subscription."]}
+
+
+@pytest.mark.django_db
+def test_premium_subscription_form_save_not_for_sale(plan_factory, user, mocker):
+    """A plan with no price isn't a duplicate subscription; say what it is."""
+    plan = plan_factory(slug="professional")
+    mocker.patch.object(
+        Organization,
+        "add_subscription",
+        side_effect=NotForSale("Professional is not for sale: it has no price"),
+    )
+    data = {
+        "organization": user.individual_organization.pk,
+        "plan": plan.pk,
+        "stripe_token": "tok_visa",
+        "stripe_pk": "pk_test_123",
+    }
+
+    form = forms.PremiumSubscriptionForm(data, plan=plan, user=user)
+    assert form.is_valid()
+    assert form.save(user) is False
+    assert form.errors == {"__all__": ["This plan isn't available to buy right now."]}

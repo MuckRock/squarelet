@@ -16,7 +16,7 @@ from squarelet.organizations.models import (
     Subscription,
     SubscriptionItem,
 )
-from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.exceptions import NotForSale, SubscriptionError
 from squarelet.organizations.plan_mapping import resolve_target
 
 
@@ -494,7 +494,7 @@ class TestSellingAgainstThePrice:
         """Refused before anything is written: every line bills a price."""
         organization = organization_factory()
 
-        with pytest.raises(SubscriptionError, match="no price"):
+        with pytest.raises(NotForSale, match="no price"):
             SubscriptionItem.objects.start(organization=organization, plan=legacy_plan)
 
         assert not Subscription.objects.filter(organization=organization).exists()
