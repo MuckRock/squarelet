@@ -1674,13 +1674,16 @@ class Plan(models.Model):
         """The price buying this plan at `interval` bills, and its list price.
 
         Resolved as `add_subscription` resolves them, so checkout quotes what is
-        billed. `(None, None)` when the plan has no price at `interval`.
+        billed. `(None, None)` when the plan has no price at `interval`; a price
+        that isn't `billable` counts as none, as Stripe can't charge it.
         """
         resolve = SubscriptionItem.objects.resolve_purchase
         _plan, standard = resolve(self, interval=interval)
+        if standard is not None and not standard.billable:
+            standard = None
         if nonprofit:
             _plan, discounted = resolve(self, nonprofit=True, interval=interval)
-            if discounted is not None:
+            if discounted is not None and discounted.billable:
                 return discounted, standard
         return standard, standard
 
@@ -2049,6 +2052,11 @@ class PlanPrice(models.Model):
                     for field in changed
                 }
             )
+
+    @property
+    def billable(self):
+        """Whether a purchase can be billed at this price: free, or on Stripe."""
+        return self.amount == 0 or bool(self.stripe_price_id)
 
     @property
     def amount_dollars(self):
