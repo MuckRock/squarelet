@@ -498,5 +498,9 @@ class TestRequireAPrice:
             ),
         )
 
-        with pytest.raises(RuntimeError, match="unpriced: legacy"):
+        with pytest.raises(RuntimeError, match="unpriced: legacy") as refused:
             migrate_to(_bracket(PRICE_REQUIRED)[1])
+
+        # The fix it names must exist: this release deletes backfill_plan_prices.
+        assert "backfill_plan_prices" not in str(refused.value)
+        assert "plan_price" in str(refused.value)

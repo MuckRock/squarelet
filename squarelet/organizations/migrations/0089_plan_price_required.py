@@ -11,8 +11,8 @@ def refuse_unpriced_lines(apps, schema_editor):
     if unpriced:
         lines = "\n".join(f"  - {org}: {plan}" for org, plan in unpriced)
         raise RuntimeError(
-            f"{len(unpriced)} line(s) have no price; price them first, with "
-            f"release 5's backfill_plan_prices or by hand:\n{lines}"
+            f"{len(unpriced)} line(s) have no price; in the shell, set each "
+            f"one's plan_price to its plan's active price first:\n{lines}"
         )
 
 
