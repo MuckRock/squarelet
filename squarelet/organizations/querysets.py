@@ -17,6 +17,7 @@ from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.plan_mapping import (
     LEGACY_PLAN_MAP,
+    SUNLIGHT_SERVICE_SLUG,
     resolve_target,
     tier_of,
 )
@@ -573,7 +574,9 @@ class SubscriptionItemQuerySet(models.QuerySet):
 
     def sunlight_active_count(self):
         """Count active Sunlight subscriptions across all tiers"""
-        return self.filter(plan__product="sunlight", plan__wix=True).count()
+        return self.filter(
+            plan__service__slug=SUNLIGHT_SERVICE_SLUG, plan__wix=True
+        ).count()
 
 
 class InvoiceQuerySet(models.QuerySet):

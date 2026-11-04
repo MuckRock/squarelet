@@ -23,7 +23,7 @@ from squarelet.core.utils import file_path, is_production_env, mailchimp_journey
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
-from squarelet.organizations.plan_mapping import tier_of
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG, tier_of
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementGrantQuerySet,
@@ -1684,11 +1684,12 @@ class Plan(models.Model):
     def is_sunlight_plan(self):
         """Whether this plan is marketed under Sunlight Research Center.
 
-        By its own product, or its tier's: a negotiated row such as the cohort
+        By its own service, or its tier's: a negotiated row such as the cohort
         sells a Sunlight tier, and counts toward the cap like one.
         """
         tier = tier_of(self.slug)
-        return self.product == "sunlight" or (
+        service = self.service
+        return (service is not None and service.slug == SUNLIGHT_SERVICE_SLUG) or (
             tier != self.slug and tier.startswith("sunlight-")
         )
 

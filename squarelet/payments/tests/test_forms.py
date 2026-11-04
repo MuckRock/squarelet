@@ -13,6 +13,7 @@ import pytest
 # Squarelet
 from squarelet.organizations.models import Organization, Plan
 from squarelet.payments.forms import PlanPurchaseForm
+from squarelet.services.tests.factories import ServiceFactory
 
 
 @pytest.mark.django_db
@@ -178,7 +179,7 @@ class TestPlanPurchaseFormInit:
         # Create a plan that looks like a Sunlight plan (slug starts with sunlight-)
         plan = plan_factory(
             slug="sunlight-test",
-            product="sunlight",
+            service=ServiceFactory(slug="sunlight"),
             public=True,
             for_individuals=True,
             for_groups=False,
@@ -196,7 +197,7 @@ class TestPlanPurchaseFormInit:
         """Ticking it would change nothing."""
         plan = plan_factory(
             slug="sunlight-test",
-            product="sunlight",
+            service=ServiceFactory(slug="sunlight"),
             public=True,
             for_individuals=True,
             for_groups=False,
@@ -587,7 +588,9 @@ class TestNonprofitPriceComesFromPlanPrice:
         self, plan_factory, plan_price_factory
     ):
         plan = plan_factory(
-            name="Sunlight Essential", slug="sunlight-essential", product="sunlight"
+            name="Sunlight Essential",
+            slug="sunlight-essential",
+            service=ServiceFactory(slug="sunlight"),
         )
         plan_price_factory(
             plan=plan, interval="monthly", label="standard", amount=68_000
@@ -604,7 +607,9 @@ class TestNonprofitPriceComesFromPlanPrice:
     def test_the_rate_shown_is_the_rate_sold(self, plan_factory, plan_price_factory):
         """Even with no active standard price beside it."""
         plan = plan_factory(
-            name="Sunlight Essential", slug="sunlight-essential", product="sunlight"
+            name="Sunlight Essential",
+            slug="sunlight-essential",
+            service=ServiceFactory(slug="sunlight"),
         )
         plan_price_factory(
             plan=plan, interval="monthly", label="standard", active=False
@@ -617,7 +622,9 @@ class TestNonprofitPriceComesFromPlanPrice:
 
     def test_the_rate_is_looked_up_once(self, plan_factory, plan_price_factory):
         plan = plan_factory(
-            name="Sunlight Essential", slug="sunlight-essential", product="sunlight"
+            name="Sunlight Essential",
+            slug="sunlight-essential",
+            service=ServiceFactory(slug="sunlight"),
         )
         plan_price_factory(plan=plan, label="nonprofit", amount=35_000)
         form = PlanPurchaseForm(plan=plan)
