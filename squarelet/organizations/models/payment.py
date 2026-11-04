@@ -1426,6 +1426,8 @@ def plan_file_path(instance, filename):
 class Plan(models.Model):
     """Plans that organizations can subscribe to"""
 
+    # pylint: disable=too-many-public-methods
+
     CHECKOUT_INTERVALS = ("annual", "monthly")
 
     objects = PlanQuerySet.as_manager()
@@ -1655,12 +1657,25 @@ class Plan(models.Model):
         """Effective benefits for display, with resource quantities filled in."""
         return format_benefits(self.get_benefit_templates(), self.get_resources())
 
+    @property
+    def list_price(self):
+        """The price a purchase of this row is sold at, at its own interval.
+
+        Resolved as a purchase is, so the pages that show it show what is
+        charged; None when it isn't for sale.
+        """
+        _plan, price = SubscriptionItem.objects.resolve_purchase(self)
+        return price
+
     def requires_payment(self):
         """Does this plan require immediate payment?
-        Free plans never require payment
-        Annual payments are invoiced and do not require payment at time of purchase
+
+        Free plans never require payment.  Annual payments are invoiced and
+        do not require payment at time of purchase.  Read off the list
+        price, so a plan with nothing to sell needs no payment either.
         """
-        return not self.free and not self.annual
+        price = self.list_price
+        return price is not None and price.amount > 0 and price.interval == "monthly"
 
     def has_available_slots(self):
         """Check if new subscriptions are allowed for this plan"""
