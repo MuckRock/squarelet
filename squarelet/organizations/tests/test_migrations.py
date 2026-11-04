@@ -33,14 +33,10 @@ def _bracket(suffix):
     """Return the named migration and the one immediately before it."""
     loader = MigrationLoader(connection)
     target = next(
-        name
-        for app, name in loader.graph.nodes
-        if app == APP and name.endswith(suffix)
+        name for app, name in loader.graph.nodes if app == APP and name.endswith(suffix)
     )
     before = next(
-        name
-        for app, name in loader.graph.node_map[(APP, target)].parents
-        if app == APP
+        name for app, name in loader.graph.node_map[(APP, target)].parents if app == APP
     )
     return before, target
 
@@ -375,9 +371,7 @@ class TestClassifySubscriptions:
         Subscription = new.get_model(APP, "Subscription")
         row = Subscription.objects.get(pk=trial.pk)
         assert (row.kind, row.cancelled, row.cancel_at) == ("free", False, None)
-        assert list(row.items.values_list("ends_on", flat=True)) == [
-            date(2099, 12, 31)
-        ]
+        assert list(row.items.values_list("ends_on", flat=True)) == [date(2099, 12, 31)]
 
     def test_a_free_row_still_naming_stripe_is_refused(self):
         """Deleting or keeping it would orphan a Stripe subscription."""
@@ -425,5 +419,9 @@ class TestRequireAPrice:
             ),
         )
 
-        with pytest.raises(RuntimeError, match="unpriced: legacy"):
+        with pytest.raises(RuntimeError, match="unpriced: legacy") as refused:
             migrate_to(_bracket(PRICE_REQUIRED)[1])
+
+        # The fix it names must exist: this release deletes backfill_plan_prices.
+        assert "backfill_plan_prices" not in str(refused.value)
+        assert "plan_price" in str(refused.value)
