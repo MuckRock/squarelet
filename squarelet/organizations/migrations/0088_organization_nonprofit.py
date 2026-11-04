@@ -15,8 +15,8 @@ class Migration(migrations.Migration):
             name="nonprofit",
             field=models.BooleanField(
                 default=False,
-                help_text="This organization is eligible for nonprofit plan pricing.",
-                verbose_name="nonprofit",
+                help_text="This organization is eligible for non-profit plan pricing.",
+                verbose_name="non-profit",
             ),
         ),
     ]
