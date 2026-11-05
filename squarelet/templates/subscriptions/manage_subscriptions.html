@@ -90,8 +90,11 @@
                 <span class="subscription-detail">
                   <span class="icon">{% icon "calendar" %}</span>
                   <span>
-                    {{ sub.cancelled|yesno:_("Ends on,Renews on") }}
-                    <strong>{{ sub.next_date }}</strong>
+                    {% if sub.cancelled %}
+                      {% trans "Ends on" %} <strong>{{ sub.end_date }}</strong>
+                    {% else %}
+                      {% trans "Renews on" %} <strong>{{ sub.next_date }}</strong>
+                    {% endif %}
                   </span>
                 </span>
               {% endif %}

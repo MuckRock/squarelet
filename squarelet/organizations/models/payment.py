@@ -569,6 +569,17 @@ class Subscription(Cancellable, models.Model):
         return any(item.plan.auto_renew for item in items)
 
     @property
+    def end_date(self):
+        """The day this subscription stops, or None while it renews.
+
+        `cancel_at` first: a fixed term billed monthly ends months after
+        `next_date`.
+        """
+        if not self.cancelled:
+            return None
+        return self.cancel_at or self.next_date
+
+    @property
     def next_date(self):
         """The date this subscription next renews, or ends if cancelled.
 
@@ -910,18 +921,27 @@ class Subscription(Cancellable, models.Model):
         `proration_behavior` overrides the subscription's own for one call;
         "none" for a change that leaves what the customer pays alone.
         """
-        if self.stripe_subscription:
+        stripe_sub = self.stripe_subscription
+        if stripe_sub:
             # A line sent without a `stripe_item_id` asks Stripe to *add* it,
             # which it refuses - the Price is already on the subscription.
-            self.sync_stripe_item_ids(self.stripe_subscription)
+            self.sync_stripe_item_ids(stripe_sub)
+            fixed_end = self.stripe_end_after_period(stripe_sub)
+            if fixed_end:
+                # Either `cancel_at_period_end` value wipes this date on Stripe.
+                cancellation = {"cancel_at": fixed_end}
+            else:
+                # `not auto_renew` alone would reverse a pending cancellation
+                # on the next unrelated change.
+                cancellation = {
+                    "cancel_at_period_end": self.cancelled or not self.auto_renew
+                }
             updated = (
                 get_payment_provider()
                 .get_subscription_service()
                 .modify(
                     self.subscription_id,
-                    # `not auto_renew` alone would reverse a pending
-                    # cancellation on the next unrelated change.
-                    cancel_at_period_end=self.cancelled or not self.auto_renew,
+                    **cancellation,
                     items=self.stripe_items(include_ids=True),
                     # Deriving this from `annual` stops auto-charging annual
                     # card payers.
@@ -936,12 +956,32 @@ class Subscription(Cancellable, models.Model):
             if updated:
                 self.cache_stripe_subscription_fields(updated)
                 self.sync_stripe_item_ids(updated)
+            if fixed_end:
+                self.mark_cancelled(
+                    datetime.fromtimestamp(fixed_end, tz=get_current_timezone())
+                )
             # Clearing this here would revive a cancelled subscription on any
             # unrelated line change.
-            if self.cancelled or not self.auto_renew:
+            elif self.cancelled or not self.auto_renew:
                 self.mark_cancelled(self.current_period_end)
             self.save()
             return updated
+        return None
+
+    @staticmethod
+    def stripe_end_after_period(stripe_sub):
+        """Stripe's own end date, as a timestamp, when it is past this period.
+
+        A fixed term billed monthly ends this way; anything else is None.
+        """
+        cancel_at = stripe_sub["cancel_at"] if "cancel_at" in stripe_sub else None
+        period_end = (
+            get_payment_provider()
+            .get_subscription_service()
+            .get_current_period_end(stripe_sub)
+        )
+        if cancel_at and period_end and cancel_at > period_end:
+            return cancel_at
         return None
 
     class Meta:
