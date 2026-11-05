@@ -2398,6 +2398,12 @@ class PaymentMethod(models.Model):
                 condition=models.Q(is_default=True),
                 name="unique_default_per_customer",
             ),
+            # Webhooks look a card up by its Stripe id.
+            models.UniqueConstraint(
+                fields=["stripe_id"],
+                condition=~models.Q(stripe_id=""),
+                name="unique_payment_method_stripe_id",
+            ),
         ]
 
     def __str__(self):

@@ -11,7 +11,7 @@ build the rows it will find, and roll forward.
 # pylint: disable=invalid-name
 
 # Django
-from django.db import connection
+from django.db import IntegrityError, connection
 from django.db.migrations.executor import MigrationExecutor
 from django.db.migrations.loader import MigrationLoader
 
@@ -26,20 +26,17 @@ APP = "organizations"
 PARENT = "subscription_parent"
 ITEM_CANCELLATION = "subscription_item_cancellation"
 KIND = "subscription_kind"
+UNIQUE_CARD = "payment_method_unique_stripe_id"
 
 
 def _bracket(suffix):
     """Return the named migration and the one immediately before it."""
     loader = MigrationLoader(connection)
     target = next(
-        name
-        for app, name in loader.graph.nodes
-        if app == APP and name.endswith(suffix)
+        name for app, name in loader.graph.nodes if app == APP and name.endswith(suffix)
     )
     before = next(
-        name
-        for app, name in loader.graph.node_map[(APP, target)].parents
-        if app == APP
+        name for app, name in loader.graph.node_map[(APP, target)].parents if app == APP
     )
     return before, target
 
@@ -374,9 +371,7 @@ class TestClassifySubscriptions:
         Subscription = new.get_model(APP, "Subscription")
         row = Subscription.objects.get(pk=trial.pk)
         assert (row.kind, row.cancelled, row.cancel_at) == ("free", False, None)
-        assert list(row.items.values_list("ends_on", flat=True)) == [
-            date(2099, 12, 31)
-        ]
+        assert list(row.items.values_list("ends_on", flat=True)) == [date(2099, 12, 31)]
 
     def test_a_free_row_still_naming_stripe_is_refused(self):
         """Deleting or keeping it would orphan a Stripe subscription."""
@@ -396,3 +391,81 @@ class TestClassifySubscriptions:
 
         with pytest.raises(RuntimeError, match="one-off beside Pack, Paid"):
             migrate_to(_bracket(KIND)[1])
+
+
+@pytest.mark.django_db(transaction=True)
+class TestOneRowPerCard:
+    """Before the constraint, the migration keeps one copy of each cached card."""
+
+    @pytest.fixture(autouse=True)
+    def _leave_the_database_migrated(self):
+        yield
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM organizations_paymentmethod")
+            cursor.execute("DELETE FROM organizations_customer")
+        migrate_to_latest()
+
+    @staticmethod
+    def _customer(apps, name):
+        Organization = apps.get_model(APP, "Organization")
+        Customer = apps.get_model(APP, "Customer")
+        organization = Organization.objects.create(name=name, slug=name.lower())
+        return Customer.objects.create(organization=organization)
+
+    @staticmethod
+    def _card(apps, customer, stripe_id, is_default):
+        PaymentMethod = apps.get_model(APP, "PaymentMethod")
+        return PaymentMethod.objects.create(
+            customer_id=customer.pk, stripe_id=stripe_id, is_default=is_default
+        )
+
+    def test_the_default_copy_is_kept(self):
+        old = migrate_to(_bracket(UNIQUE_CARD)[0])
+        customer = self._customer(old, "Twice")
+        default = self._card(old, customer, "pm_twice", is_default=True)
+        self._card(old, customer, "pm_twice", is_default=False)
+
+        new = migrate_to(_bracket(UNIQUE_CARD)[1])
+
+        PaymentMethod = new.get_model(APP, "PaymentMethod")
+        assert list(PaymentMethod.objects.values_list("pk", flat=True)) == [default.pk]
+
+    def test_otherwise_the_newest_copy_is_kept(self):
+        old = migrate_to(_bracket(UNIQUE_CARD)[0])
+        customer = self._customer(old, "Spare")
+        self._card(old, customer, "pm_spare", is_default=False)
+        newest = self._card(old, customer, "pm_spare", is_default=False)
+
+        new = migrate_to(_bracket(UNIQUE_CARD)[1])
+
+        PaymentMethod = new.get_model(APP, "PaymentMethod")
+        assert list(PaymentMethod.objects.values_list("pk", flat=True)) == [newest.pk]
+
+    def test_other_cards_are_left_alone(self):
+        old = migrate_to(_bracket(UNIQUE_CARD)[0])
+        customer = self._customer(old, "Others")
+        self._card(old, customer, "pm_dup", is_default=True)
+        self._card(old, customer, "pm_dup", is_default=False)
+        self._card(old, customer, "pm_alone", is_default=False)
+        self._card(old, customer, "", is_default=False)
+        self._card(old, customer, "", is_default=False)
+
+        new = migrate_to(_bracket(UNIQUE_CARD)[1])
+
+        PaymentMethod = new.get_model(APP, "PaymentMethod")
+        assert sorted(PaymentMethod.objects.values_list("stripe_id", flat=True)) == [
+            "",
+            "",
+            "pm_alone",
+            "pm_dup",
+        ]
+
+    def test_a_second_copy_is_refused_after(self):
+        old = migrate_to(_bracket(UNIQUE_CARD)[0])
+        customer = self._customer(old, "After")
+
+        new = migrate_to(_bracket(UNIQUE_CARD)[1])
+
+        self._card(new, customer, "pm_after", is_default=True)
+        with pytest.raises(IntegrityError):
+            self._card(new, customer, "pm_after", is_default=False)
