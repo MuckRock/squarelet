@@ -314,6 +314,9 @@ class Customer(models.Model):
         exp_month = getattr(details, "exp_month", None)
         exp_year = getattr(details, "exp_year", None)
         with transaction.atomic():
+            # handle_payment_method_attached takes the same lock, so only one
+            # caches the card.
+            type(self).objects.select_for_update().get(pk=self.pk)
             # attached may already hold this card as non-default; caching it
             # again would break every lookup by stripe_id.
             self.payment_methods.filter(stripe_id=stripe_id, is_default=False).delete()
