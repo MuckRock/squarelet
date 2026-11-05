@@ -313,29 +313,30 @@ class Customer(models.Model):
         last4 = getattr(details, "last4", "")
         exp_month = getattr(details, "exp_month", None)
         exp_year = getattr(details, "exp_year", None)
-        pm = self.default_payment_method_obj()
-        if pm:
-            pm.method_type = method_type
-            pm.brand = brand
-            pm.last4 = last4
-            pm.exp_month = exp_month
-            pm.exp_year = exp_year
-            pm.stripe_id = stripe_id
-            pm.save()
-        else:
-            self.payment_methods.filter(is_default=True).update(is_default=False)
-            PaymentMethod.objects.update_or_create(
-                customer=self,
-                is_default=True,
-                defaults={
-                    "method_type": method_type,
-                    "brand": brand,
-                    "last4": last4,
-                    "exp_month": exp_month,
-                    "exp_year": exp_year,
-                    "stripe_id": stripe_id,
-                },
-            )
+        with transaction.atomic():
+            # attached may already hold this card as non-default; caching it
+            # again would break every lookup by stripe_id.
+            self.payment_methods.filter(stripe_id=stripe_id, is_default=False).delete()
+            pm = self.payment_methods.filter(is_default=True).first()
+            if pm:
+                pm.method_type = method_type
+                pm.brand = brand
+                pm.last4 = last4
+                pm.exp_month = exp_month
+                pm.exp_year = exp_year
+                pm.stripe_id = stripe_id
+                pm.save()
+            else:
+                PaymentMethod.objects.create(
+                    customer=self,
+                    is_default=True,
+                    method_type=method_type,
+                    brand=brand,
+                    last4=last4,
+                    exp_month=exp_month,
+                    exp_year=exp_year,
+                    stripe_id=stripe_id,
+                )
         self._invalidate_pm_cache()
 
     def clear_payment_cache(self):
