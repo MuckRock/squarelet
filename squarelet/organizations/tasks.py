@@ -2,6 +2,7 @@
 from celery import shared_task
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.db import transaction
 from django.db.models import F, Q
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
@@ -656,18 +657,23 @@ def handle_payment_method_attached(pm_data):
             stripe_id,
         )
     else:
-        PaymentMethod.objects.update_or_create(
-            customer=customer,
-            stripe_id=stripe_id,
-            defaults={
-                "method_type": method_type,
-                "brand": getattr(details, "brand", ""),
-                "last4": getattr(details, "last4", ""),
-                "exp_month": getattr(details, "exp_month", None),
-                "exp_year": getattr(details, "exp_year", None),
-                "is_default": False,
-            },
-        )
+        with transaction.atomic():
+            # save_payment_cache takes the same lock, so only one caches the card.
+            Customer.objects.select_for_update().get(pk=customer.pk)
+            # A cached copy may be the default already: the default read above
+            # can be older than the customer.updated event that set it.
+            PaymentMethod.objects.get_or_create(
+                customer=customer,
+                stripe_id=stripe_id,
+                defaults={
+                    "method_type": method_type,
+                    "brand": getattr(details, "brand", ""),
+                    "last4": getattr(details, "last4", ""),
+                    "exp_month": getattr(details, "exp_month", None),
+                    "exp_year": getattr(details, "exp_year", None),
+                    "is_default": False,
+                },
+            )
         logger.info(
             "[STRIPE-WEBHOOK-PM] payment_method.attached saved non-default PM: %s",
             stripe_id,
