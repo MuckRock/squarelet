@@ -1182,6 +1182,10 @@ class SubscriptionItem(models.Model):
                 f"share a subscription.  Remove the line and add the new plan."
             )
 
+        if plan_price:
+            # As in start(): the price may have missed Stripe when made.
+            plan_price.ensure_stripe_price()
+
         # Identified while the price still matches, or the item is sent with no
         # id, which Stripe adds alongside the old one: billed for both.
         stripe_sub = self.subscription.stripe_subscription

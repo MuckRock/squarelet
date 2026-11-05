@@ -505,6 +505,10 @@ class SubscriptionItemQuerySet(models.QuerySet):
         from squarelet.organizations.models.payment import Subscription
 
         canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
+        if plan_price:
+            # Before anything is saved: a plan's price is made on Stripe after
+            # the plan commits, so a failure then leaves it without one.
+            plan_price.ensure_stripe_price()
         if quantity is None:
             quantity = 1 if plan_price else plan.minimum_users
         if plan_price:

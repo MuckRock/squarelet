@@ -7,9 +7,15 @@ from datetime import date
 
 # Third Party
 import pytest
+import stripe
 
 # Squarelet
-from squarelet.organizations.models import Plan, Subscription, SubscriptionItem
+from squarelet.organizations.models import (
+    Plan,
+    PlanPrice,
+    Subscription,
+    SubscriptionItem,
+)
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.plan_mapping import resolve_target
 
@@ -393,6 +399,28 @@ class TestWhereAPurchaseIsStored:
         assert SubscriptionItem.objects.plans_of_tier(plan) == {plan}
 
 
+def give_stripe_price(mocker):
+    """Stand in for Stripe making the Price, recording the id as the real one does."""
+
+    def make(price):
+        price.stripe_price_id = "price_made_at_sale"
+        price.save(update_fields=["stripe_price_id"])
+        return price.stripe_price_id
+
+    return mocker.patch.object(
+        PlanPrice, "ensure_stripe_price", autospec=True, side_effect=make
+    )
+
+
+def stripe_is_down(mocker):
+    return mocker.patch.object(
+        PlanPrice,
+        "ensure_stripe_price",
+        autospec=True,
+        side_effect=stripe.APIConnectionError("Stripe is down"),
+    )
+
+
 @pytest.fixture(name="no_stripe")
 def no_stripe_fixture(mocker):
     mocker.patch("squarelet.organizations.models.Subscription.start")
@@ -428,6 +456,34 @@ class TestSellingAgainstThePrice:
         assert item.plan == canonical
         assert item.plan_price == price
         assert item.subscription.interval == "annual"
+
+    def test_a_price_stripe_never_made_is_made_before_the_sale(
+        self, organization_factory, plan_price_factory, mocker
+    ):
+        """A plan's price is made on Stripe after the plan commits, so a
+        failure then leaves the row without one."""
+        give_stripe_price(mocker)
+        price = plan_price_factory(amount=10_000, stripe_price_id="")
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=price.plan
+        )
+
+        assert item.subscription.stripe_items() == [
+            {"plan": "price_made_at_sale", "quantity": 1}
+        ]
+
+    def test_if_stripe_cannot_make_it_nothing_is_sold(
+        self, organization_factory, plan_price_factory, mocker
+    ):
+        stripe_is_down(mocker)
+        price = plan_price_factory(amount=10_000, stripe_price_id="")
+        organization = organization_factory()
+
+        with pytest.raises(stripe.APIConnectionError):
+            SubscriptionItem.objects.start(organization=organization, plan=price.plan)
+
+        assert not Subscription.objects.filter(organization=organization).exists()
 
     def test_a_tier_is_one_unit_of_its_price(
         self, organization_factory, plan_price_factory
@@ -635,6 +691,34 @@ class TestChangingTierRepricesTheLine:
 
         assert item.plan == enhanced
         assert item.plan_price == to_price
+
+    def test_a_price_stripe_never_made_is_made_before_the_move(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        give_stripe_price(mocker)
+        essential, enhanced = tiers
+        from_price = plan_price_factory(plan=essential, amount=68_000)
+        plan_price_factory(plan=enhanced, amount=138_000, stripe_price_id="")
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        self._modify(item, enhanced, mocker)
+
+        assert item.stripe_price_id == "price_made_at_sale"
+
+    def test_if_stripe_cannot_make_it_the_line_stays(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        stripe_is_down(mocker)
+        essential, enhanced = tiers
+        from_price = plan_price_factory(plan=essential, amount=68_000)
+        plan_price_factory(plan=enhanced, amount=138_000, stripe_price_id="")
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        with pytest.raises(stripe.APIConnectionError):
+            self._modify(item, enhanced, mocker)
+
+        item.refresh_from_db()
+        assert item.plan_price == from_price
 
     def test_a_nonprofit_stays_a_nonprofit(
         self, subscription_item_factory, plan_price_factory, tiers, mocker

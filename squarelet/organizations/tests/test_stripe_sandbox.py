@@ -193,6 +193,25 @@ def stripe_prices(subscription_id):
     return {i["price"]["id"] for i in live["items"]["data"]}
 
 
+class TestAPriceStripeNeverMade:
+    """Made on Stripe after the plan commits, a price can miss Stripe."""
+
+    def test_it_is_made_and_billed_at_the_sale(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        name = f"Sandbox Unmade {uuid4().hex[:8]}"
+        plan = plan_factory(name=name, slug=slugify(name), base_price=25)
+        sandbox["plans"].append(plan)
+        plan.prices.create(interval="monthly", label="standard", amount=2_500)
+        organization = organization_factory()
+        with_card(organization, sandbox)
+
+        item = start(organization, plan, sandbox)
+
+        assert item.plan_price.stripe_price_id.startswith("price_")
+        assert invoice_total(item.subscription.subscription_id) == 2_500
+
+
 class TestAddingASecondPlan:
     """The failure a customer hits first after the split deploys."""
 
