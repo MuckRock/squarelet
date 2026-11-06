@@ -254,3 +254,49 @@ class TestCustomer:
         # Verify the customer_id was updated in the database
         customer.refresh_from_db()
         assert customer.customer_id == new_customer_id
+
+
+class TestSavePaymentCacheAfterAttach:
+    """payment_method.attached can cache a new card as non-default before
+    customer.updated makes it the default; the card must then be cached once."""
+
+    card = Mock(brand="Visa", last4="4242", exp_month=12, exp_year=2030)
+
+    @pytest.mark.django_db()
+    def test_replacing_the_default_keeps_one_row(
+        self, customer_factory, payment_method_factory
+    ):
+        customer = customer_factory()
+        payment_method_factory(customer=customer, stripe_id="pm_old", is_default=True)
+        payment_method_factory(customer=customer, stripe_id="pm_new", is_default=False)
+
+        customer.save_payment_cache(self.card, "pm_new")
+
+        (pm,) = PaymentMethod.objects.filter(stripe_id="pm_new")
+        assert pm.is_default
+        assert pm.last4 == "4242"
+
+    @pytest.mark.django_db()
+    def test_a_first_default_keeps_one_row(
+        self, customer_factory, payment_method_factory
+    ):
+        customer = customer_factory()
+        payment_method_factory(customer=customer, stripe_id="pm_new", is_default=False)
+
+        customer.save_payment_cache(self.card, "pm_new")
+
+        (pm,) = PaymentMethod.objects.filter(stripe_id="pm_new")
+        assert pm.is_default
+
+    @pytest.mark.django_db()
+    def test_other_saved_cards_are_kept(self, customer_factory, payment_method_factory):
+        customer = customer_factory()
+        payment_method_factory(customer=customer, stripe_id="pm_old", is_default=True)
+        payment_method_factory(customer=customer, stripe_id="pm_new", is_default=False)
+        payment_method_factory(
+            customer=customer, stripe_id="pm_spare", is_default=False
+        )
+
+        customer.save_payment_cache(self.card, "pm_new")
+
+        assert customer.payment_methods.filter(stripe_id="pm_spare").exists()

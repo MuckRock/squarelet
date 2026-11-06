@@ -1,11 +1,13 @@
 # Django
 from django.core.files.base import ContentFile
+from django.db import connection, transaction
 from django.test import override_settings
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
 import base64
+import threading
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from io import BytesIO
 
@@ -22,6 +24,7 @@ from PIL import Image
 from squarelet.organizations import tasks
 from squarelet.organizations.models import (
     Charge,
+    Customer,
     Invoice,
     PaymentMethod,
     Subscription,
@@ -2594,6 +2597,83 @@ class TestHandlePaymentMethodAttached:
         """Returns immediately when the event has no customer field"""
         # Should not raise any exception
         tasks.handle_payment_method_attached({"id": "pm_x", "type": "card"})
+
+    @pytest.mark.django_db
+    def test_a_cached_default_is_not_demoted(
+        self, customer_factory, payment_method_factory, mocker
+    ):
+        """customer.updated may cache the card as default before this event runs,
+        and the Stripe default read here may already be stale"""
+        customer = customer_factory(customer_id="cus_att3")
+        payment_method_factory(customer=customer, stripe_id="pm_att3", is_default=True)
+        mock_stripe_customer = mocker.MagicMock()
+        mock_stripe_customer.invoice_settings.default_payment_method = "pm_other"
+        mock_provider = mocker.patch(
+            "squarelet.organizations.tasks.get_payment_provider"
+        ).return_value
+        mock_provider.get_customer_service.return_value.retrieve.return_value = (
+            mock_stripe_customer
+        )
+
+        tasks.handle_payment_method_attached(
+            {"id": "pm_att3", "customer": "cus_att3", "type": "card"}
+        )
+
+        (pm,) = PaymentMethod.objects.filter(stripe_id="pm_att3")
+        assert pm.is_default
+
+
+def waits_for_customer_lock(customer, write):
+    """Whether ``write`` blocks while another transaction holds the customer row.
+
+    no_key, because inserting a payment method already waits on a full lock.
+    """
+    done = threading.Event()
+
+    def run():
+        try:
+            write()
+        finally:
+            connection.close()
+            done.set()
+
+    thread = threading.Thread(target=run)
+    with transaction.atomic():
+        Customer.objects.select_for_update(no_key=True).get(pk=customer.pk)
+        thread.start()
+        waited = not done.wait(0.5)
+    thread.join(5)
+    return waited and done.is_set()
+
+
+class TestCachingACardIsSerialized:
+    """payment_method.attached and customer.updated arrive together for a new
+    card; run at once, each misses the other's row and the card is cached twice."""
+
+    @pytest.mark.django_db(transaction=True)
+    def test_attached_waits_for_the_customer(self, customer_factory, mocker):
+        customer = customer_factory(customer_id="cus_lock")
+        mock_provider = mocker.patch(
+            "squarelet.organizations.tasks.get_payment_provider"
+        ).return_value
+        retrieve = mock_provider.get_customer_service.return_value.retrieve
+        retrieve.return_value.invoice_settings.default_payment_method = "pm_other"
+
+        assert waits_for_customer_lock(
+            customer,
+            lambda: tasks.handle_payment_method_attached(
+                {"id": "pm_lock", "customer": "cus_lock", "type": "card"}
+            ),
+        )
+
+    @pytest.mark.django_db(transaction=True)
+    def test_save_payment_cache_waits_for_the_customer(self, customer_factory, mocker):
+        customer = customer_factory()
+        card = mocker.Mock(brand="Visa", last4="4242", exp_month=12, exp_year=2030)
+
+        assert waits_for_customer_lock(
+            customer, lambda: customer.save_payment_cache(card, "pm_lock")
+        )
 
 
 class TestHandleSubscriptionUpdated:
