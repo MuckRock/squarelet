@@ -9,6 +9,7 @@ from autoslug.utils import slugify
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.payments.exceptions import NotForSale
 from squarelet.payments import views
 from squarelet.services.models import Service
 
@@ -361,6 +362,37 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Should redirect to organization
         assert response.status_code == 302
         assert response.url == org.get_absolute_url()
+
+
+@pytest.mark.django_db()
+class TestPlanDetailViewNotForSale(ViewTestMixin):
+    """A plan with no price is refused as that, not as a duplicate."""
+
+    view = views.PlanDetailView
+    url = "/plans/{pk}/{slug}/"
+
+    def test_it_is_logged_as_not_for_sale(
+        self, rf, user_factory, plan_factory, mocker, caplog
+    ):
+        user = user_factory(email_verified=True)
+        plan = plan_factory(for_groups=True, public=True)
+        mocker.patch.object(
+            Organization,
+            "add_subscription",
+            side_effect=NotForSale(f"{plan} is not for sale: it has no price"),
+        )
+        data = {
+            "organization": "new",
+            "new_organization_name": "Unpriced Buyer",
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+        }
+
+        self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        assert "not for sale" in caplog.text
+        assert "Duplicate subscription" not in caplog.text
 
 
 @pytest.mark.django_db()

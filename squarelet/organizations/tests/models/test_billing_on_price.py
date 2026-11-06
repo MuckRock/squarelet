@@ -16,7 +16,7 @@ from squarelet.organizations.models import (
     Subscription,
     SubscriptionItem,
 )
-from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.exceptions import NotForSale, SubscriptionError
 from squarelet.organizations.plan_mapping import resolve_target
 
 
@@ -61,14 +61,10 @@ class TestWhatIsSentToStripe:
         ]
 
     def test_a_mixed_subscription_sends_the_right_thing_per_line(
-        self, subscription_item_factory, paid_price, legacy_plan, plan_price_factory
+        self, subscription_item_factory, paid_price, plan_price_factory
     ):
-        """Production looks like this until every line is migrated."""
         migrated = subscription_item_factory(
             plan=paid_price.plan, plan_price=paid_price
-        )
-        legacy = subscription_item_factory(
-            subscription=migrated.subscription, plan=legacy_plan
         )
         # A failed `consolidate_stripe_products` can leave a paid price blank.
         unready_price = plan_price_factory(
@@ -82,11 +78,7 @@ class TestWhatIsSentToStripe:
 
         specs = migrated.subscription.stripe_items()
 
-        assert {s["plan"] for s in specs} == {
-            "price_paid",
-            legacy.plan.stripe_id,
-            unready.plan.stripe_id,
-        }
+        assert {s["plan"] for s in specs} == {"price_paid", unready.plan.stripe_id}
 
     def test_include_ids_still_carries_the_item_id(
         self, subscription_item_factory, paid_price
@@ -498,18 +490,14 @@ class TestSellingAgainstThePrice:
 
         assert item.quantity == 1
 
-    def test_a_legacy_plan_still_takes_its_minimum(
-        self, organization_factory, legacy_plan
-    ):
-        """A legacy tiered Stripe Plan prices its minimum as the base."""
-        legacy_plan.minimum_users = 5
-        legacy_plan.save()
+    def test_a_plan_with_no_price_is_not_sold(self, organization_factory, legacy_plan):
+        """Refused before anything is written: every line bills a price."""
+        organization = organization_factory()
 
-        item, _ = SubscriptionItem.objects.start(
-            organization=organization_factory(), plan=legacy_plan
-        )
+        with pytest.raises(NotForSale, match="no price"):
+            SubscriptionItem.objects.start(organization=organization, plan=legacy_plan)
 
-        assert item.quantity == 5
+        assert not Subscription.objects.filter(organization=organization).exists()
 
     def test_an_explicit_quantity_is_kept(
         self, organization_factory, plan_price_factory
@@ -558,34 +546,13 @@ class TestSellingAgainstThePrice:
         with pytest.raises(SubscriptionError, match="already has an active"):
             organization.add_subscription(picked, None, None, nonprofit=True)
 
-    def test_a_line_bought_before_prices_existed_still_counts(
-        self, organization_factory, plan_factory, plan_price_factory
-    ):
-        """Held under the plan picked, not yet under its tier."""
-        canonical = plan_with_slug(
-            plan_factory, "Sunlight Essential", "sunlight-essential"
-        )
-        picked = plan_with_slug(
-            plan_factory,
-            "Sunlight Essential (Annual)",
-            "sunlight-essential-annual",
-            annual=True,
-            base_price=6_800,
-        )
-        organization = organization_factory()
-        held, _ = SubscriptionItem.objects.start(organization=organization, plan=picked)
-        assert held.plan == picked
-        plan_price_factory(plan=canonical, interval="annual")
-
-        with pytest.raises(SubscriptionError, match="already has an active"):
-            organization.add_subscription(picked, None, None)
-
     def test_the_tier_counts_as_held_on_any_schedule(
-        self, organization_factory, plan_factory
+        self, organization_factory, plan_factory, plan_price_factory
     ):
         monthly = plan_with_slug(
             plan_factory, "Sunlight Essential", "sunlight-essential", base_price=680
         )
+        plan_price_factory(plan=monthly, amount=68_000)
         annual = plan_with_slug(
             plan_factory,
             "Sunlight Essential (Annual)",
@@ -622,7 +589,13 @@ class TestSellingAgainstThePrice:
     @pytest.mark.parametrize("ends_on", [None, date(2027, 2, 1)])
     # pylint: disable-next=too-many-positional-arguments
     def test_buying_the_tier_replaces_its_comp(
-        self, organization_factory, plan_factory, plan_price_factory, mocker, ends_on
+        self,
+        organization_factory,
+        plan_factory,
+        plan_price_factory,
+        subscription_item_factory,
+        mocker,
+        ends_on,
     ):
         """Paying for a tier ends the comp that held it, dated or not."""
         mocker.patch("squarelet.organizations.models.Organization.customer")
@@ -630,12 +603,14 @@ class TestSellingAgainstThePrice:
             plan_factory, "Professional", "professional", base_price=40
         )
         plan_price_factory(plan=professional, amount=4_000)
-        beta = plan_with_slug(plan_factory, "Beta", "beta", base_price=0)
         organization = organization_factory()
-        comp, _ = SubscriptionItem.objects.start(organization=organization, plan=beta)
-        comp.ends_on = ends_on
-        comp.save()
-        assert comp.subscription.kind == "free"
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="free",
+            plan=professional,
+            plan_price=plan_price_factory(plan=professional, label="comped", amount=0),
+            ends_on=ends_on,
+        )
 
         organization.add_subscription(professional, None, None, payment_method="card")
 
@@ -643,7 +618,8 @@ class TestSellingAgainstThePrice:
             professional
         ]
         log = organization.change_logs.get()
-        assert (log.from_plan, log.to_plan) == (beta, professional)
+        assert log.from_plan == professional
+        assert log.to_plan == professional
 
     def test_a_paid_line_of_the_tier_is_not_replaced(
         self, organization_factory, plan_factory, plan_price_factory
@@ -749,6 +725,21 @@ class TestChangingTierRepricesTheLine:
 
         with pytest.raises(SubscriptionError, match="no nonprofit rate"):
             self._modify(item, enhanced, mocker)
+
+    def test_a_plan_with_no_price_is_refused(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        essential, enhanced = tiers
+        enhanced.base_price = 1_380
+        enhanced.save()
+        from_price = plan_price_factory(plan=essential, amount=68_000)
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        with pytest.raises(SubscriptionError, match="no price"):
+            self._modify(item, enhanced, mocker)
+
+        item.refresh_from_db()
+        assert (item.plan, item.plan_price) == (essential, from_price)
 
     def test_a_negotiated_rate_is_not_carried_to_another_tier(
         self, subscription_item_factory, plan_price_factory, tiers, mocker

@@ -21,7 +21,7 @@ from squarelet.core.layout import Field
 from squarelet.core.utils import format_stripe_error
 from squarelet.organizations.models import Plan
 from squarelet.organizations.models.organization import Organization
-from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.exceptions import NotForSale, SubscriptionError
 from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -255,6 +255,10 @@ class PremiumSubscriptionForm(StripeForm):
         except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)
             self.add_error(None, user_message)
+            return False
+        except NotForSale as exc:
+            logger.error("Error creating subscription: %s", exc)
+            self.add_error(None, _("This plan isn't available to buy right now."))
             return False
         except (SubscriptionError, IntegrityError) as exc:
             # Organizations can only have one subscription per plan

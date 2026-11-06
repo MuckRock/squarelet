@@ -14,6 +14,7 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.payments.exceptions import NotForSale
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.plan_mapping import (
     LEGACY_PLAN_MAP,
@@ -505,10 +506,11 @@ class SubscriptionItemQuerySet(models.QuerySet):
         from squarelet.organizations.models.payment import Subscription
 
         canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
-        if plan_price:
-            # Before anything is saved: a plan's price is made on Stripe after
-            # the plan commits, so a failure then leaves it without one.
-            plan_price.ensure_stripe_price()
+        if plan_price is None:
+            raise NotForSale(f"{plan} is not for sale: it has no price")
+        # Before anything is saved: a plan's price is made on Stripe after
+        # the plan commits, so a failure then leaves it without one.
+        plan_price.ensure_stripe_price()
         if quantity is None:
             quantity = 1 if plan_price else plan.minimum_users
         if plan_price:
@@ -577,11 +579,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
 
     def paid(self):
         """Lines that cost something: the SQL form of `not is_free`."""
-        return self.filter(
-            Q(plan_price__amount__gt=0)
-            | Q(plan_price__isnull=True)
-            & ~Q(plan__base_price=0, plan__price_per_user=0)
-        )
+        return self.filter(plan_price__amount__gt=0)
 
     def sunlight_active_count(self):
         """Count active Sunlight subscriptions across all variants"""

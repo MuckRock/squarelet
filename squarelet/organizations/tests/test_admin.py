@@ -210,21 +210,6 @@ class TestWhatALineBillsAgainst:
             self._inline().get_empty_value_display()
         )
 
-    def test_a_line_still_on_the_legacy_plan_says_so(
-        self, subscription_item_factory, plan_factory
-    ):
-        """The legacy id is a Stripe Plan, which has no dashboard page to link."""
-        item = subscription_item_factory(
-            plan=plan_factory(name="Legacy Org", slug="organization", base_price=100),
-            plan_price=None,
-        )
-
-        html = self._inline().bills_against(item)
-
-        assert "squarelet_plan_organization" in html
-        assert "legacy" in html
-        assert "href" not in html
-
 
 class TestInvoiceAdmin:
     """Tests for Invoice admin interface"""

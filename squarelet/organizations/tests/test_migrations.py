@@ -26,20 +26,17 @@ APP = "organizations"
 PARENT = "subscription_parent"
 ITEM_CANCELLATION = "subscription_item_cancellation"
 KIND = "subscription_kind"
+PRICE_REQUIRED = "plan_price_required"
 
 
 def _bracket(suffix):
     """Return the named migration and the one immediately before it."""
     loader = MigrationLoader(connection)
     target = next(
-        name
-        for app, name in loader.graph.nodes
-        if app == APP and name.endswith(suffix)
+        name for app, name in loader.graph.nodes if app == APP and name.endswith(suffix)
     )
     before = next(
-        name
-        for app, name in loader.graph.node_map[(APP, target)].parents
-        if app == APP
+        name for app, name in loader.graph.node_map[(APP, target)].parents if app == APP
     )
     return before, target
 
@@ -374,9 +371,7 @@ class TestClassifySubscriptions:
         Subscription = new.get_model(APP, "Subscription")
         row = Subscription.objects.get(pk=trial.pk)
         assert (row.kind, row.cancelled, row.cancel_at) == ("free", False, None)
-        assert list(row.items.values_list("ends_on", flat=True)) == [
-            date(2099, 12, 31)
-        ]
+        assert list(row.items.values_list("ends_on", flat=True)) == [date(2099, 12, 31)]
 
     def test_a_free_row_still_naming_stripe_is_refused(self):
         """Deleting or keeping it would orphan a Stripe subscription."""
@@ -396,3 +391,37 @@ class TestClassifySubscriptions:
 
         with pytest.raises(RuntimeError, match="one-off beside Pack, Paid"):
             migrate_to(_bracket(KIND)[1])
+
+
+@pytest.mark.django_db(transaction=True)
+class TestRequireAPrice:
+    """0089 makes every line name a price, and names those that do not."""
+
+    @pytest.fixture(autouse=True)
+    def _leave_the_database_migrated(self):
+        yield
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM organizations_subscriptionitem")
+            cursor.execute("DELETE FROM organizations_subscription")
+        migrate_to_latest()
+
+    def test_a_line_with_no_price_is_named(self):
+        old = migrate_to(_bracket(PRICE_REQUIRED)[0])
+        organization = old.get_model(APP, "Organization").objects.create(
+            name="Unpriced", slug="unpriced"
+        )
+        old.get_model(APP, "SubscriptionItem").objects.create(
+            subscription=old.get_model(APP, "Subscription").objects.create(
+                organization=organization
+            ),
+            plan=old.get_model(APP, "Plan").objects.create(
+                name="Legacy", slug="legacy"
+            ),
+        )
+
+        with pytest.raises(RuntimeError, match="unpriced: legacy") as refused:
+            migrate_to(_bracket(PRICE_REQUIRED)[1])
+
+        # The fix it names must exist: this release deletes backfill_plan_prices.
+        assert "backfill_plan_prices" not in str(refused.value)
+        assert "plan_price" in str(refused.value)

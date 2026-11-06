@@ -339,7 +339,8 @@ class PlanDetailView(DetailView):
             )
             return redirect(plan)
         except SubscriptionError as exc:
-            logger.error("Duplicate subscription attempt: %s", exc)
+            # The message says which refusal: a duplicate, or a plan not for sale.
+            logger.error("Subscription refused: %s", exc)
             if self._is_ajax():
                 return JsonResponse({"error": str(exc)}, status=400)
             messages.error(request, str(exc))
