@@ -185,6 +185,178 @@ def test_restore_organization_keeps_the_free_line(
     assert subscription.cancelled is False
 
 
+@pytest.mark.django_db()
+class TestEndingOnTheirOwnDate:
+    """Cancellations and comps end on their own date, not the reset day."""
+
+    @pytest.fixture(autouse=True)
+    def quiet(self, mocker):
+        mocker.patch("stripe.Plan.create")
+        return mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+
+    @staticmethod
+    def _not_due():
+        return OrganizationFactory(update_on=date.today() + timedelta(10))
+
+    def test_a_cancellation_ends_on_its_date(self, organization_plan_factory, quiet):
+        organization = self._not_due()
+        item = SubscriptionItemFactory(
+            plan=organization_plan_factory(),
+            subscription__organization=organization,
+            subscription__cancelled=True,
+            subscription__cancel_at=date.today(),
+        )
+
+        tasks.restore_organization()
+
+        assert not SubscriptionItem.objects.filter(pk=item.pk).exists()
+        organization.refresh_from_db()
+        assert organization.update_on is None
+        assert organization.uuid in quiet.call_args[0][1]
+
+    def test_a_stripe_cancellation_is_served_through_its_last_day(
+        self, organization_plan_factory
+    ):
+        """Stripe ends it during that day; ending it at midnight takes the day."""
+        item = SubscriptionItemFactory(
+            plan=organization_plan_factory(),
+            subscription__organization=self._not_due(),
+            subscription__subscription_id="sub_ending",
+            subscription__cancelled=True,
+            subscription__cancel_at=date.today(),
+        )
+
+        tasks.restore_organization()
+
+        assert SubscriptionItem.objects.filter(pk=item.pk).exists()
+
+    def test_a_stripe_cancellation_ends_the_day_after(
+        self, organization_plan_factory, quiet
+    ):
+        """For when Stripe's deletion event never reached us."""
+        organization = self._not_due()
+        item = SubscriptionItemFactory(
+            plan=organization_plan_factory(),
+            subscription__organization=organization,
+            subscription__subscription_id="sub_ended",
+            subscription__cancelled=True,
+            subscription__cancel_at=date.today() - timedelta(1),
+        )
+
+        tasks.restore_organization()
+
+        assert not SubscriptionItem.objects.filter(pk=item.pk).exists()
+        assert organization.uuid in quiet.call_args[0][1]
+
+    def test_a_later_cancellation_waits(self, organization_plan_factory):
+        organization = self._not_due()
+        item = SubscriptionItemFactory(
+            plan=organization_plan_factory(),
+            subscription__organization=organization,
+            subscription__cancelled=True,
+            subscription__cancel_at=date.today() + timedelta(1),
+        )
+
+        tasks.restore_organization()
+
+        assert SubscriptionItem.objects.filter(pk=item.pk).exists()
+
+    def test_an_undated_cancellation_waits_for_the_reset_day(
+        self, organization_plan_factory
+    ):
+        item = SubscriptionItemFactory(
+            plan=organization_plan_factory(),
+            subscription__organization=self._not_due(),
+            subscription__cancelled=True,
+        )
+
+        tasks.restore_organization()
+
+        assert SubscriptionItem.objects.filter(pk=item.pk).exists()
+
+    def test_the_reset_day_stays_while_another_subscription_does(
+        self, organization_plan_factory, professional_plan_factory
+    ):
+        organization = self._not_due()
+        SubscriptionItemFactory(
+            plan=organization_plan_factory(),
+            subscription__organization=organization,
+            subscription__cancelled=True,
+            subscription__cancel_at=date.today(),
+        )
+        SubscriptionItemFactory(
+            plan=professional_plan_factory(),
+            subscription__organization=organization,
+            subscription__interval="annual",
+        )
+
+        tasks.restore_organization()
+
+        organization.refresh_from_db()
+        assert organization.update_on == date.today() + timedelta(10)
+
+    @pytest.mark.parametrize("days", [0, -1])
+    def test_a_comp_ends_on_its_date(self, plan_factory, quiet, days):
+        organization = self._not_due()
+        comp = SubscriptionItemFactory(
+            plan=plan_factory(name="Comp", base_price=0, price_per_user=0),
+            subscription__organization=organization,
+            subscription__kind="free",
+            ends_on=date.today() + timedelta(days),
+        )
+
+        tasks.restore_organization()
+
+        assert not SubscriptionItem.objects.filter(pk=comp.pk).exists()
+        assert not Subscription.objects.filter(pk=comp.subscription_id).exists()
+        organization.refresh_from_db()
+        assert organization.update_on is None
+        assert organization.uuid in quiet.call_args[0][1]
+
+    def test_a_later_comp_stays(self, plan_factory):
+        comp = SubscriptionItemFactory(
+            plan=plan_factory(name="Comp", base_price=0, price_per_user=0),
+            subscription__organization=self._not_due(),
+            subscription__kind="free",
+            ends_on=date.today() + timedelta(1),
+        )
+
+        tasks.restore_organization()
+
+        assert SubscriptionItem.objects.filter(pk=comp.pk).exists()
+
+    def test_an_ending_comp_leaves_the_other_free_lines(self, plan_factory):
+        ending = SubscriptionItemFactory(
+            plan=plan_factory(name="Comp", base_price=0, price_per_user=0),
+            subscription__organization=self._not_due(),
+            subscription__kind="free",
+            ends_on=date.today(),
+        )
+        staying = SubscriptionItemFactory(
+            plan=plan_factory(name="Other Comp", base_price=0, price_per_user=0),
+            subscription=ending.subscription,
+        )
+
+        tasks.restore_organization()
+
+        assert not SubscriptionItem.objects.filter(pk=ending.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=staying.pk).exists()
+
+    def test_a_paid_line_with_an_end_date_is_left_billing(
+        self, organization_plan_factory
+    ):
+        """Deleting it here would leave Stripe charging for it."""
+        item = SubscriptionItemFactory(
+            plan=organization_plan_factory(),
+            subscription__organization=self._not_due(),
+            ends_on=date.today(),
+        )
+
+        tasks.restore_organization()
+
+        assert SubscriptionItem.objects.filter(pk=item.pk).exists()
+
+
 class TestRestoreOrganizationGrants:
     """Coverage for grant-only org refresh in restore_organization."""
 

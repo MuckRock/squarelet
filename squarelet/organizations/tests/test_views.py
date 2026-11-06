@@ -1797,6 +1797,55 @@ class TestManageSubscriptions(ViewTestMixin):
         assert b"$8,000.00" in response.content
         assert b"$1,380.00" not in response.content
 
+    @pytest.mark.parametrize(
+        "ends_on, shown", [(date(2027, 1, 31), True), (None, False)]
+    )
+    def test_a_comp_says_when_it_ends(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        ends_on,
+        shown,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="free",
+            plan=plan_factory(name="Comp", base_price=0, price_per_user=0),
+            ends_on=ends_on,
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug).render()
+
+        # "Ends on", not "Free until": the comp is gone from 00:05 that day.
+        assert (b"Ends on" in response.content) is shown
+        assert (b"Jan. 31, 2027" in response.content) is shown
+
+    def test_a_paid_line_shows_no_comp_end(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        organization_plan_factory,
+        subscription_item_factory,
+    ):
+        """A paid line keeps billing past its end date, so don't announce one."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        subscription_item_factory(
+            subscription__organization=organization,
+            plan=organization_plan_factory(),
+            ends_on=date(2027, 1, 31),
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug).render()
+
+        assert b"Jan. 31, 2027" not in response.content
+
     def test_more_plans_do_not_mean_more_queries(
         self,
         rf,
