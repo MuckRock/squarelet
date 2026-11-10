@@ -31,7 +31,11 @@
             <ul>
             {% for subscription, org in existing_subscriptions %}
               <li class="subscription-info">
-                <a href="{% url "organizations:detail" org.slug %}">{{ org.name }}</a> is already subscribed to {{ plan.name }}
+                {% if org.individual %}
+                  <a href="{% url "users:detail" user.username %}">{{ org.name }}</a> is already subscribed to {{ plan.name }}
+                {% else %}
+                  <a href="{% url "organizations:detail" org.slug %}">{{ org.name }}</a> is already subscribed to {{ plan.name }}
+                {% endif %}
               </li>
             {% endfor %}
             </ul>
