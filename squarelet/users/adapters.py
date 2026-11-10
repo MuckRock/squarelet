@@ -24,6 +24,7 @@ from squarelet.services.models import Service
 from squarelet.users.onboarding import OnboardingStepRegistry
 
 
+# pylint:disable=abstract-method
 class AccountAdapter(DefaultAccountAdapter):
     """
     Custom account adapter for allauth.
