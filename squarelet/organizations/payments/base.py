@@ -138,7 +138,7 @@ class ChargeService(ABC):
     """Manages Stripe Charge objects."""
 
     @abstractmethod
-    def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def create(  # pylint: disable=too-many-positional-arguments
         self,
         amount,
         currency,
