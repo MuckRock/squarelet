@@ -225,7 +225,7 @@ class StripeModernSubscriptionService(SubscriptionService):
 class StripeModernChargeService(ChargeService):
     """Charge operations using PaymentIntents."""
 
-    def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def create(  # pylint: disable=too-many-positional-arguments
         self,
         amount,
         currency,
