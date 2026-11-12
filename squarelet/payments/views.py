@@ -32,7 +32,13 @@ from allauth.account.adapter import get_adapter
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import format_stripe_error, new_action
-from squarelet.organizations.models import Charge, Organization, Plan, PlanPrice
+from squarelet.organizations.models import (
+    Charge,
+    Organization,
+    Plan,
+    PlanPrice,
+    PriceGrant,
+)
 from squarelet.organizations.models.payment import ReceiptEmail, SubscriptionItem
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import NotForSale, SubscriptionError
@@ -837,6 +843,20 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         held = self.object.line_holding(plan)
         return held is not None and held.subscription.kind != "free"
 
+    @staticmethod
+    def _sold_at(plan, interval, organization, dealt, sold_by_rate):
+        """The price `organization` would buy `plan` at `interval`, or None.
+
+        Without a deal only the nonprofit rate decides, so those accounts
+        share one lookup in `sold_by_rate`.
+        """
+        nonprofit = organization.nonprofit
+        if organization.pk in dealt:
+            return plan.checkout_prices(interval, nonprofit, organization)[0]
+        if nonprofit not in sold_by_rate:
+            sold_by_rate[nonprofit] = plan.checkout_prices(interval, nonprofit)[0]
+        return sold_by_rate[nonprofit]
+
     def get_organization_choices(self, plan, interval):
         """`(organization, checkout url)` for each account the user may switch to.
 
@@ -852,26 +872,26 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             if organization != self.object
         ]
         held = SubscriptionItem.objects.paid_holders(plan, orgs)
+        dealt = PriceGrant.holders(orgs, plan)
+        sold_by_rate = {}
         for organization in orgs:
             if organization.pk in held:
                 continue
+            # Another account may not be sold this interval (its deal is at the
+            # other), so its own checkout link picks one for it.
+            sold = self._sold_at(plan, interval, organization, dealt, sold_by_rate)
+            name = "plan-checkout" if sold is not None else "plan"
+            kwargs = {"plan_slug": plan.slug}
+            if sold is not None:
+                kwargs["interval"] = interval
             if organization.individual:
                 url = reverse(
-                    "users:plan-checkout",
-                    kwargs={
-                        "username": user.username,
-                        "plan_slug": plan.slug,
-                        "interval": interval,
-                    },
+                    f"users:{name}", kwargs={"username": user.username, **kwargs}
                 )
             else:
                 url = reverse(
-                    "organizations:plan-checkout",
-                    kwargs={
-                        "slug": organization.slug,
-                        "plan_slug": plan.slug,
-                        "interval": interval,
-                    },
+                    f"organizations:{name}",
+                    kwargs={"slug": organization.slug, **kwargs},
                 )
             choices.append((organization, url + query))
         return choices
