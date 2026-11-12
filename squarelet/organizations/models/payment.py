@@ -1219,18 +1219,6 @@ class SubscriptionItem(models.Model):
                 f"share a subscription.  Remove the line and add the new plan."
             )
 
-        if plan_price:
-            # As in start(): the price may have missed Stripe when made.
-            plan_price.ensure_stripe_price()
-
-        # Identified while the price still matches, or the item is sent with no
-        # id, which Stripe adds alongside the old one: billed for both.
-        stripe_sub = self.subscription.stripe_subscription
-        if stripe_sub is not None:
-            self.subscription.sync_stripe_item_ids(stripe_sub)
-            # It wrote straight to the rows, so this instance is stale.
-            self.refresh_from_db()
-
         if grant is not None:
             self.granted_reason = grant.reason
             self.granted_by = grant.granted_by
@@ -1240,7 +1228,53 @@ class SubscriptionItem(models.Model):
             # The deal stays behind on the tier it was given for.
             self.granted_reason = ""
             self.granted_by = None
-        self.plan = canonical_plan
+        self._switch_price(canonical_plan, plan_price, quantity=quantity)
+
+    def apply_grant(self, grant):
+        """Bill this line at `grant`'s price from now on, and tell Stripe.
+
+        Raises SubscriptionError when the price is on another plan, interval or
+        kind of subscription: comping a paid line, say, is a removal and a new
+        purchase.
+        """
+        price = grant.plan_price
+        if price.plan_id != self.plan_id:
+            raise SubscriptionError(
+                f"{self} is on {self.plan}, not the granted price's {price.plan}."
+            )
+        if price.interval != self.subscription.interval:
+            raise SubscriptionError(
+                f"The granted price bills {price.interval} and this subscription "
+                f"bills {self.subscription.interval}.  Remove the line and buy "
+                f"the plan again."
+            )
+        if Subscription.kind_for(self.plan, price) != self.subscription.kind:
+            raise SubscriptionError(
+                f"The granted price and this line's subscription never share a "
+                f"subscription ({self.subscription.kind}).  Remove the line and "
+                f"buy the plan again."
+            )
+        self.granted_reason = grant.reason
+        self.granted_by = grant.granted_by
+        if price.amount == 0:
+            self.ends_on = grant.ends_on
+        self._switch_price(self.plan, price)
+
+    def _switch_price(self, plan, plan_price, quantity=None):
+        """Point this line at `plan_price`, saved, and bill it on Stripe."""
+        # As in start(): the price may have missed Stripe when made.
+        plan_price.ensure_stripe_price()
+
+        # Identified while the price still matches, or the item is sent with no
+        # id, which Stripe adds alongside the old one: billed for both.
+        stripe_sub = self.subscription.stripe_subscription
+        if stripe_sub is not None:
+            self.subscription.sync_stripe_item_ids(stripe_sub)
+            # It wrote straight to the rows; reload only that, so fields the
+            # caller has set survive.
+            self.refresh_from_db(fields=["stripe_item_id"])
+
+        self.plan = plan
         self.plan_price = plan_price
         if quantity is not None:
             self.quantity = quantity
@@ -2189,6 +2223,27 @@ class PlanPrice(models.Model):
         self.save(update_fields=["stripe_price_id"])
         return price.id
 
+    def carry_grants(self):
+        """Move grants on retired prices like this one onto its active row.
+
+        Staff change a price by retiring the old row and adding a new one;
+        without this every deal on the old row is lost.  An organization that
+        already has the active row keeps just that.
+        """
+        variant = {
+            "plan_id": self.plan_id,
+            "interval": self.interval,
+            "label": self.label,
+            "code": self.code,
+        }
+        active = PlanPrice.objects.filter(**variant, active=True).first()
+        if active is None:
+            return
+        retired = PlanPrice.objects.filter(**variant, active=False)
+        PriceGrant.objects.filter(plan_price__in=retired).exclude(
+            organization__price_grants__plan_price=active
+        ).update(plan_price=active)
+
     def supersede(self, amount):
         """Retire this price and return its replacement at a new amount.
 
@@ -2221,6 +2276,8 @@ class PlanPrice(models.Model):
                 amount=amount,
                 currency=self.currency,
             )
+            # Or every organization given this price loses its deal.
+            self.grants.update(plan_price=replacement)
 
         # Idempotent, so a failure here is finished by calling it again -
         # which matters under ATOMIC_REQUESTS, where the caller's request is

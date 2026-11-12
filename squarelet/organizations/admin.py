@@ -46,6 +46,7 @@ from squarelet.organizations.models import (
     Subscription,
     SubscriptionItem,
 )
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
 
@@ -823,6 +824,11 @@ class PlanAdmin(StripeLinkMixin, VersionAdmin):
             obj.save()
             if isinstance(obj, PlanPrice):
                 obj.ensure_stripe_price()
+        # Once every row is saved, so the retired row and its replacement both
+        # are.
+        for obj in instances:
+            if isinstance(obj, PlanPrice):
+                obj.carry_grants()
         formset.save_m2m()
 
 
@@ -863,6 +869,7 @@ class PlanPriceAdmin(StripeLinkMixin, VersionAdmin):
         """
         super().save_model(request, obj, form, change)
         obj.ensure_stripe_price()
+        obj.carry_grants()
 
 
 @admin.register(PriceGrant)
@@ -870,7 +877,7 @@ class PriceGrantAdmin(VersionAdmin):
     """Give an organization a comped or negotiated price.
 
     It pays this price the next time it buys the plan at that interval.  A
-    line it already holds keeps its price.
+    line it already holds keeps its price until "Move to the granted price".
     """
 
     list_display = ("organization", "plan_price", "granted_by", "ends_on", "created_at")
@@ -878,12 +885,47 @@ class PriceGrantAdmin(VersionAdmin):
     search_fields = ("organization__name", "plan_price__plan__name", "reason")
     autocomplete_fields = ("organization", "plan_price", "granted_by")
     readonly_fields = ("created_at",)
+    actions = ["move_to_granted_price"]
 
     def get_changeform_initial_data(self, request):
         return {
             "granted_by": request.user.pk,
             **super().get_changeform_initial_data(request),
         }
+
+    @admin.action(description="Move to the granted price")
+    def move_to_granted_price(self, request, queryset):
+        """Bill each organization's existing line at its grant, Stripe included.
+
+        A grant is only applied at the next purchase on its own; this is for an
+        organization that already holds the plan.
+        """
+        for grant in queryset.select_related("organization", "plan_price__plan"):
+            line = grant.organization.line_holding(grant.plan_price.plan)
+            if line is None:
+                self.message_user(
+                    request,
+                    f"{grant.organization} doesn't hold {grant.plan_price.plan}: "
+                    f"the grant applies when it buys it.",
+                    level=messages.WARNING,
+                )
+                continue
+            try:
+                line.apply_grant(grant)
+            except (SubscriptionError, stripe.StripeError) as exc:
+                logger.error(
+                    "Could not move %s to its granted price: %s",
+                    line,
+                    exc,
+                    exc_info=sys.exc_info(),
+                )
+                self.message_user(
+                    request, f"{grant.organization}: {exc}", level=messages.ERROR
+                )
+                continue
+            self.message_user(
+                request, f"{grant.organization} now pays {grant.plan_price}."
+            )
 
 
 @admin.register(Entitlement)
