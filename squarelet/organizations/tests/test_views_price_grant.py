@@ -2,6 +2,9 @@
 
 # pylint: disable=too-many-positional-arguments
 
+# Standard Library
+from datetime import date
+
 # Third Party
 import pytest
 
@@ -171,6 +174,20 @@ class TestADealSkipsTheSunlightCap(ViewTestMixin):
 
         add_subscription.assert_called_once()
         add_to_waitlist.delay.assert_not_called()
+
+    def test_an_ended_comp_waits_like_anyone_else(
+        self, rf, admin, organization, sunlight, price_grant_factory
+    ):
+        price_grant_factory(
+            organization=organization,
+            plan_price=sunlight.prices.get(),
+            ends_on=date(2020, 1, 1),
+        )
+        sunlight.prices.update(label="standard", amount=5_000)
+
+        content = self.call(rf, admin, organization, sunlight).render().content
+
+        assert b"Join the waitlist" in content
 
 
 @pytest.mark.django_db()
