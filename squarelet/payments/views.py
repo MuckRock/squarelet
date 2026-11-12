@@ -793,12 +793,13 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
     def get_prices(self, plan, interval):
         return plan.checkout_prices(interval, self.object.nonprofit, self.object)
 
-    def is_granted(self, price):
-        return self.object.price_grants.filter(plan_price=price).exists()
+    def is_granted(self, plan, price):
+        granted = SubscriptionItem.objects.granted_prices(plan, self.object)
+        return price in granted.values()
 
     def is_full(self, plan, price):
         """Whether a self-serve purchase must wait; staff deals skip the cap."""
-        return not plan.has_available_slots() and not self.is_granted(price)
+        return not plan.has_available_slots() and not self.is_granted(plan, price)
 
     def get_interval(self):
         interval = self.kwargs["interval"]
@@ -968,7 +969,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         if (
             plan.is_sunlight_plan
             and plan.wix
-            and not self.is_granted(price)
+            and not self.is_granted(plan, price)
             and SubscriptionItem.objects.select_for_update().sunlight_active_count()
             >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         ):
