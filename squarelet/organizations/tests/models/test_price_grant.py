@@ -10,6 +10,7 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.models import PriceGrant, SubscriptionItem
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 
 @pytest.fixture(name="no_stripe")
@@ -252,3 +253,16 @@ class TestMergingOrganizations:
 
         assert list(own.organization.price_grants.all()) == [own]
         assert not merged.price_grants.exists()
+
+
+@pytest.mark.django_db()
+@pytest.mark.usefixtures("no_stripe")
+def test_a_comp_already_held_is_not_bought_again(
+    tier, plan_price_factory, price_grant_factory, user_factory
+):
+    comp = plan_price_factory(plan=tier, label="comped", amount=0)
+    grant = price_grant_factory(plan_price=comp)
+    SubscriptionItem.objects.start(organization=grant.organization, plan=tier)
+
+    with pytest.raises(SubscriptionError, match="already has"):
+        grant.organization.add_subscription(tier, None, user_factory())

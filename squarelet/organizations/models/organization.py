@@ -574,7 +574,14 @@ class Organization(AvatarMixin, models.Model):
         Organization.objects.select_for_update().filter(pk=self.pk).get()
 
         held = self.line_holding(plan)
-        if held is not None and held.subscription.kind != "free":
+        if held is not None and (
+            held.subscription.kind != "free"
+            # A comp it was granted would only be bought again.
+            or held.plan_price
+            == self.subscription_items.resolve_purchase(
+                plan, nonprofit, interval, self
+            )[1]
+        ):
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
