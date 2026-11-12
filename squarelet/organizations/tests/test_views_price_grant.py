@@ -120,6 +120,31 @@ class TestCheckingOutAtTheGrantedPrice(ViewTestMixin):
 
         assert "Invoiced today" not in response.render().content.decode()
 
+    def test_another_account_is_linked_to_an_interval_it_can_buy(
+        self,
+        rf,
+        admin,
+        organization,
+        organization_factory,
+        plan_price_factory,
+        price_grant_factory,
+    ):
+        plan = plan_price_factory(plan__name="Tier", interval="annual").plan
+        plan_price_factory(plan=plan, interval="monthly")
+        other = organization_factory(admins=[admin], name="Other Newsroom")
+        deal = plan_price_factory(plan=plan, code="deal", amount=7_000)
+        price_grant_factory(organization=other, plan_price=deal)
+
+        response = self.call_view(
+            rf, admin, slug=organization.slug, plan_slug=plan.slug, interval="annual"
+        )
+
+        urls = dict(
+            (choice.pk, url)
+            for choice, url in response.context_data["organization_choices"]
+        )
+        assert urls[other.pk] == f"/organizations/{other.slug}/plans/{plan.slug}/"
+
 
 @pytest.mark.django_db()
 class TestADealSkipsTheSunlightCap(ViewTestMixin):

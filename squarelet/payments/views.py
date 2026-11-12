@@ -852,23 +852,21 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             held = organization.line_holding(plan)
             if held is not None and held.subscription.kind != "free":
                 continue
+            # Another account may not be sold this interval (its deal is at the
+            # other), so its own checkout link picks one for it.
+            sold = plan.checkout_prices(interval, organization.nonprofit, organization)
+            name = "plan-checkout" if sold[0] is not None else "plan"
+            kwargs = {"plan_slug": plan.slug}
+            if sold[0] is not None:
+                kwargs["interval"] = interval
             if organization.individual:
                 url = reverse(
-                    "users:plan-checkout",
-                    kwargs={
-                        "username": user.username,
-                        "plan_slug": plan.slug,
-                        "interval": interval,
-                    },
+                    f"users:{name}", kwargs={"username": user.username, **kwargs}
                 )
             else:
                 url = reverse(
-                    "organizations:plan-checkout",
-                    kwargs={
-                        "slug": organization.slug,
-                        "plan_slug": plan.slug,
-                        "interval": interval,
-                    },
+                    f"organizations:{name}",
+                    kwargs={"slug": organization.slug, **kwargs},
                 )
             choices.append((organization, url + query))
         return choices
