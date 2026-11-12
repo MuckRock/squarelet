@@ -1,6 +1,7 @@
 # Django
 from django import forms
 from django.contrib import admin, messages
+from django.db import transaction
 from django.db.models import Count, JSONField, Prefetch, Q, Sum
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import Textarea
@@ -22,6 +23,7 @@ from reversion.admin import VersionAdmin
 
 # Squarelet
 from squarelet.core.utils import get_stripe_dashboard_url, new_action
+from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import (
     Charge,
     Customer,
@@ -904,8 +906,19 @@ class PriceGrantAdmin(VersionAdmin):
                     level=messages.WARNING,
                 )
                 continue
+            from_plan, quantity = line.plan, line.quantity
             try:
-                line.apply_grant(grant)
+                # Per grant, so a Stripe failure leaves the line as Stripe has it.
+                with transaction.atomic():
+                    line.apply_grant(grant)
+                    grant.organization.change_logs.create(
+                        user=request.user,
+                        reason=ChangeLogReason.updated,
+                        from_plan=from_plan,
+                        from_max_users=quantity,
+                        to_plan=line.plan,
+                        to_max_users=line.quantity,
+                    )
             except (SubscriptionError, stripe.StripeError) as exc:
                 logger.error(
                     "Could not move %s to its granted price: %s",

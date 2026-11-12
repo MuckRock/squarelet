@@ -1233,12 +1233,21 @@ class SubscriptionItem(models.Model):
     def apply_grant(self, grant):
         """Bill this line at `grant`'s price from now on, and tell Stripe.
 
-        Raises SubscriptionError when the price is on another plan, interval or
-        kind of subscription: comping a paid line, say, is a removal and a new
+        Raises SubscriptionError when the grant has ended or its price has no
+        active row, or the price is on another tier, interval or kind of
+        subscription: comping a paid line, say, is a removal and a new
         purchase.
         """
-        price = grant.plan_price
-        if price.plan_id != self.plan_id:
+        terms = grant.plan_price
+        live = PriceGrant.for_tier(self.organization, terms.plan.slug).get(
+            terms.interval
+        )
+        if live is None or live.pk != grant.pk:
+            raise SubscriptionError(
+                "This grant has ended, or its price has no active row to bill."
+            )
+        price = live.price
+        if price.plan not in SubscriptionItem.objects.plans_of_tier(self.plan):
             raise SubscriptionError(
                 f"{self} is on {self.plan}, not the granted price's {price.plan}."
             )
@@ -1258,7 +1267,7 @@ class SubscriptionItem(models.Model):
         self.granted_by = grant.granted_by
         if price.amount == 0:
             self.ends_on = grant.ends_on
-        self._switch_price(self.plan, price)
+        self._switch_price(price.plan, price)
 
     def _switch_price(self, plan, plan_price, quantity=None):
         """Point this line at `plan_price`, saved, and bill it on Stripe."""
