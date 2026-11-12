@@ -452,19 +452,19 @@ class ChargeQuerySet(models.QuerySet):
 
 class SubscriptionItemQuerySet(models.QuerySet):
     @staticmethod
-    def resolve_purchase(plan, nonprofit=False, interval=None):
+    def resolve_purchase(plan, nonprofit=False, interval=None, organization=None):
         """The `(plan, price)` a purchase of `plan` is recorded as.
 
         Annual and nonprofit are separate Plan rows today; both land on their
         canonical tier's price, as the migration lands existing lines.
-        `interval` overrides the one the plan row implies.  `(plan, None)`
-        until `consolidate_stripe_products` has created the price, which bills
-        the legacy plan as before.
+        `interval` overrides the one the plan row implies.  A price staff have
+        granted `organization` on the tier at that interval beats the
+        nonprofit and list prices.  `(plan, None)` when there is no price.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
         # Squarelet
-        from squarelet.organizations.models.payment import PlanPrice
+        from squarelet.organizations.models.payment import PlanPrice, PriceGrant
 
         slug, plan_interval, label, code = resolve_target(plan.slug) or (
             plan.slug,
@@ -473,6 +473,19 @@ class SubscriptionItemQuerySet(models.QuerySet):
             "",
         )
         interval = interval or plan_interval
+        if organization is not None:
+            grant = (
+                PriceGrant.objects.select_related("plan_price__plan")
+                .filter(
+                    organization=organization,
+                    plan_price__plan__slug=slug,
+                    plan_price__interval=interval,
+                    plan_price__active=True,
+                )
+                .first()
+            )
+            if grant is not None:
+                return grant.plan_price.plan, grant.plan_price
         if nonprofit and label == "standard":
             label = "nonprofit"
         price = (
@@ -533,7 +546,9 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Squarelet
         from squarelet.organizations.models.payment import Subscription
 
-        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit, interval)
+        canonical_plan, plan_price = self.resolve_purchase(
+            plan, nonprofit, interval, organization
+        )
         if plan_price is None:
             raise NotForSale(f"{plan} is not for sale: it has no price")
         # Before anything is saved: a plan's price is made on Stripe after
@@ -578,11 +593,15 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Inside the transaction on purpose: a Stripe failure must not leave
         # an organization holding a line nobody bills.
         with transaction.atomic():
+            grant = organization.price_grants.filter(plan_price=plan_price).first()
             item = self.model.objects.create(
                 subscription=subscription,
                 plan=canonical_plan,
                 plan_price=plan_price,
                 quantity=quantity,
+                granted_reason=grant.reason if grant else "",
+                granted_by=grant.granted_by if grant else None,
+                ends_on=grant.ends_on if grant else None,
             )
 
             if created or not subscription.subscription_id:

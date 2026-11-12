@@ -19,6 +19,7 @@ from squarelet.organizations.tests.factories import (
     PaymentMethodFactory,
     PlanFactory,
     PlanPriceFactory,
+    PriceGrantFactory,
     ProfessionalPlanFactory,
     ProfileChangeRequestFactory,
     SubscriptionFactory,
@@ -36,6 +37,7 @@ register(OrganizationFactory)
 register(OrganizationInvitationFactory)
 register(OrganizationPlanFactory)
 register(PlanPriceFactory)
+register(PriceGrantFactory)
 register(ProfessionalPlanFactory)
 register(ProfileChangeRequestFactory)
 register(SubscriptionFactory)

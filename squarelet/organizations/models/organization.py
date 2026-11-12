@@ -1085,6 +1085,17 @@ class Organization(AvatarMixin, models.Model):
         )
         org.domains.all().delete()
 
+        # A deal this org already has on the plan and interval stands.
+        held = set(
+            self.price_grants.values_list("plan_price__plan", "plan_price__interval")
+        )
+        for grant in org.price_grants.select_related("plan_price"):
+            if (grant.plan_price.plan_id, grant.plan_price.interval) in held:
+                grant.delete()
+            else:
+                grant.organization = self
+                grant.save(update_fields=["organization"])
+
         # only take other orgs parent if we do not have one
         if self.parent is None:
             self.parent = org.parent

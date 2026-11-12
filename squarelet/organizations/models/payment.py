@@ -2200,6 +2200,80 @@ class PlanPrice(models.Model):
         return replacement
 
 
+class PriceGrant(models.Model):
+    """A comped or negotiated price staff have given one organization.
+
+    When the organization buys the price's plan at its interval, it pays this
+    price instead of the list or nonprofit price.  The reason, approver and
+    end date are copied onto the line it buys.
+    """
+
+    organization = models.ForeignKey(
+        verbose_name=_("organization"),
+        to="organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="price_grants",
+    )
+    plan_price = models.ForeignKey(
+        verbose_name=_("plan price"),
+        to="organizations.PlanPrice",
+        on_delete=models.PROTECT,
+        related_name="grants",
+        help_text=_("The price this organization pays when it buys the plan"),
+    )
+    reason = models.TextField(
+        _("reason"), help_text=_("Why this organization gets this price")
+    )
+    granted_by = models.ForeignKey(
+        verbose_name=_("granted by"),
+        to="users.User",
+        on_delete=models.PROTECT,
+        related_name="price_grants_given",
+        help_text=_("Staff member who approved the price"),
+    )
+    ends_on = models.DateField(
+        _("ends on"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "For a free price: the day the line it buys stops.  Paid prices end "
+            "with their subscription."
+        ),
+    )
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+
+    class Meta:
+        ordering = ("organization", "plan_price")
+
+    def __str__(self):
+        return f"{self.organization} at {self.plan_price}"
+
+    def clean(self):
+        if self.plan_price_id is None:
+            return
+        price = self.plan_price
+        if not price.active:
+            raise ValidationError(
+                {"plan_price": _("A retired price can't be bought, so can't be given.")}
+            )
+        # A paid line can't take an end date: Stripe would go on billing it.
+        if self.ends_on and price.amount != 0:
+            raise ValidationError(
+                {"ends_on": _("Only a free price can end on a date of its own.")}
+            )
+        # Purchases look the grant up by plan and interval, so two would tie.
+        others = PriceGrant.objects.filter(
+            organization_id=self.organization_id,
+            plan_price__plan_id=price.plan_id,
+            plan_price__interval=price.interval,
+        ).exclude(pk=self.pk)
+        if others.exists():
+            raise ValidationError(
+                _("This organization already has a price on %(plan)s, %(interval)s.")
+                % {"plan": price.plan, "interval": price.interval}
+            )
+
+
 class Charge(models.Model):
     """A payment charged to an organization through Stripe"""
 
