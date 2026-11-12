@@ -266,3 +266,84 @@ def test_a_comp_already_held_is_not_bought_again(
 
     with pytest.raises(SubscriptionError, match="already has"):
         grant.organization.add_subscription(tier, None, user_factory())
+
+
+@pytest.mark.django_db()
+class TestChangingTierInPlace:
+    @pytest.fixture(name="other_tier")
+    def other_tier_fixture(self, plan_factory, plan_price_factory):
+        plan = plan_factory(name="Other Tier", for_individuals=False)
+        plan_price_factory(plan=plan, interval="monthly", amount=20_000)
+        return plan
+
+    @pytest.fixture(autouse=True)
+    def no_stripe_sync(self, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+
+    def test_a_deal_on_the_new_tier_is_billed(
+        self,
+        tier,
+        other_tier,
+        plan_price_factory,
+        subscription_item_factory,
+        price_grant_factory,
+    ):
+        line = subscription_item_factory(plan=tier)
+        deal = plan_price_factory(plan=other_tier, label="partner", amount=15_000)
+        grant = price_grant_factory(
+            organization=line.subscription.organization, plan_price=deal
+        )
+
+        line.modify(other_tier)
+
+        line.refresh_from_db()
+        assert line.plan_price == deal
+        assert line.granted_reason == grant.reason
+
+    def test_a_nonprofit_takes_its_deal_where_there_is_no_nonprofit_rate(
+        self,
+        tier,
+        other_tier,
+        plan_price_factory,
+        subscription_item_factory,
+        price_grant_factory,
+    ):
+        line = subscription_item_factory(
+            plan=tier, plan_price=tier.prices.get(label="nonprofit")
+        )
+        deal = plan_price_factory(plan=other_tier, label="partner", amount=15_000)
+        price_grant_factory(
+            organization=line.subscription.organization, plan_price=deal
+        )
+
+        line.modify(other_tier)
+
+        line.refresh_from_db()
+        assert line.plan_price == deal
+
+    def test_leaving_the_deals_tier_leaves_its_reason(
+        self,
+        tier,
+        other_tier,
+        plan_price_factory,
+        subscription_item_factory,
+        price_grant_factory,
+    ):
+        partner = plan_price_factory(plan=tier, label="partner", amount=9_000)
+        line = subscription_item_factory(plan=tier, plan_price=partner)
+        grant = price_grant_factory(
+            organization=line.subscription.organization, plan_price=partner
+        )
+        line.granted_reason = grant.reason
+        line.granted_by = grant.granted_by
+        line.save()
+
+        line.modify(other_tier)
+
+        line.refresh_from_db()
+        assert line.plan_price.amount == 20_000
+        assert line.granted_reason == ""
+        assert line.granted_by is None
