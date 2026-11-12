@@ -824,11 +824,6 @@ class PlanAdmin(StripeLinkMixin, VersionAdmin):
             obj.save()
             if isinstance(obj, PlanPrice):
                 obj.ensure_stripe_price()
-        # Once every row is saved, so the retired row and its replacement both
-        # are.
-        for obj in instances:
-            if isinstance(obj, PlanPrice):
-                obj.carry_grants()
         formset.save_m2m()
 
 
@@ -869,7 +864,6 @@ class PlanPriceAdmin(StripeLinkMixin, VersionAdmin):
         """
         super().save_model(request, obj, form, change)
         obj.ensure_stripe_price()
-        obj.carry_grants()
 
 
 @admin.register(PriceGrant)
