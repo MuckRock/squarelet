@@ -1176,10 +1176,22 @@ class SubscriptionItem(models.Model):
                 f"negotiated rate {self.plan_price.code!r}, which does not carry "
                 f"to another plan."
             )
+        organization = self.organization
         canonical_plan, plan_price = SubscriptionItem.objects.resolve_purchase(
-            plan, nonprofit=self.is_nonprofit
+            plan, nonprofit=self.is_nonprofit, organization=organization
         )
-        if self.is_nonprofit and not (plan_price and plan_price.label == "nonprofit"):
+        grant = (
+            PriceGrant.for_tier(organization, canonical_plan.slug).get(
+                plan_price.interval
+            )
+            if plan_price
+            else None
+        )
+        if (
+            self.is_nonprofit
+            and grant is None
+            and not (plan_price and plan_price.label == "nonprofit")
+        ):
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: {plan} has no "
                 f"nonprofit rate."
@@ -1219,6 +1231,15 @@ class SubscriptionItem(models.Model):
             # It wrote straight to the rows, so this instance is stale.
             self.refresh_from_db()
 
+        if grant is not None:
+            self.granted_reason = grant.reason
+            self.granted_by = grant.granted_by
+        elif self.plan_price in (
+            g.price for g in PriceGrant.for_tier(organization, self.plan.slug).values()
+        ):
+            # The deal stays behind on the tier it was given for.
+            self.granted_reason = ""
+            self.granted_by = None
         self.plan = canonical_plan
         self.plan_price = plan_price
         if quantity is not None:
