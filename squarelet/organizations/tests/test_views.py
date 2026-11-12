@@ -1767,6 +1767,32 @@ class TestManageSubscriptions(ViewTestMixin):
         assert block["lines"] == [item]
         assert block["subscription"].next_date == date(2026, 10, 20)
 
+    def test_a_fixed_term_shows_when_it_ends(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        """Billed monthly, it ends months after the current period does."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="Term Plan", base_price=30),
+            subscription__cancelled=True,
+            subscription__cancel_at=date(2027, 8, 9),
+            subscription__current_period_end=datetime(
+                2026, 11, 9, 18, tzinfo=dt_timezone.utc
+            ),
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug).render()
+
+        assert b"Aug. 9, 2027" in response.content
+        assert b"Nov. 9, 2026" not in response.content
+
     def test_a_priced_line_shows_its_own_price(
         self,
         rf,
@@ -2187,6 +2213,25 @@ class TestCancelSubscription(ViewTestMixin):
         assert response.status_code == 302
         remove.assert_not_called()
         assert not Action.objects.filter(verb="cancelled a subscription").exists()
+
+    def test_a_fixed_term_says_when_it_really_ends(
+        self, rf, user_factory, organization_factory, subscription_item_factory
+    ):
+        """Its own date, not the end of the month it is billed for."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(
+            subscription__organization=organization,
+            subscription__cancelled=True,
+            subscription__cancel_at=date(2027, 8, 9),
+            subscription__current_period_end=datetime(
+                2026, 11, 9, 18, tzinfo=dt_timezone.utc
+            ),
+        )
+
+        self.call_view(rf, admin, {}, slug=organization.slug, pk=line.pk)
+
+        self.assert_message(messages.INFO, "This already ends on 2027-08-09.")
 
     def test_staff_cancel_subscription_creates_action(
         self,
