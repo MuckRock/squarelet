@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone, localtime
+from django.utils.timezone import get_current_timezone, localdate, localtime
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -2205,7 +2205,10 @@ class PriceGrant(models.Model):
 
     When the organization buys the price's plan at its interval, it pays this
     price instead of the list or nonprofit price.  The reason, approver and
-    end date are copied onto the line it buys.
+    end date are copied onto the line it buys.  The deal follows its price's
+    terms (interval, label and code) to whichever row is active, so it
+    survives the price being retired and replaced; delete the grant, or give
+    a comp an end date, to end it.
     """
 
     organization = models.ForeignKey(
@@ -2248,6 +2251,32 @@ class PriceGrant(models.Model):
     def __str__(self):
         return f"{self.organization} at {self.plan_price}"
 
+    @classmethod
+    def for_tier(cls, organization, slug):
+        """`{interval: grant}` for `organization`'s live deals on tier `slug`.
+
+        Each grant's `price` is the active row with its price's terms.  A grant
+        past its end date, or whose terms have no active row, is left out.
+        """
+        active = {
+            (price.interval, price.label, price.code): price
+            for price in PlanPrice.objects.select_related("plan").filter(
+                plan__slug=slug, active=True
+            )
+        }
+        grants = (
+            cls.objects.select_related("plan_price", "granted_by")
+            .filter(organization=organization, plan_price__plan__slug=slug)
+            .exclude(ends_on__lt=localdate())
+        )
+        live = {}
+        for grant in grants:
+            terms = grant.plan_price
+            grant.price = active.get((terms.interval, terms.label, terms.code))
+            if grant.price is not None:
+                live[grant.price.interval] = grant
+        return live
+
     def clean(self):
         if self.plan_price_id is None:
             return
@@ -2261,6 +2290,8 @@ class PriceGrant(models.Model):
             raise ValidationError(
                 {"ends_on": _("Only a free price can end on a date of its own.")}
             )
+        if self.ends_on and self.ends_on < localdate():
+            raise ValidationError({"ends_on": _("That date has already passed.")})
         # Purchases look the grant up by plan and interval, so two would tie.
         others = PriceGrant.objects.filter(
             organization_id=self.organization_id,

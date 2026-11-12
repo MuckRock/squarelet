@@ -458,8 +458,9 @@ class SubscriptionItemQuerySet(models.QuerySet):
         Annual and nonprofit are separate Plan rows today; both land on their
         canonical tier's price, as the migration lands existing lines.
         `interval` overrides the one the plan row implies.  A price staff have
-        granted `organization` on the tier at that interval beats the
-        nonprofit and list prices.  `(plan, None)` when there is no price.
+        granted `organization` on the tier beats the nonprofit and list
+        prices, and it is sold only at its deals' intervals.  `(plan, None)`
+        when there is no price.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
@@ -474,18 +475,10 @@ class SubscriptionItemQuerySet(models.QuerySet):
         )
         interval = interval or plan_interval
         if organization is not None:
-            grant = (
-                PriceGrant.objects.select_related("plan_price__plan")
-                .filter(
-                    organization=organization,
-                    plan_price__plan__slug=slug,
-                    plan_price__interval=interval,
-                    plan_price__active=True,
-                )
-                .first()
-            )
-            if grant is not None:
-                return grant.plan_price.plan, grant.plan_price
+            grants = PriceGrant.for_tier(organization, slug)
+            if grants:
+                grant = grants.get(interval)
+                return (grant.price.plan, grant.price) if grant else (plan, None)
         if nonprofit and label == "standard":
             label = "nonprofit"
         price = (
@@ -544,7 +537,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
         # Squarelet
-        from squarelet.organizations.models.payment import Subscription
+        from squarelet.organizations.models.payment import PriceGrant, Subscription
 
         canonical_plan, plan_price = self.resolve_purchase(
             plan, nonprofit, interval, organization
@@ -593,7 +586,9 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Inside the transaction on purpose: a Stripe failure must not leave
         # an organization holding a line nobody bills.
         with transaction.atomic():
-            grant = organization.price_grants.filter(plan_price=plan_price).first()
+            grant = PriceGrant.for_tier(organization, canonical_plan.slug).get(
+                plan_price.interval
+            )
             item = self.model.objects.create(
                 subscription=subscription,
                 plan=canonical_plan,
@@ -601,7 +596,8 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 quantity=quantity,
                 granted_reason=grant.reason if grant else "",
                 granted_by=grant.granted_by if grant else None,
-                ends_on=grant.ends_on if grant else None,
+                # A deal's end date only ever stops a free line.
+                ends_on=grant.ends_on if grant and not plan_price.amount else None,
             )
 
             if created or not subscription.subscription_id:

@@ -53,11 +53,36 @@ class TestAGrantIsBoughtInsteadOfTheListPrice:
         assert self._resolve(tier, grant.organization, nonprofit=True) == deal
 
     def test_only_at_its_own_interval(self, tier, deal, price_grant_factory):
+        """Not the list price at another: that's a deal staff haven't made."""
         grant = price_grant_factory(plan_price=deal)
 
-        price = self._resolve(tier, grant.organization, interval="annual")
+        assert self._resolve(tier, grant.organization, interval="annual") is None
 
-        assert price.amount == 100_000
+    def test_it_follows_its_price_to_the_replacement_row(
+        self, tier, deal, plan_price_factory, price_grant_factory
+    ):
+        grant = price_grant_factory(plan_price=deal)
+        deal.active = False
+        deal.save()
+        replacement = plan_price_factory(plan=tier, code="deal", amount=7_500)
+
+        assert self._resolve(tier, grant.organization) == replacement
+
+    def test_an_ended_comp_is_not_bought(
+        self, tier, plan_price_factory, price_grant_factory
+    ):
+        comp = plan_price_factory(plan=tier, label="comped", amount=0)
+        grant = price_grant_factory(plan_price=comp, ends_on=date(2020, 1, 1))
+
+        assert self._resolve(tier, grant.organization).amount == 10_000
+
+    def test_a_comp_is_bought_on_its_last_day(
+        self, tier, plan_price_factory, price_grant_factory
+    ):
+        comp = plan_price_factory(plan=tier, label="comped", amount=0)
+        grant = price_grant_factory(plan_price=comp, ends_on=date.today())
+
+        assert self._resolve(tier, grant.organization) == comp
 
     def test_only_for_its_own_organization(
         self, tier, deal, price_grant_factory, organization_factory
@@ -101,6 +126,23 @@ class TestTheLineCarriesTheGrant:
         assert item.is_free
         assert item.ends_on == date(2027, 6, 30)
 
+    def test_a_comp_now_charged_for_takes_no_end_date(
+        self, tier, plan_price_factory, price_grant_factory
+    ):
+        """The deal's terms are now on a paid row; a paid line can't end."""
+        comp = plan_price_factory(plan=tier, code="board", amount=0)
+        grant = price_grant_factory(plan_price=comp, ends_on=date(2099, 1, 1))
+        comp.active = False
+        comp.save()
+        plan_price_factory(plan=tier, code="board", amount=1_000)
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=grant.organization, plan=tier
+        )
+
+        assert item.plan_price.amount == 1_000
+        assert item.ends_on is None
+
     def test_a_list_price_purchase_carries_nothing(
         self, tier, deal, price_grant_factory, organization_factory
     ):
@@ -127,6 +169,15 @@ class TestWhatCanBeGranted:
         grant = price_grant_factory.build(plan_price=deal, ends_on=date(2027, 1, 1))
 
         with pytest.raises(ValidationError, match="free price"):
+            grant.full_clean()
+
+    def test_an_end_date_already_past_cannot(
+        self, tier, plan_price_factory, price_grant_factory
+    ):
+        comp = plan_price_factory(plan=tier, label="comped", amount=0)
+        grant = price_grant_factory.build(plan_price=comp, ends_on=date(2020, 1, 1))
+
+        with pytest.raises(ValidationError, match="already passed"):
             grant.full_clean()
 
     def test_a_free_one_can(self, tier, plan_price_factory, price_grant_factory):
