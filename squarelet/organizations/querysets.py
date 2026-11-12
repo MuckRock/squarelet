@@ -158,12 +158,14 @@ class PlanQuerySet(models.QuerySet):
         else:
             queryset = queryset.filter(for_groups=True)
 
-        # show public plans, the organizations current plan, and any custom plan
-        # to which they have been granted explicit access
+        # show public plans, the organizations current plan, any custom plan
+        # to which they have been granted explicit access, and any plan staff
+        # have given them a price on
         return queryset.filter(
             Q(public=True)
             | Q(subscriptions__organization=organization)
             | Q(private_organizations=organization)
+            | Q(prices__grants__organization=organization)
         ).distinct()
 
     def free(self):
