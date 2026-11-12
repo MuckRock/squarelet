@@ -221,6 +221,22 @@ class PlanPriceFactory(factory.django.DjangoModelFactory):
         model = "organizations.PlanPrice"
 
 
+class PriceGrantFactory(factory.django.DjangoModelFactory):
+    """A price staff have given an organization."""
+
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    plan_price = factory.SubFactory(
+        "squarelet.organizations.tests.factories.PlanPriceFactory"
+    )
+    reason = "Partner deal"
+    granted_by = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
+
+    class Meta:
+        model = "organizations.PriceGrant"
+
+
 class OrganizationPlanFactory(PlanFactory):
     """An organization plan factory"""
 
