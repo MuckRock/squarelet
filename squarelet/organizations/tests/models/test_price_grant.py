@@ -377,6 +377,26 @@ class TestCheckoutQuotesTheGrant:
         assert tier.checkout_prices("annual", False, organization)[0].amount == 100_000
         assert tier.default_interval(False, organization) == "annual"
 
+    def test_a_grant_makes_a_private_tier_buyable(
+        self, plan_factory, plan_price_factory, price_grant_factory
+    ):
+        plan = plan_factory(name="Private Tier", for_individuals=False, public=False)
+        deal = plan_price_factory(plan=plan, code="deal", amount=7_000)
+        grant = price_grant_factory(plan_price=deal)
+
+        assert plan.get_checkout_url(grant.organization) is not None
+
+    def test_and_its_page_offers_it_to_that_account(
+        self, plan_factory, plan_price_factory, price_grant_factory, user_factory
+    ):
+        admin = user_factory()
+        plan = plan_factory(name="Private Tier", for_individuals=False, public=False)
+        deal = plan_price_factory(plan=plan, code="deal", amount=7_000)
+        grant = price_grant_factory(plan_price=deal)
+        grant.organization.add_creator(admin)
+
+        assert plan.eligible_accounts(admin) == [grant.organization]
+
     def test_a_tier_with_no_list_price_is_still_sold_to_it(
         self, plan_factory, plan_price_factory, price_grant_factory
     ):

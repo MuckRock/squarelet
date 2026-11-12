@@ -1819,8 +1819,13 @@ class Plan(models.Model):
             accounts |= Q(
                 memberships__user=user, memberships__admin=True, individual=False
             )
+        # As `Plan.objects.choices`: a deal makes a private plan buyable.
         offered = (
-            Q() if self.public else Q(subscriptions__plans=self) | Q(private_plans=self)
+            Q()
+            if self.public
+            else Q(subscriptions__plans=self)
+            | Q(private_plans=self)
+            | Q(price_grants__plan_price__plan=self)
         )
         return list(
             Organization.objects.filter(accounts)
