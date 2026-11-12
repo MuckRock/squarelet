@@ -497,6 +497,18 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return price.plan, price
 
     @staticmethod
+    def granted_prices(plan, organization):
+        """`{interval: price}` staff have granted `organization` on `plan`'s tier."""
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import PriceGrant
+
+        target = resolve_target(plan.slug)
+        grants = PriceGrant.for_tier(organization, target[0] if target else plan.slug)
+        return {interval: grant.price for interval, grant in grants.items()}
+
+    @staticmethod
     def plans_of_tier(plan):
         """Every plan row that holds the same tier as `plan`.
 

@@ -765,7 +765,7 @@ class BasePlanCheckoutRedirect(SubscriptionObjectMixin, RedirectView):
     def get_redirect_url(self, *args, **kwargs):
         organization = self.get_organization()
         plan = get_checkout_plan(organization, self.kwargs["plan_slug"])
-        interval = plan.default_interval(organization.nonprofit)
+        interval = plan.default_interval(organization.nonprofit, organization)
         if interval is None and plan.is_enterprise:
             interval = "annual"
         if interval is None:
@@ -791,7 +791,14 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         return get_checkout_plan(self.object, self.kwargs["plan_slug"])
 
     def get_prices(self, plan, interval):
-        return plan.checkout_prices(interval, self.object.nonprofit)
+        return plan.checkout_prices(interval, self.object.nonprofit, self.object)
+
+    def is_granted(self, price):
+        return self.object.price_grants.filter(plan_price=price).exists()
+
+    def is_full(self, plan, price):
+        """Whether a self-serve purchase must wait; staff deals skip the cap."""
+        return not plan.has_available_slots() and not self.is_granted(price)
 
     def get_interval(self):
         interval = self.kwargs["interval"]
@@ -907,8 +914,9 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             due_today=due_today,
             prorated=due_today is not None and due_today != price.amount_dollars,
             held=held,
-            available=plan.has_available_slots(),
-            invoice_available=price.interval == "annual",
+            available=not self.is_full(plan, price),
+            free=price.amount == 0,
+            invoice_available=price.interval == "annual" and price.amount > 0,
             invoice_joining=(
                 None
                 if held
@@ -960,6 +968,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         if (
             plan.is_sunlight_plan
             and plan.wix
+            and not self.is_granted(price)
             and SubscriptionItem.objects.select_for_update().sunlight_active_count()
             >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         ):
@@ -970,7 +979,10 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
                 return self._error(_("Only annual plans can be paid by invoice."))
         elif payment_method != "card":
             return self._error(_("Choose a card or invoice to pay with."))
-        elif organization.customer().default_payment_method_obj() is None:
+        elif (
+            price.amount > 0
+            and organization.customer().default_payment_method_obj() is None
+        ):
             return self._error(_("Add a payment method before subscribing."))
 
         try:
