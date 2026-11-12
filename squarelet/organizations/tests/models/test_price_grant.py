@@ -11,7 +11,7 @@ from unittest.mock import Mock
 import pytest
 
 # Squarelet
-from squarelet.organizations.models import Plan, PlanPrice, PriceGrant, SubscriptionItem
+from squarelet.organizations.models import PriceGrant, SubscriptionItem
 from squarelet.organizations.payments.exceptions import SubscriptionError
 
 
@@ -559,7 +559,7 @@ class TestTheAdminAction:
 
 
 @pytest.mark.django_db()
-def test_superseding_a_price_carries_its_grants(deal, price_grant_factory, mocker):
+def test_a_superseded_price_keeps_its_deals(tier, deal, price_grant_factory, mocker):
     plan_service = mocker.patch(
         "squarelet.organizations.models.payment.get_payment_provider"
     ).return_value.get_plan_service.return_value
@@ -571,84 +571,7 @@ def test_superseding_a_price_carries_its_grants(deal, price_grant_factory, mocke
 
     replacement = deal.supersede(8_000)
 
-    grant.refresh_from_db()
-    assert grant.plan_price == replacement
-
-
-@pytest.mark.django_db()
-class TestChangingAPriceByHandKeepsItsDeals:
-    """Staff retire the old row and add a new one."""
-
-    @pytest.fixture(name="new_deal")
-    def new_deal_fixture(self, tier, deal, plan_price_factory):
-        deal.active = False
-        deal.save()
-        return plan_price_factory(
-            plan=tier, interval="monthly", code="deal", amount=7_500
-        )
-
-    def test_the_grant_moves_to_the_new_row(self, deal, new_deal, price_grant_factory):
-        grant = price_grant_factory(plan_price=deal)
-
-        new_deal.carry_grants()
-
-        grant.refresh_from_db()
-        assert grant.plan_price == new_deal
-
-    def test_another_deal_on_the_plan_is_left_alone(
-        self, tier, new_deal, plan_price_factory, price_grant_factory
-    ):
-        retired_other = plan_price_factory(
-            plan=tier, interval="monthly", code="other", amount=6_000, active=False
-        )
-        grant = price_grant_factory(plan_price=retired_other)
-
-        new_deal.carry_grants()
-
-        grant.refresh_from_db()
-        assert grant.plan_price == retired_other
-
-    def test_an_organization_already_on_the_new_row_keeps_one(
-        self, deal, new_deal, price_grant_factory
-    ):
-        grant = price_grant_factory(plan_price=new_deal)
-        stale = PriceGrant.objects.create(
-            organization=grant.organization,
-            plan_price=deal,
-            reason="old",
-            granted_by=grant.granted_by,
-        )
-
-        new_deal.carry_grants()
-
-        stale.refresh_from_db()
-        assert stale.plan_price == deal
-        assert grant.organization.price_grants.filter(plan_price=new_deal).count() == 1
-
-    def test_the_price_admin_carries_them_on_save(
-        self, rf, deal, new_deal, price_grant_factory, mocker
-    ):
-        mocker.patch.object(PlanPrice, "ensure_stripe_price")
-        grant = price_grant_factory(plan_price=deal)
-
-        site.get_model_admin(PlanPrice).save_model(rf.post("/"), new_deal, None, True)
-
-        grant.refresh_from_db()
-        assert grant.plan_price == new_deal
-
-    def test_the_plan_admin_carries_them_from_the_retired_row(
-        self, rf, tier, deal, price_grant_factory, mocker
-    ):
-        mocker.patch.object(PlanPrice, "ensure_stripe_price")
-        grant = price_grant_factory(plan_price=deal)
-        new_deal = PlanPrice(
-            plan=tier, interval="monthly", code="deal", amount=7_500, currency="usd"
-        )
-        deal.active = False
-        formset = Mock(deleted_objects=[])
-        formset.save.return_value = [deal, new_deal]
-
-        site.get_model_admin(Plan).save_formset(rf.post("/"), None, formset, True)
-
-        grant.refresh_from_db()
-        assert grant.plan_price == new_deal
+    _plan, price = SubscriptionItem.objects.resolve_purchase(
+        tier, organization=grant.organization
+    )
+    assert price == replacement

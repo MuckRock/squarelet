@@ -2223,27 +2223,6 @@ class PlanPrice(models.Model):
         self.save(update_fields=["stripe_price_id"])
         return price.id
 
-    def carry_grants(self):
-        """Move grants on retired prices like this one onto its active row.
-
-        Staff change a price by retiring the old row and adding a new one;
-        without this every deal on the old row is lost.  An organization that
-        already has the active row keeps just that.
-        """
-        variant = {
-            "plan_id": self.plan_id,
-            "interval": self.interval,
-            "label": self.label,
-            "code": self.code,
-        }
-        active = PlanPrice.objects.filter(**variant, active=True).first()
-        if active is None:
-            return
-        retired = PlanPrice.objects.filter(**variant, active=False)
-        PriceGrant.objects.filter(plan_price__in=retired).exclude(
-            organization__price_grants__plan_price=active
-        ).update(plan_price=active)
-
     def supersede(self, amount):
         """Retire this price and return its replacement at a new amount.
 
@@ -2276,8 +2255,6 @@ class PlanPrice(models.Model):
                 amount=amount,
                 currency=self.currency,
             )
-            # Or every organization given this price loses its deal.
-            self.grants.update(plan_price=replacement)
 
         # Idempotent, so a failure here is finished by calling it again -
         # which matters under ATOMIC_REQUESTS, where the caller's request is
