@@ -292,7 +292,8 @@ class TestPlanDetailView(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["accounts"] == []
         create = reverse("organizations:create")
-        assert f'href="{create}"' in response.render().content.decode()
+        back = urlencode({"next": self.request.get_full_path()})
+        assert f'href="{create}?{back}"' in response.render().content.decode()
 
     def test_an_organization_the_private_plan_is_not_for_is_not_offered(
         self, rf, user_factory, organization_factory, group_plan

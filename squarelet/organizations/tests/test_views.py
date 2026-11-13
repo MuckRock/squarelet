@@ -3431,6 +3431,25 @@ class TestCreate(ViewTestMixin):
         self.call_view(rf, user, {"name": "Test Organization"})
         assert user.organizations.filter(individual=False).exists()
 
+    def test_post_returns_to_a_local_next_url(self, rf, user_factory):
+        user = user_factory(email_verified=True)
+        response = self.call_view(rf, user, {"name": "test", "next": "/plans/1-pro/"})
+        assert response.status_code == 302
+        assert response.url == "/plans/1-pro/"
+
+    def test_post_ignores_an_offsite_next_url(self, rf, user_factory):
+        user = user_factory(email_verified=True)
+        response = self.call_view(
+            rf, user, {"name": "test", "next": "https://evil.example.com/"}
+        )
+        organization = user.organizations.get(individual=False)
+        assert response.url == organization.get_absolute_url()
+
+    def test_get_carries_next_into_the_form(self, rf, user_factory):
+        user = user_factory(email_verified=True)
+        response = self.call_view(rf, user, params={"next": "/plans/1-pro/"})
+        assert response.context_data["next_url"] == "/plans/1-pro/"
+
 
 @pytest.mark.django_db()
 class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-methods
