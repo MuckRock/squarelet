@@ -27,7 +27,7 @@ from freezegun import freeze_time
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.payments.base import PaymentActionRequired
-from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.exceptions import NotForSale, SubscriptionError
 from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.services.tests.factories import ServiceFactory
 
@@ -2464,6 +2464,22 @@ class TestPlanCheckout(ViewTestMixin):
 
         add_subscription.assert_called_once()
         assert response.url == f"/organizations/{organization.slug}/subscriptions/"
+
+    def test_a_plan_not_for_sale_is_refused_and_logged(
+        self, rf, admin, organization, plan_price_factory, add_subscription, caplog
+    ):
+        plan = plan_price_factory(plan__name="Tier").plan
+        add_subscription.side_effect = NotForSale(
+            "Tier is not for sale: it has no price"
+        )
+
+        response = self.subscribe(rf, admin, organization, plan)
+
+        assert response.status_code == 302
+        self.assert_message(
+            messages.ERROR, "This plan isn't available to buy right now."
+        )
+        assert "Tier is not for sale" in caplog.text
 
     def test_a_card_needing_authentication_returns_to_the_app_afterwards(
         self, rf, admin, organization, plan_price_factory, add_subscription
