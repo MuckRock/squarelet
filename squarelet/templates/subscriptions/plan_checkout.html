@@ -252,6 +252,7 @@
               {% trans "Subscribe to this plan" %}
             </button>
           {% else %}
+            <input type="hidden" name="action" value="waitlist" />
             <button type="submit" class="btn premium" id="subscribe-button">
               {% trans "Join the waitlist" %}
             </button>
