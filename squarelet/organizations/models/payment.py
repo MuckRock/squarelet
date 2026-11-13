@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone, localtime
+from django.utils.timezone import get_current_timezone, localdate, localtime
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -1176,10 +1176,22 @@ class SubscriptionItem(models.Model):
                 f"negotiated rate {self.plan_price.code!r}, which does not carry "
                 f"to another plan."
             )
+        organization = self.organization
         canonical_plan, plan_price = SubscriptionItem.objects.resolve_purchase(
-            plan, nonprofit=self.is_nonprofit
+            plan, nonprofit=self.is_nonprofit, organization=organization
         )
-        if self.is_nonprofit and not (plan_price and plan_price.label == "nonprofit"):
+        grant = (
+            PriceGrant.for_tier(organization, canonical_plan.slug).get(
+                plan_price.interval
+            )
+            if plan_price
+            else None
+        )
+        if (
+            self.is_nonprofit
+            and grant is None
+            and not (plan_price and plan_price.label == "nonprofit")
+        ):
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: {plan} has no "
                 f"nonprofit rate."
@@ -1219,6 +1231,15 @@ class SubscriptionItem(models.Model):
             # It wrote straight to the rows, so this instance is stale.
             self.refresh_from_db()
 
+        if grant is not None:
+            self.granted_reason = grant.reason
+            self.granted_by = grant.granted_by
+        elif self.plan_price in (
+            g.price for g in PriceGrant.for_tier(organization, self.plan.slug).values()
+        ):
+            # The deal stays behind on the tier it was given for.
+            self.granted_reason = ""
+            self.granted_by = None
         self.plan = canonical_plan
         self.plan_price = plan_price
         if quantity is not None:
@@ -2203,6 +2224,111 @@ class PlanPrice(models.Model):
         # itself a transaction that this cannot escape.
         replacement.ensure_stripe_price()
         return replacement
+
+
+class PriceGrant(models.Model):
+    """A comped or negotiated price staff have given one organization.
+
+    When the organization buys the price's plan at its interval, it pays this
+    price instead of the list or nonprofit price.  The reason, approver and
+    end date are copied onto the line it buys.  The deal follows its price's
+    terms (interval, label and code) to whichever row is active, so it
+    survives the price being retired and replaced; delete the grant, or give
+    a comp an end date, to end it.
+    """
+
+    organization = models.ForeignKey(
+        verbose_name=_("organization"),
+        to="organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="price_grants",
+    )
+    plan_price = models.ForeignKey(
+        verbose_name=_("plan price"),
+        to="organizations.PlanPrice",
+        on_delete=models.PROTECT,
+        related_name="grants",
+        help_text=_("The price this organization pays when it buys the plan"),
+    )
+    reason = models.TextField(
+        _("reason"), help_text=_("Why this organization gets this price")
+    )
+    granted_by = models.ForeignKey(
+        verbose_name=_("granted by"),
+        to="users.User",
+        on_delete=models.PROTECT,
+        related_name="price_grants_given",
+        help_text=_("Staff member who approved the price"),
+    )
+    ends_on = models.DateField(
+        _("ends on"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "For a free price: the day the line it buys stops.  Paid prices end "
+            "with their subscription."
+        ),
+    )
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+
+    class Meta:
+        ordering = ("organization", "plan_price")
+
+    def __str__(self):
+        return f"{self.organization} at {self.plan_price}"
+
+    @classmethod
+    def for_tier(cls, organization, slug):
+        """`{interval: grant}` for `organization`'s live deals on tier `slug`.
+
+        Each grant's `price` is the active row with its price's terms.  A grant
+        past its end date, or whose terms have no active row, is left out.
+        """
+        active = {
+            (price.interval, price.label, price.code): price
+            for price in PlanPrice.objects.select_related("plan").filter(
+                plan__slug=slug, active=True
+            )
+        }
+        grants = (
+            cls.objects.select_related("plan_price", "granted_by")
+            .filter(organization=organization, plan_price__plan__slug=slug)
+            .exclude(ends_on__lt=localdate())
+        )
+        live = {}
+        for grant in grants:
+            terms = grant.plan_price
+            grant.price = active.get((terms.interval, terms.label, terms.code))
+            if grant.price is not None:
+                live[grant.price.interval] = grant
+        return live
+
+    def clean(self):
+        if self.plan_price_id is None:
+            return
+        price = self.plan_price
+        if not price.active:
+            raise ValidationError(
+                {"plan_price": _("A retired price can't be bought, so can't be given.")}
+            )
+        # A paid line can't take an end date: Stripe would go on billing it.
+        if self.ends_on and price.amount != 0:
+            raise ValidationError(
+                {"ends_on": _("Only a free price can end on a date of its own.")}
+            )
+        if self.ends_on and self.ends_on < localdate():
+            raise ValidationError({"ends_on": _("That date has already passed.")})
+        # Purchases look the grant up by plan and interval, so two would tie.
+        others = PriceGrant.objects.filter(
+            organization_id=self.organization_id,
+            plan_price__plan_id=price.plan_id,
+            plan_price__interval=price.interval,
+        ).exclude(pk=self.pk)
+        if others.exists():
+            raise ValidationError(
+                _("This organization already has a price on %(plan)s, %(interval)s.")
+                % {"plan": price.plan, "interval": price.interval}
+            )
 
 
 class Charge(models.Model):

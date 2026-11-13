@@ -574,7 +574,14 @@ class Organization(AvatarMixin, models.Model):
         Organization.objects.select_for_update().filter(pk=self.pk).get()
 
         held = self.line_holding(plan)
-        if held is not None and held.subscription.kind != "free":
+        if held is not None and (
+            held.subscription.kind != "free"
+            # A comp it was granted would only be bought again.
+            or held.plan_price
+            == self.subscription_items.resolve_purchase(
+                plan, nonprofit, interval, self
+            )[1]
+        ):
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
@@ -1084,6 +1091,17 @@ class Organization(AvatarMixin, models.Model):
             organization=self
         )
         org.domains.all().delete()
+
+        # A deal this org already has on the plan and interval stands.
+        held = set(
+            self.price_grants.values_list("plan_price__plan", "plan_price__interval")
+        )
+        for grant in org.price_grants.select_related("plan_price"):
+            if (grant.plan_price.plan_id, grant.plan_price.interval) in held:
+                grant.delete()
+            else:
+                grant.organization = self
+                grant.save(update_fields=["organization"])
 
         # only take other orgs parent if we do not have one
         if self.parent is None:
