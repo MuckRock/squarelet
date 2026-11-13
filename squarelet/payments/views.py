@@ -34,7 +34,7 @@ from squarelet.core.utils import format_stripe_error, new_action
 from squarelet.organizations.models import Charge, Organization, Plan, PlanPrice
 from squarelet.organizations.models.payment import ReceiptEmail, SubscriptionItem
 from squarelet.organizations.payments.base import PaymentActionRequired
-from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.exceptions import NotForSale, SubscriptionError
 from squarelet.organizations.plan_mapping import tier_of
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import (
@@ -958,6 +958,9 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             return self._error(
                 _("Your card requires additional authentication. Please try again.")
             )
+        except NotForSale as exc:
+            logger.error("Checkout refused a plan not for sale: %s", exc)
+            return self._error(_("This plan isn't available to buy right now."))
         except SubscriptionError as exc:
             return self._error(str(exc))
         except stripe.StripeError as exc:
