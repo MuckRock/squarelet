@@ -1726,7 +1726,10 @@ class Plan(models.Model):
         """
         if not Plan.objects.choices(organization).filter(pk=self.pk).exists():
             return None
-        if self.default_interval(organization.nonprofit) is None:
+        if (
+            not self.is_enterprise
+            and self.default_interval(organization.nonprofit) is None
+        ):
             return None
         if organization.individual:
             return reverse(
@@ -1754,11 +1757,16 @@ class Plan(models.Model):
             accounts = Organization.objects.filter(
                 memberships__user=user, memberships__admin=True, individual=False
             ).order_by("name")
+        held_url = None
         for organization in accounts:
             url = self.get_checkout_url(organization)
-            if url:
+            if not url:
+                continue
+            held = organization.line_holding(self)
+            if held is None or held.subscription.kind == "free":
                 return url
-        return None
+            held_url = held_url or url
+        return held_url
 
     def cost(self, users):
         """Total monthly cost for a given number of resource blocks
