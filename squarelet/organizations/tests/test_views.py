@@ -2597,6 +2597,50 @@ class TestPlanCheckout(ViewTestMixin):
             organization.pk, plan.pk, admin.pk
         )
 
+    def test_a_waitlist_click_never_purchases_once_a_place_opens(
+        self,
+        rf,
+        admin,
+        organization,
+        plan_price_factory,
+        add_subscription,
+        mocker,
+        settings,
+        django_capture_on_commit_callbacks,
+    ):
+        settings.MAX_SUNLIGHT_SUBSCRIPTIONS = 100
+        add_to_waitlist = mocker.patch("squarelet.payments.views.add_to_waitlist")
+        plan = plan_price_factory(
+            plan__name="Sunlight Tier",
+            plan__service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            plan__wix=True,
+        ).plan
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = self.subscribe(
+                rf, admin, organization, plan, data={"action": "waitlist"}
+            )
+
+        assert response.status_code == 302
+        add_subscription.assert_not_called()
+        add_to_waitlist.delay.assert_called_once_with(
+            organization.pk, plan.pk, admin.pk
+        )
+
+    def test_a_waitlist_click_on_a_plan_without_one_is_refused(
+        self, rf, admin, organization, plan_price_factory, add_subscription, mocker
+    ):
+        add_to_waitlist = mocker.patch("squarelet.payments.views.add_to_waitlist")
+        plan = plan_price_factory(plan__name="Tier").plan
+
+        response = self.subscribe(
+            rf, admin, organization, plan, data={"action": "waitlist"}
+        )
+
+        assert response.status_code == 302
+        add_subscription.assert_not_called()
+        add_to_waitlist.delay.assert_not_called()
+
     def test_a_full_sunlight_plan_offers_its_waitlist(
         self, rf, admin, organization, plan_price_factory, settings
     ):
@@ -2610,6 +2654,7 @@ class TestPlanCheckout(ViewTestMixin):
         content = self.view_page(rf, admin, organization, plan).render().content
 
         assert b"Join the waitlist" in content
+        assert b'name="action" value="waitlist"' in content
         assert b"Subscribe to this plan" not in content
 
     def test_a_held_plan_is_not_bought_again(
