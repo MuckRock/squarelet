@@ -1,4 +1,5 @@
 import squarelet.organizations.models.payment
+from django.core.files.base import ContentFile
 from django.db import migrations, models
 import django.db.models.deletion
 
@@ -6,16 +7,30 @@ import django.db.models.deletion
 # Products whose Service has another slug; the rest match by name.
 PRODUCT_SERVICES = {"sunlight": "sunlight-research-desk"}
 
+# Every page listing services renders its icon, and raises without one.
+PLACEHOLDER_ICON = (
+    b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"></svg>'
+)
+
 
 def product_to_service(apps, schema_editor):
     Plan = apps.get_model("organizations", "Plan")
     Service = apps.get_model("services", "Service")
     services = {s.slug: s for s in Service.objects.all()}
     for plan in Plan.objects.exclude(product=""):
-        service = services.get(PRODUCT_SERVICES.get(plan.product, plan.product))
-        if service is not None:
-            plan.service = service
-            plan.save(update_fields=["service"])
+        slug = PRODUCT_SERVICES.get(plan.product, plan.product)
+        # The next operation drops `product`, so a plan left without a Service
+        # would lose it for good.  The placeholder is filled in from the admin.
+        if slug not in services:
+            service = Service(
+                slug=slug,
+                name=slug.replace("-", " ").title(),
+                provider_name="MuckRock",
+            )
+            service.icon.save(f"{slug}.svg", ContentFile(PLACEHOLDER_ICON))
+            services[slug] = service
+        plan.service = services[slug]
+        plan.save(update_fields=["service"])
 
 
 def service_to_product(apps, schema_editor):
