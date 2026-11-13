@@ -1139,10 +1139,14 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
 
         if self.is_held(plan):
             return self._error(_("You are already subscribed to this plan."))
+        has_waitlist = plan.is_sunlight_plan and plan.wix
+        if request.POST.get("action") == "waitlist":
+            if not has_waitlist:
+                return self._error(_("This plan has no waitlist."))
+            return self.join_waitlist(plan)
         # Locked so two purchases cannot both take the last slot.
         if (
-            plan.is_sunlight_plan
-            and plan.wix
+            has_waitlist
             and SubscriptionItem.objects.select_for_update().sunlight_active_count()
             >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         ):
