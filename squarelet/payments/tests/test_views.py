@@ -1,4 +1,5 @@
 # Django
+from django.contrib import messages
 from django.http import Http404
 from django.urls import reverse
 from django.utils.http import urlencode
@@ -10,6 +11,7 @@ from autoslug.utils import slugify
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.models import Organization
+from squarelet.organizations.tests.models.test_billing_on_price import plan_with_slug
 from squarelet.payments import views
 
 
@@ -340,3 +342,104 @@ class TestPlanDetailView(ViewTestMixin):
 
         with pytest.raises(Http404):
             self.view_plan(rf, None, group_plan)
+
+
+@pytest.mark.django_db()
+class TestOldPlanUrls(ViewTestMixin):
+    """Old links and open tabs from the plan page that sold by plan row."""
+
+    view = views.PlanDetailView
+    url = "/plans/{pk}-{slug}/"
+
+    @pytest.fixture
+    def tier(self, plan_factory, plan_price_factory):
+        tier = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential", public=True
+        )
+        plan_price_factory(plan=tier, interval="annual")
+        return tier
+
+    def test_an_entry_row_redirects_to_its_tier(self, rf, plan_factory, tier):
+        entry = plan_with_slug(
+            plan_factory, "Sunlight Essential (Annual)", "sunlight-essential-annual"
+        )
+
+        response = self.call_view(
+            rf,
+            params={"purchase_redirect": "https://x.test"},
+            pk=entry.pk,
+            slug=entry.slug,
+        )
+
+        assert response.status_code == 301
+        query = urlencode({"purchase_redirect": "https://x.test"})
+        assert response.url == f"{tier.get_absolute_url()}?{query}"
+
+    def test_the_tier_itself_is_not_redirected(self, rf, tier):
+        """The mapping lists each tier as its own target."""
+        response = self.call_view(rf, pk=tier.pk, slug=tier.slug)
+
+        assert response.status_code == 200
+        assert response.context_data["object"] == tier
+
+    @pytest.mark.usefixtures("tier")
+    def test_a_negotiated_row_keeps_its_own_page(self, rf, plan_factory):
+        row = plan_with_slug(
+            plan_factory, "Sunlight Basic (Annual)", "sunlight-basic-annual"
+        )
+
+        response = self.call_view(rf, pk=row.pk, slug=row.slug)
+
+        assert response.status_code == 200
+        assert response.context_data["object"] == row
+
+    def test_an_archived_entry_row_still_redirects(self, rf, plan_factory, tier):
+        """The Sunlight site keeps linking to it after `archive_legacy_plans`."""
+        entry = plan_with_slug(
+            plan_factory,
+            "Sunlight Essential (Annual)",
+            "sunlight-essential-annual",
+            archived=True,
+        )
+
+        response = self.call_view(rf, pk=entry.pk, slug=entry.slug)
+
+        assert response.status_code == 301
+        assert response.url == tier.get_absolute_url()
+
+    @pytest.mark.usefixtures("tier")
+    def test_an_archived_negotiated_row_is_not_found(self, rf, plan_factory):
+        row = plan_with_slug(
+            plan_factory,
+            "Sunlight Basic (Annual)",
+            "sunlight-basic-annual",
+            archived=True,
+        )
+
+        with pytest.raises(Http404):
+            self.call_view(rf, pk=row.pk, slug=row.slug)
+
+    @pytest.mark.usefixtures("tier")
+    def test_a_post_from_an_open_tab_returns_to_the_page_and_says_so(
+        self, rf, plan_factory
+    ):
+        entry = plan_with_slug(
+            plan_factory, "Sunlight Essential (Annual)", "sunlight-essential-annual"
+        )
+
+        response = self.call_view(
+            rf,
+            data={"stripe_token": "tok_old"},
+            params={"purchase_redirect": "https://x.test"},
+            pk=entry.pk,
+            slug=entry.slug,
+        )
+
+        assert response.status_code == 302
+        query = urlencode({"purchase_redirect": "https://x.test"})
+        assert response.url == f"/plans/{entry.pk}-{entry.slug}/?{query}"
+        self.assert_message(
+            messages.INFO,
+            "This page has changed since you opened it, and nothing was "
+            "charged. Please choose your plan again.",
+        )

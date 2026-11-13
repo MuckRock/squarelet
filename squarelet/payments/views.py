@@ -35,7 +35,7 @@ from squarelet.organizations.models import Charge, Organization, Plan, PlanPrice
 from squarelet.organizations.models.payment import ReceiptEmail, SubscriptionItem
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
-from squarelet.organizations.plan_mapping import tier_of
+from squarelet.organizations.plan_mapping import resolve_target, tier_of
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import (
     CancelSubscriptionForm,
@@ -43,7 +43,29 @@ from squarelet.payments.forms import (
     UpdateReceiptEmailForm,
 )
 
+# pylint: disable=too-many-lines
+
 logger = logging.getLogger(__name__)
+
+
+def legacy_alias_url(plan, query):
+    """Where an old entry row's page now lives, or None.
+
+    Rows like `sunlight-essential-annual` are their tier at an interval, and
+    the Sunlight site links to their old URLs.  A negotiated (`code`) row
+    keeps its own page, for the organizations it names.
+    """
+    target = resolve_target(plan.slug)
+    if target is None:
+        return None
+    slug, _interval, _label, code = target
+    if code or slug == plan.slug:
+        return None
+    canonical = Plan.objects.filter(slug=slug).first()
+    if canonical is None:
+        return None
+    url = canonical.get_absolute_url()
+    return f"{url}?{query.urlencode()}" if query else url
 
 
 def protect_private_plan(plan, user):
@@ -68,6 +90,14 @@ class PlanDetailView(DetailView):
     model = Plan
     template_name = "payments/plan_detail.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        plan = get_object_or_404(Plan, pk=kwargs["pk"])
+        alias = legacy_alias_url(plan, request.GET)
+        # Reads only: a POST is answered below, not silently turned into a GET.
+        if alias is not None and request.method in ("GET", "HEAD"):
+            return redirect(alias, permanent=True)
+        return super().dispatch(request, *args, **kwargs)
+
     def get_queryset(self):
         return Plan.objects.not_archived()
 
@@ -75,6 +105,17 @@ class PlanDetailView(DetailView):
         plan = super().get_object(queryset)
         protect_private_plan(plan, self.request.user)
         return plan
+
+    def post(self, request, *args, **kwargs):
+        # The old plan page took purchases here, and an open tab still posts.
+        messages.info(
+            request,
+            _(
+                "This page has changed since you opened it, and nothing was "
+                "charged. Please choose your plan again."
+            ),
+        )
+        return redirect(request.get_full_path())
 
     def with_query(self, url):
         """`url` carrying this request's query, so `purchase_redirect` survives."""
