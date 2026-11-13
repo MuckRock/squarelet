@@ -1,12 +1,15 @@
+# pylint: disable=too-many-positional-arguments
 # Django
 from django.contrib.admin.sites import site
 from django.core.exceptions import ValidationError
 
 # Standard Library
 from datetime import date
+from unittest.mock import Mock
 
 # Third Party
 import pytest
+import stripe
 
 # Squarelet
 from squarelet.organizations.models import PriceGrant, SubscriptionItem
@@ -394,3 +397,286 @@ class TestCheckoutQuotesTheGrant:
         grant = price_grant_factory(plan_price=deal)
 
         assert plan.get_checkout_url(grant.organization) is not None
+
+
+@pytest.fixture(name="stripe_line")
+def stripe_line_fixture(mocker):
+    """Stripe calls a line makes when its price changes, stubbed."""
+    mocker.patch(
+        "squarelet.organizations.models.Subscription.stripe_subscription", None
+    )
+    return mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+
+
+@pytest.mark.django_db()
+class TestMovingAnExistingLineToItsGrant:
+    @pytest.fixture(name="line")
+    def line_fixture(self, tier, subscription_item_factory):
+        return subscription_item_factory(
+            plan=tier, plan_price=tier.prices.get(interval="monthly", label="standard")
+        )
+
+    def test_it_bills_the_granted_price_and_tells_stripe(
+        self, line, deal, price_grant_factory, stripe_line
+    ):
+        grant = price_grant_factory(
+            organization=line.subscription.organization, plan_price=deal
+        )
+
+        line.apply_grant(grant)
+
+        line.refresh_from_db()
+        assert line.plan_price == deal
+        assert line.granted_reason == grant.reason
+        assert line.granted_by == grant.granted_by
+        stripe_line.assert_called_once()
+
+    def test_a_live_stripe_subscription_keeps_the_grants_details(
+        self, line, deal, price_grant_factory, mocker
+    ):
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription",
+            Mock(),
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.sync_stripe_item_ids")
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        grant = price_grant_factory(
+            organization=line.subscription.organization, plan_price=deal
+        )
+
+        line.apply_grant(grant)
+
+        line.refresh_from_db()
+        assert line.granted_reason == grant.reason
+
+    def test_not_at_another_interval(
+        self, line, tier, plan_price_factory, price_grant_factory, stripe_line
+    ):
+        annual = plan_price_factory(
+            plan=tier, interval="annual", code="deal", amount=70_000
+        )
+        grant = price_grant_factory(
+            organization=line.subscription.organization, plan_price=annual
+        )
+
+        with pytest.raises(SubscriptionError, match="bills annual"):
+            line.apply_grant(grant)
+        stripe_line.assert_not_called()
+
+    def test_comping_a_paid_line_is_a_new_purchase(
+        self, line, tier, plan_price_factory, price_grant_factory, stripe_line
+    ):
+        comp = plan_price_factory(plan=tier, label="comped", amount=0)
+        grant = price_grant_factory(
+            organization=line.subscription.organization, plan_price=comp
+        )
+
+        with pytest.raises(SubscriptionError, match="never share"):
+            line.apply_grant(grant)
+        stripe_line.assert_not_called()
+
+    def test_not_from_another_plan(
+        self, line, plan_price_factory, price_grant_factory, stripe_line
+    ):
+        elsewhere = plan_price_factory(plan__name="Other Tier", code="deal")
+        grant = price_grant_factory(
+            organization=line.subscription.organization, plan_price=elsewhere
+        )
+
+        with pytest.raises(SubscriptionError, match="not the granted"):
+            line.apply_grant(grant)
+        stripe_line.assert_not_called()
+
+    @pytest.mark.usefixtures("stripe_line")
+    def test_a_comped_line_takes_the_grants_end_date(
+        self, tier, plan_price_factory, subscription_item_factory, price_grant_factory
+    ):
+        old_comp = plan_price_factory(plan=tier, label="comped", amount=0)
+        line = subscription_item_factory(
+            plan=tier, plan_price=old_comp, subscription__kind="free"
+        )
+        new_comp = plan_price_factory(plan=tier, code="board", amount=0)
+        grant = price_grant_factory(
+            organization=line.subscription.organization,
+            plan_price=new_comp,
+            ends_on=date(2027, 3, 31),
+        )
+
+        line.apply_grant(grant)
+
+        line.refresh_from_db()
+        assert line.ends_on == date(2027, 3, 31)
+
+
+@pytest.mark.django_db()
+class TestTheAdminAction:
+    def run(self, rf, grants, mocker, staff=None):
+        model_admin = site.get_model_admin(PriceGrant)
+        message = mocker.patch.object(model_admin, "message_user")
+        request = rf.get("/")
+        request.user = staff
+        model_admin.move_to_granted_price(request, grants)
+        return [call.args[1] for call in message.call_args_list]
+
+    def test_it_moves_a_held_line(
+        self, rf, tier, deal, subscription_item_factory, price_grant_factory, mocker
+    ):
+        line = subscription_item_factory(plan=tier)
+        price_grant_factory(
+            organization=line.subscription.organization, plan_price=deal
+        )
+        apply_grant = mocker.patch.object(SubscriptionItem, "apply_grant")
+
+        messages = self.run(rf, PriceGrant.objects.all(), mocker)
+
+        apply_grant.assert_called_once()
+        assert "now pays" in messages[0]
+
+    def test_it_says_when_nothing_is_held(self, rf, deal, price_grant_factory, mocker):
+        price_grant_factory(plan_price=deal)
+        apply_grant = mocker.patch.object(SubscriptionItem, "apply_grant")
+
+        messages = self.run(rf, PriceGrant.objects.all(), mocker)
+
+        apply_grant.assert_not_called()
+        assert "applies when it buys it" in messages[0]
+
+    def test_it_reports_a_refusal_and_carries_on(
+        self, rf, tier, deal, subscription_item_factory, price_grant_factory, mocker
+    ):
+        for _ in range(2):
+            line = subscription_item_factory(plan=tier)
+            price_grant_factory(
+                organization=line.subscription.organization, plan_price=deal
+            )
+        mocker.patch.object(
+            SubscriptionItem,
+            "apply_grant",
+            side_effect=[SubscriptionError("bills annual"), None],
+        )
+
+        messages = self.run(rf, PriceGrant.objects.all(), mocker)
+
+        assert "bills annual" in messages[0]
+        assert "now pays" in messages[1]
+
+
+@pytest.mark.django_db()
+def test_a_superseded_price_keeps_its_deals(tier, deal, price_grant_factory, mocker):
+    plan_service = mocker.patch(
+        "squarelet.organizations.models.payment.get_payment_provider"
+    ).return_value.get_plan_service.return_value
+    plan_service.find_product.return_value = None
+    plan_service.create_product.return_value = Mock(id="prod_test")
+    plan_service.find_price.return_value = None
+    plan_service.create_price.return_value = Mock(id="price_new")
+    grant = price_grant_factory(plan_price=deal)
+
+    replacement = deal.supersede(8_000)
+
+    _plan, price = SubscriptionItem.objects.resolve_purchase(
+        tier, organization=grant.organization
+    )
+    assert price == replacement
+
+
+@pytest.mark.django_db()
+class TestMovingSafely:
+    @pytest.fixture(name="line")
+    def line_fixture(self, tier, subscription_item_factory):
+        return subscription_item_factory(
+            plan=tier, plan_price=tier.prices.get(interval="monthly", label="standard")
+        )
+
+    def test_an_ended_grant_is_refused(
+        self, line, tier, plan_price_factory, price_grant_factory, stripe_line
+    ):
+        comp = plan_price_factory(plan=tier, code="board", amount=0)
+        grant = price_grant_factory(
+            organization=line.subscription.organization,
+            plan_price=comp,
+            ends_on=date(2020, 1, 1),
+        )
+
+        with pytest.raises(SubscriptionError, match="has ended"):
+            line.apply_grant(grant)
+        stripe_line.assert_not_called()
+
+    @pytest.mark.usefixtures("stripe_line")
+    def test_it_bills_the_live_row_not_a_retired_one(
+        self, line, tier, deal, plan_price_factory, price_grant_factory
+    ):
+        grant = price_grant_factory(
+            organization=line.subscription.organization, plan_price=deal
+        )
+        deal.active = False
+        deal.save()
+        replacement = plan_price_factory(plan=tier, code="deal", amount=7_500)
+
+        line.apply_grant(grant)
+
+        line.refresh_from_db()
+        assert line.plan_price == replacement
+
+    @pytest.mark.usefixtures("stripe_line")
+    def test_a_line_on_another_row_of_the_tier_is_moved(
+        self,
+        tier,
+        deal,
+        plan_factory,
+        subscription_item_factory,
+        price_grant_factory,
+        mocker,
+    ):
+        legacy = plan_factory(name="Legacy Row")
+        line = subscription_item_factory(plan=legacy)
+        mocker.patch.object(
+            SubscriptionItem.objects, "plans_of_tier", return_value={legacy, tier}
+        )
+        grant = price_grant_factory(
+            organization=line.subscription.organization, plan_price=deal
+        )
+
+        line.apply_grant(grant)
+
+        line.refresh_from_db()
+        assert line.plan == tier
+        assert line.plan_price == deal
+
+    @pytest.mark.usefixtures("stripe_line")
+    def test_the_admin_logs_the_move(
+        self, rf, line, deal, price_grant_factory, user_factory, mocker
+    ):
+        price_grant_factory(
+            organization=line.subscription.organization, plan_price=deal
+        )
+        staff = user_factory(is_staff=True)
+        model_admin = site.get_model_admin(PriceGrant)
+        mocker.patch.object(model_admin, "message_user")
+        request = rf.get("/")
+        request.user = staff
+
+        model_admin.move_to_granted_price(request, PriceGrant.objects.all())
+
+        log = line.subscription.organization.change_logs.get()
+        assert log.user == staff
+        assert log.to_plan == line.plan
+
+    def test_a_stripe_failure_leaves_the_line_as_it_was(
+        self, rf, line, deal, price_grant_factory, user_factory, stripe_line, mocker
+    ):
+        stripe_line.side_effect = stripe.APIConnectionError("down")
+        before = line.plan_price
+        price_grant_factory(
+            organization=line.subscription.organization, plan_price=deal
+        )
+        model_admin = site.get_model_admin(PriceGrant)
+        mocker.patch.object(model_admin, "message_user")
+        request = rf.get("/")
+        request.user = user_factory(is_staff=True)
+
+        model_admin.move_to_granted_price(request, PriceGrant.objects.all())
+
+        line.refresh_from_db()
+        assert line.plan_price == before
+        assert not line.subscription.organization.change_logs.exists()

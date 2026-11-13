@@ -1219,18 +1219,6 @@ class SubscriptionItem(models.Model):
                 f"share a subscription.  Remove the line and add the new plan."
             )
 
-        if plan_price:
-            # As in start(): the price may have missed Stripe when made.
-            plan_price.ensure_stripe_price()
-
-        # Identified while the price still matches, or the item is sent with no
-        # id, which Stripe adds alongside the old one: billed for both.
-        stripe_sub = self.subscription.stripe_subscription
-        if stripe_sub is not None:
-            self.subscription.sync_stripe_item_ids(stripe_sub)
-            # It wrote straight to the rows, so this instance is stale.
-            self.refresh_from_db()
-
         if grant is not None:
             self.granted_reason = grant.reason
             self.granted_by = grant.granted_by
@@ -1240,7 +1228,62 @@ class SubscriptionItem(models.Model):
             # The deal stays behind on the tier it was given for.
             self.granted_reason = ""
             self.granted_by = None
-        self.plan = canonical_plan
+        self._switch_price(canonical_plan, plan_price, quantity=quantity)
+
+    def apply_grant(self, grant):
+        """Bill this line at `grant`'s price from now on, and tell Stripe.
+
+        Raises SubscriptionError when the grant has ended or its price has no
+        active row, or the price is on another tier, interval or kind of
+        subscription: comping a paid line, say, is a removal and a new
+        purchase.
+        """
+        terms = grant.plan_price
+        live = PriceGrant.for_tier(self.organization, terms.plan.slug).get(
+            terms.interval
+        )
+        if live is None or live.pk != grant.pk:
+            raise SubscriptionError(
+                "This grant has ended, or its price has no active row to bill."
+            )
+        price = live.price
+        if price.plan not in SubscriptionItem.objects.plans_of_tier(self.plan):
+            raise SubscriptionError(
+                f"{self} is on {self.plan}, not the granted price's {price.plan}."
+            )
+        if price.interval != self.subscription.interval:
+            raise SubscriptionError(
+                f"The granted price bills {price.interval} and this subscription "
+                f"bills {self.subscription.interval}.  Remove the line and buy "
+                f"the plan again."
+            )
+        if Subscription.kind_for(self.plan, price) != self.subscription.kind:
+            raise SubscriptionError(
+                f"The granted price and this line's subscription never share a "
+                f"subscription ({self.subscription.kind}).  Remove the line and "
+                f"buy the plan again."
+            )
+        self.granted_reason = grant.reason
+        self.granted_by = grant.granted_by
+        if price.amount == 0:
+            self.ends_on = grant.ends_on
+        self._switch_price(price.plan, price)
+
+    def _switch_price(self, plan, plan_price, quantity=None):
+        """Point this line at `plan_price`, saved, and bill it on Stripe."""
+        # As in start(): the price may have missed Stripe when made.
+        plan_price.ensure_stripe_price()
+
+        # Identified while the price still matches, or the item is sent with no
+        # id, which Stripe adds alongside the old one: billed for both.
+        stripe_sub = self.subscription.stripe_subscription
+        if stripe_sub is not None:
+            self.subscription.sync_stripe_item_ids(stripe_sub)
+            # It wrote straight to the rows; reload only that, so fields the
+            # caller has set survive.
+            self.refresh_from_db(fields=["stripe_item_id"])
+
+        self.plan = plan
         self.plan_price = plan_price
         if quantity is not None:
             self.quantity = quantity
