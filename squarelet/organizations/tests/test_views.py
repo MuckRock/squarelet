@@ -2649,12 +2649,19 @@ class TestPlanCheckout(ViewTestMixin):
             plan__name="Sunlight Tier",
             plan__service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
             plan__wix=True,
+            interval="annual",
+            amount=100_000,
         ).plan
 
-        content = self.view_page(rf, admin, organization, plan).render().content
+        content = (
+            self.view_page(rf, admin, organization, plan, "annual").render().content
+        )
 
         assert b"Join the waitlist" in content
         assert b'name="action" value="waitlist"' in content
+        assert b'name="payment_method"' not in content
+        assert b'id="card-form"' not in content
+        assert b"data-payment-label" not in content
         assert b"Subscribe to this plan" not in content
 
     def test_a_held_plan_is_not_bought_again(
