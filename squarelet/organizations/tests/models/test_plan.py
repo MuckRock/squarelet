@@ -612,6 +612,39 @@ class TestCheckoutUrl:
             f"/organizations/{organization.slug}/plans/sunlight-enterprise/"
         )
 
+    @pytest.fixture
+    def group_plan(self, plan_price_factory):
+        return plan_price_factory(
+            plan__name="Group", plan__for_individuals=False, plan__for_groups=True
+        ).plan
+
+    def test_an_admin_is_sent_past_an_organization_that_holds_the_plan(
+        self, user_factory, organization_factory, subscription_item_factory, group_plan
+    ):
+        user = user_factory()
+        alpha = organization_factory(admins=[user], name="Alpha")
+        beta = organization_factory(admins=[user], name="Beta")
+        subscription_item_factory(subscription__organization=alpha, plan=group_plan)
+
+        assert group_plan.get_checkout_url_for(user) == group_plan.get_checkout_url(
+            beta
+        )
+
+    def test_an_admin_whose_organizations_all_hold_the_plan_still_gets_a_link(
+        self, user_factory, organization_factory, subscription_item_factory, group_plan
+    ):
+        user = user_factory()
+        alpha = organization_factory(admins=[user], name="Alpha")
+        beta = organization_factory(admins=[user], name="Beta")
+        for organization in (alpha, beta):
+            subscription_item_factory(
+                subscription__organization=organization, plan=group_plan
+            )
+
+        assert group_plan.get_checkout_url_for(user) == group_plan.get_checkout_url(
+            alpha
+        )
+
 
 class TestConsolidatePlanBenefits:
     """Unit tests for consolidate_plan_benefits"""
