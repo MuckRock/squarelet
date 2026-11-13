@@ -1757,11 +1757,16 @@ class Plan(models.Model):
             accounts = Organization.objects.filter(
                 memberships__user=user, memberships__admin=True, individual=False
             ).order_by("name")
+        held_url = None
         for organization in accounts:
             url = self.get_checkout_url(organization)
-            if url:
+            if not url:
+                continue
+            held = organization.line_holding(self)
+            if held is None or held.subscription.kind == "free":
                 return url
-        return None
+            held_url = held_url or url
+        return held_url
 
     def cost(self, users):
         """Total monthly cost for a given number of resource blocks
