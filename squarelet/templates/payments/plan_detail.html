@@ -96,7 +96,7 @@
         {% else %}
           <h3>{% trans "Create an organization to subscribe" %}</h3>
           <div class="checkout-actions">
-            <a href="{% url 'organizations:create' %}" class="btn primary">
+            <a href="{% url 'organizations:create' %}?next={{ request.get_full_path|urlencode:"" }}" class="btn primary">
               {% icon "plus-circle" %}
               {% trans "Create an organization" %}
             </a>
