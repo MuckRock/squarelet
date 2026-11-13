@@ -1982,9 +1982,20 @@ class TestPlans(ViewTestMixin):
         assert response.context_data["services"] == []
 
     def test_a_private_plan_is_not_displayed(
-        self, rf, user_factory, organization_factory, plan_factory, plan_price_factory
+        self, rf, user_factory, organization_factory, plan_price_factory
     ):
-        pass
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        service = ServiceFactory()
+        public = plan_price_factory(plan__name="Public", plan__service=service).plan
+        plan_price_factory(
+            plan__name="Private", plan__service=service, plan__public=False
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        (group,) = response.context_data["services"]
+        assert group["plans"] == [public]
 
     def test_a_private_plan_is_shown_only_to_an_organization_granted_it(
         self, rf, user_factory, organization_factory, plan_price_factory
