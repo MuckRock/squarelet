@@ -1733,24 +1733,32 @@ class Plan(models.Model):
             return current_count < settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         return True
 
-    def checkout_prices(self, interval, nonprofit):
+    def checkout_prices(self, interval, nonprofit, organization=None):
         """The price buying this plan at `interval` bills, and its list price.
 
         Resolved as `add_subscription` resolves them, so checkout quotes what is
-        billed. `(None, None)` when the plan has no price at `interval`.
+        billed. `(None, None)` when the plan has no price at `interval`.  An
+        organization with a deal on this plan is sold only at its deal's
+        intervals.
         """
         resolve = SubscriptionItem.objects.resolve_purchase
         _plan, standard = resolve(self, interval=interval)
+        if organization is not None:
+            granted = SubscriptionItem.objects.granted_prices(self, organization)
+            if granted:
+                if interval not in granted:
+                    return None, None
+                return granted[interval], standard
         if nonprofit:
             _plan, discounted = resolve(self, nonprofit=True, interval=interval)
             if discounted is not None:
                 return discounted, standard
         return standard, standard
 
-    def default_interval(self, nonprofit):
+    def default_interval(self, nonprofit, organization=None):
         """Annual where this plan is sold annually, else monthly; None if neither."""
         for interval in self.CHECKOUT_INTERVALS:
-            if self.checkout_prices(interval, nonprofit)[0] is not None:
+            if self.checkout_prices(interval, nonprofit, organization)[0] is not None:
                 return interval
         return None
 
@@ -1764,7 +1772,7 @@ class Plan(models.Model):
             return None
         if (
             not self.is_enterprise
-            and self.default_interval(organization.nonprofit) is None
+            and self.default_interval(organization.nonprofit, organization) is None
         ):
             return None
         if organization.individual:

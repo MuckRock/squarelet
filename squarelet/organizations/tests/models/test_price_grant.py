@@ -347,3 +347,50 @@ class TestChangingTierInPlace:
         assert line.plan_price.amount == 20_000
         assert line.granted_reason == ""
         assert line.granted_by is None
+
+
+@pytest.mark.django_db()
+class TestCheckoutQuotesTheGrant:
+    def test_the_deal_beside_its_list_price(self, tier, deal, price_grant_factory):
+        grant = price_grant_factory(plan_price=deal)
+
+        price, list_price = tier.checkout_prices("monthly", False, grant.organization)
+
+        assert price == deal
+        assert list_price.amount == 10_000
+
+    def test_only_at_the_deals_intervals(self, tier, deal, price_grant_factory):
+        grant = price_grant_factory(plan_price=deal)
+
+        assert tier.checkout_prices("annual", False, grant.organization) == (
+            None,
+            None,
+        )
+        assert tier.default_interval(False, grant.organization) == "monthly"
+
+    def test_an_organization_without_one_sees_the_list(
+        self, tier, deal, price_grant_factory, organization_factory
+    ):
+        price_grant_factory(plan_price=deal)
+        organization = organization_factory()
+
+        assert tier.checkout_prices("annual", False, organization)[0].amount == 100_000
+        assert tier.default_interval(False, organization) == "annual"
+
+    def test_a_grant_makes_a_private_tier_buyable(
+        self, plan_factory, plan_price_factory, price_grant_factory
+    ):
+        plan = plan_factory(name="Private Tier", for_individuals=False, public=False)
+        deal = plan_price_factory(plan=plan, code="deal", amount=7_000)
+        grant = price_grant_factory(plan_price=deal)
+
+        assert plan.get_checkout_url(grant.organization) is not None
+
+    def test_a_tier_with_no_list_price_is_still_sold_to_it(
+        self, plan_factory, plan_price_factory, price_grant_factory
+    ):
+        plan = plan_factory(name="Unlisted Tier", for_individuals=False, public=True)
+        deal = plan_price_factory(plan=plan, code="deal", amount=7_000)
+        grant = price_grant_factory(plan_price=deal)
+
+        assert plan.get_checkout_url(grant.organization) is not None

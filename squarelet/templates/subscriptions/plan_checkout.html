@@ -92,6 +92,7 @@
           {% endif %}
         </div>
 
+        {% if not free %}
         <div class="checkout-row">
           <div class="checkout-data">
             <dt>{% trans "Payment method" %}</dt>
@@ -116,8 +117,10 @@
             </button>
           {% endif %}
         </div>
+        {% endif %}
       </dl>
 
+      {% if not free %}
       <form id="card-form" class="card-form" method="post" action="{% url subject|add:':update-card' subject_slug %}"{% if card_last4 %} hidden{% endif %}>
         {% csrf_token %}
         {{ card_form.stripe_pk }}
@@ -139,6 +142,7 @@
         </div>
         <div id="card-errors" class="error" role="alert"></div>
       </form>
+      {% endif %}
     </section>
 
     <section class="card card--stack">
@@ -215,7 +219,7 @@
         {% endif %}
         <div class="checkout-actions">
           {% if available %}
-            <button type="submit" class="btn premium" id="subscribe-button"{% if card_last4 %} data-has-card{% else %} disabled{% endif %}>
+            <button type="submit" class="btn premium" id="subscribe-button"{% if card_last4 or free %} data-has-card{% else %} disabled{% endif %}>
               {% icon "check" %}
               {% trans "Subscribe to this plan" %}
             </button>
