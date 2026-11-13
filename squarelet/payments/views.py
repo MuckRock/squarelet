@@ -1127,7 +1127,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         return redirect(redirect_url)
 
     def post(self, request, *args, **kwargs):
-        # pylint: disable=too-many-return-statements
+        # pylint: disable=too-many-return-statements,too-many-branches
         self.object = organization = self.get_object()
         plan = self.get_plan()
         if plan.is_enterprise:
