@@ -21,6 +21,10 @@ from datetime import date
 # Third Party
 import pytest
 
+# Squarelet
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
+from squarelet.services.tests.factories import ServiceFactory
+
 APP = "organizations"
 # Found by name, not number: branches above add migrations of their own.
 PARENT = "subscription_parent"
@@ -28,6 +32,8 @@ ITEM_CANCELLATION = "subscription_item_cancellation"
 KIND = "subscription_kind"
 UNIQUE_CARD = "payment_method_unique_stripe_id"
 PRICE_REQUIRED = "plan_price_required"
+# By full name: the merge migration above it ends in the same words.
+PLAN_SERVICE = ("0088_organization_nonprofit", "0089_plan_service")
 
 
 def _bracket(suffix):
@@ -504,3 +510,79 @@ class TestRequireAPrice:
         # The fix it names must exist: this release deletes backfill_plan_prices.
         assert "backfill_plan_prices" not in str(refused.value)
         assert "plan_price" in str(refused.value)
+
+
+@pytest.mark.django_db(transaction=True)
+class TestPlanProductBecomesItsService:
+    """0089 moves `Plan.product` onto the Service it names, then drops it."""
+
+    @pytest.fixture(autouse=True)
+    def _leave_the_database_migrated(self):
+        yield
+        migrate_to_latest()
+
+    @staticmethod
+    def _plans_with_products(apps):
+        """A Sunlight plan and a MuckRock one."""
+        Plan = apps.get_model(APP, "Plan")
+        # The current model: only the organizations app is rolled back.
+        for slug in ("sunlight-research-desk", "muckrock"):
+            ServiceFactory(slug=slug)
+        for slug, product in [
+            ("svc-sunlight", "sunlight"),
+            ("svc-muckrock", "muckrock"),
+        ]:
+            Plan.objects.create(name=slug, slug=slug, product=product)
+
+    def test_sunlight_lands_on_the_sunlight_research_desk(self):
+        before, target = PLAN_SERVICE
+        self._plans_with_products(migrate_to(before))
+
+        new = migrate_to(target)
+
+        Plan = new.get_model(APP, "Plan")
+        services = dict(
+            Plan.objects.filter(slug__startswith="svc-").values_list(
+                "slug", "service__slug"
+            )
+        )
+        assert services == {
+            "svc-sunlight": "sunlight-research-desk",
+            "svc-muckrock": "muckrock",
+        }
+        # The cap counts plans by this constant, so it must name the same row.
+        assert services["svc-sunlight"] == SUNLIGHT_SERVICE_SLUG
+
+    def test_rolling_back_restores_the_product(self):
+        before, target = PLAN_SERVICE
+        self._plans_with_products(migrate_to(before))
+        migrate_to(target)
+
+        old = migrate_to(before)
+
+        Plan = old.get_model(APP, "Plan")
+        products = dict(
+            Plan.objects.filter(slug__startswith="svc-").values_list("slug", "product")
+        )
+        assert products == {
+            "svc-sunlight": "sunlight",
+            "svc-muckrock": "muckrock",
+        }
+
+    def test_a_product_with_no_service_gets_a_placeholder_one(self):
+        """Dropping the column after would otherwise lose the product for good."""
+        before, target = PLAN_SERVICE
+        old = migrate_to(before)
+        old.get_model(APP, "Plan").objects.create(
+            name="Scout", slug="svc-scoutpost", product="scoutpost"
+        )
+
+        new = migrate_to(target)
+
+        plan = new.get_model(APP, "Plan").objects.get(slug="svc-scoutpost")
+        assert (plan.service.slug, plan.service.name) == ("scoutpost", "Scoutpost")
+        assert plan.service.icon.url
+
+        back = migrate_to(before)
+        plan = back.get_model(APP, "Plan").objects.get(slug="svc-scoutpost")
+        assert plan.product == "scoutpost"
