@@ -523,7 +523,7 @@ class TestPlanProductBecomesItsService:
 
     @staticmethod
     def _plans_with_products(apps):
-        """A Sunlight plan, a MuckRock one, and one with no Service to land on."""
+        """A Sunlight plan and a MuckRock one."""
         Plan = apps.get_model(APP, "Plan")
         # The current model: only the organizations app is rolled back.
         for slug in ("sunlight-research-desk", "muckrock"):
@@ -531,7 +531,6 @@ class TestPlanProductBecomesItsService:
         for slug, product in [
             ("svc-sunlight", "sunlight"),
             ("svc-muckrock", "muckrock"),
-            ("svc-scoutpost", "scoutpost"),
         ]:
             Plan.objects.create(name=slug, slug=slug, product=product)
 
@@ -550,7 +549,6 @@ class TestPlanProductBecomesItsService:
         assert services == {
             "svc-sunlight": "sunlight-research-desk",
             "svc-muckrock": "muckrock",
-            "svc-scoutpost": None,
         }
         # The cap counts plans by this constant, so it must name the same row.
         assert services["svc-sunlight"] == SUNLIGHT_SERVICE_SLUG
@@ -569,5 +567,22 @@ class TestPlanProductBecomesItsService:
         assert products == {
             "svc-sunlight": "sunlight",
             "svc-muckrock": "muckrock",
-            "svc-scoutpost": "",
         }
+
+    def test_a_product_with_no_service_gets_a_placeholder_one(self):
+        """Dropping the column after would otherwise lose the product for good."""
+        before, target = PLAN_SERVICE
+        old = migrate_to(before)
+        old.get_model(APP, "Plan").objects.create(
+            name="Scout", slug="svc-scoutpost", product="scoutpost"
+        )
+
+        new = migrate_to(target)
+
+        plan = new.get_model(APP, "Plan").objects.get(slug="svc-scoutpost")
+        assert (plan.service.slug, plan.service.name) == ("scoutpost", "Scoutpost")
+        assert plan.service.icon.url
+
+        back = migrate_to(before)
+        plan = back.get_model(APP, "Plan").objects.get(slug="svc-scoutpost")
+        assert plan.product == "scoutpost"
