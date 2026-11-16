@@ -67,7 +67,7 @@
       {% endif %}
     </section>
 
-    {% if prices and user.is_authenticated and not plan.for_individuals %}
+    {% if prices and user.is_authenticated %}{% if accounts or plan.for_groups %}
       <section class="card card--stack">
         {% if accounts %}
           <h3>{% trans "Subscribe to this plan" %}</h3>
@@ -103,7 +103,7 @@
           </div>
         {% endif %}
       </section>
-    {% endif %}
+    {% endif %}{% endif %}
 
     {% if plan.description %}
       <section class="card card--stack plan-long-description">

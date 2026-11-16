@@ -2878,6 +2878,32 @@ class TestPlanCheckout(ViewTestMixin):
             (other, f"/organizations/{other.slug}/plans/{plan.slug}/monthly/"),
         ]
 
+    def test_the_query_count_does_not_grow_with_the_admins_organizations(
+        self,
+        rf,
+        admin,
+        organization,
+        organization_factory,
+        plan_price_factory,
+        subscription_item_factory,
+    ):
+        plan = plan_price_factory(
+            plan__name="Tier", plan__for_individuals=False, plan__for_groups=True
+        ).plan
+        holding = organization_factory(admins=[admin], name="Holding")
+        subscription_item_factory(subscription__organization=holding, plan=plan)
+        organization_factory(admins=[admin], name="Alpha")
+
+        with CaptureQueriesContext(connection) as few:
+            self.view_page(rf, admin, organization, plan)
+        for name in ("Beta", "Charlie", "Delta", "Echo"):
+            organization_factory(admins=[admin], name=name)
+        with CaptureQueriesContext(connection) as many:
+            response = self.view_page(rf, admin, organization, plan)
+
+        assert len(response.context_data["organization_choices"]) == 6
+        assert len(many) == len(few)
+
     def test_an_account_not_granted_a_private_plan_is_not_offered(
         self, rf, admin, organization, organization_factory, plan_price_factory
     ):

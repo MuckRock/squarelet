@@ -1,5 +1,7 @@
 # Django
+from django.db import connection
 from django.http import Http404
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils.http import urlencode
 
@@ -236,6 +238,40 @@ class TestPlanDetailView(ViewTestMixin):
             )
             assert f'href="{checkout}"' in content
 
+    def test_a_plan_for_individuals_and_groups_offers_both(
+        self, rf, user_factory, organization_factory, plan_factory, plan_price_factory
+    ):
+        plan = plan_factory(name="Both", for_individuals=True, for_groups=True)
+        plan_price_factory(plan=plan)
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+
+        response = self.view_plan(rf, user, plan)
+
+        assert response.status_code == 200
+        assert [a["organization"] for a in response.context_data["accounts"]] == [
+            user.individual_organization,
+            organization,
+        ]
+        content = response.render().content.decode()
+        for account in response.context_data["accounts"]:
+            assert f'href="{account["checkout_url"]}"' in content
+
+    def test_a_personal_plan_the_user_may_not_buy_offers_no_organization(
+        self, rf, user_factory, organization_factory, personal_plan
+    ):
+        user = user_factory()
+        personal_plan.public = False
+        personal_plan.save()
+        personal_plan.private_organizations.add(organization_factory(admins=[user]))
+
+        response = self.view_plan(rf, user, personal_plan)
+
+        assert response.status_code == 200
+        assert response.context_data["accounts"] == []
+        content = response.render().content.decode()
+        assert reverse("organizations:create") not in content
+
     def test_unsubscribed_organizations_are_listed_first(
         self,
         rf,
@@ -311,6 +347,29 @@ class TestPlanDetailView(ViewTestMixin):
             "organizations:plan",
             kwargs={"slug": beta.slug, "plan_slug": group_plan.slug},
         )
+
+    def test_the_query_count_does_not_grow_with_the_users_organizations(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        subscription_item_factory,
+        group_plan,
+    ):
+        user = user_factory()
+        held = organization_factory(admins=[user], name="Held")
+        subscription_item_factory(subscription__organization=held, plan=group_plan)
+        organization_factory(admins=[user], name="Alpha")
+
+        with CaptureQueriesContext(connection) as few:
+            self.view_plan(rf, user, group_plan)
+        for name in ("Beta", "Charlie", "Delta", "Echo"):
+            organization_factory(admins=[user], name=name)
+        with CaptureQueriesContext(connection) as many:
+            response = self.view_plan(rf, user, group_plan)
+
+        assert len(response.context_data["accounts"]) == 6
+        assert len(many) == len(few)
 
     def test_an_enterprise_plan_offers_contact_without_redirecting(
         self, rf, user_factory, plan_factory
