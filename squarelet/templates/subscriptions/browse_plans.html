@@ -61,8 +61,10 @@
               <div class="plan-card-heading">
                 {% if plan.icon %}
                   <img class="plan-icon" src="{{ plan.icon.url }}" alt="" />
-                {% else %}
+                {% elif service.icon %}
                   <img class="plan-icon" src="{{ service.icon.url }}" alt="" />
+                {% else %}
+                  {% icon "premium" %}
                 {% endif %}
                 <div class="plan-info">
                   <div class="plan-title">
