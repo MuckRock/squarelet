@@ -716,7 +716,8 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
             return redirect(self.reverse_subject("subscriptions"))
         next_date = line.subscription.next_date
         if line.subscription.cancelled:
-            messages.info(self.request, _(f"This already ends on {next_date}."))
+            ends = line.subscription.end_date
+            messages.info(self.request, _(f"This already ends on {ends}."))
             return redirect(self.reverse_subject("subscriptions"))
         try:
             with transaction.atomic():

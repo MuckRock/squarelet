@@ -447,6 +447,36 @@ class TestCancellingOnStripe:
         }
 
 
+class TestAFixedTermBilledMonthly:
+    """A term set on Stripe to end months after the current billing period."""
+
+    def test_a_change_keeps_its_end_date(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Either `cancel_at_period_end` value wipes Stripe's own `cancel_at`.
+
+        True moves the end to this month's period end; False removes it, so
+        the term would renew forever.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        term_end = int(time.time()) + 300 * 86400
+        stripe.Subscription.modify(
+            item.subscription.subscription_id, cancel_at=term_end
+        )
+        subscription = Subscription.objects.get(pk=item.subscription.pk)
+        subscription.cancelled = True
+        subscription.save()
+
+        subscription.stripe_modify(proration_behavior="none")
+
+        live = stripe.Subscription.retrieve(subscription.subscription_id)
+        assert live["cancel_at"] == term_end
+        subscription.refresh_from_db()
+        assert subscription.end_date > subscription.next_date
+
+
 class TestProratedInvoicing:
     """When the customer is billed for a plan added mid-period.
 
