@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { E2E_PASSWORD, login, newAnonContext } from "./helpers";
 
@@ -8,6 +9,17 @@ const LEGACY_PLAN_URL = `/plans/organization/?purchase_redirect=${encodeURICompo
   PURCHASE_REDIRECT,
 )}`;
 const PLAN_PAGE_URL = /\/plans\/\d+-organization\/\?purchase_redirect=https/;
+// Checkout reads purchase_redirect from its own URL and posts back to it.
+const CHECKOUT_URL =
+  /\/organizations\/e2e-public-org\/plans\/organization\/(annual|monthly)\/\?purchase_redirect=https/;
+
+async function subscribeAsPublicOrg(page: Page) {
+  await page
+    .locator(".account-rows .checkout-row", { hasText: "e2e-public-org" })
+    .getByRole("link", { name: "Subscribe" })
+    .click();
+  await expect(page).toHaveURL(CHECKOUT_URL);
+}
 
 test.describe("Plan purchase redirects", () => {
   test.describe("Org admin", () => {
@@ -18,9 +30,7 @@ test.describe("Plan purchase redirects", () => {
       await page.goto(LEGACY_PLAN_URL);
 
       await expect(page).toHaveURL(PLAN_PAGE_URL);
-      await expect(
-        page.locator("form.subscription-form input[name='purchase_redirect']"),
-      ).toHaveValue(PURCHASE_REDIRECT);
+      await subscribeAsPublicOrg(page);
     });
   });
 
@@ -34,7 +44,7 @@ test.describe("Plan purchase redirects", () => {
       await page.goto(`https://dev.squarelet.com${LEGACY_PLAN_URL}`);
       await expect(page).toHaveURL(PLAN_PAGE_URL);
 
-      await page.locator(".signup-prompt a", { hasText: "Sign in" }).click();
+      await page.locator(".checkout-sign-in a", { hasText: "Sign in" }).click();
       await expect(page).toHaveURL(/\/accounts\/login\/\?next=/);
 
       await page.locator("#login_form input[name='login']").fill("e2e-admin");
@@ -42,9 +52,7 @@ test.describe("Plan purchase redirects", () => {
       await page.locator("#login_form button.primary").click();
 
       await expect(page).toHaveURL(PLAN_PAGE_URL);
-      await expect(
-        page.locator("form.subscription-form input[name='purchase_redirect']"),
-      ).toHaveValue(PURCHASE_REDIRECT);
+      await subscribeAsPublicOrg(page);
 
       await anonContext.close();
     });
