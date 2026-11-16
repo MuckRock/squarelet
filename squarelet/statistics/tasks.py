@@ -12,6 +12,7 @@ from allauth.mfa.models import Authenticator
 from squarelet.organizations.models import Organization, SubscriptionItem
 from squarelet.statistics.mail import Digest
 from squarelet.statistics.models import Statistics
+from squarelet.statistics.revenue import refresh_revenue_report as refresh_report
 from squarelet.users.models import User
 
 
@@ -63,3 +64,8 @@ def store_statistics():
 @shared_task
 def send_digest():
     Digest().send()
+
+
+@shared_task
+def refresh_revenue_report():
+    refresh_report()

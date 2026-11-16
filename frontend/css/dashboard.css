@@ -1,0 +1,237 @@
+.dashboard-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.dashboard-page > header {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-page > header h1 {
+  margin: 0;
+  color: var(--gray-5);
+  font-size: var(--font-xl);
+}
+
+.dashboard-page > header p {
+  margin: 0.25rem 0 0;
+  color: var(--gray-4);
+}
+
+.dashboard-nav {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--gray-2);
+}
+
+.dashboard-nav a {
+  padding: 0.5rem 0.875rem;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--gray-4);
+  font-weight: var(--font-semibold);
+  text-decoration: none;
+}
+
+.dashboard-nav a:hover {
+  color: var(--gray-5);
+}
+
+.dashboard-nav a[aria-current="page"] {
+  border-bottom-color: var(--primary);
+  color: var(--gray-5);
+}
+
+/* LayerChart reads these; the tooltip is portaled outside the chart. */
+.lc-root-container,
+.lc-tooltip-root {
+  --color-primary: var(--primary);
+  --color-surface-100: var(--white);
+  --color-surface-200: var(--gray-1);
+  --color-surface-300: var(--gray-2);
+  --color-surface-content: var(--gray-5);
+  font-family: var(--font-sans);
+}
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.dashboard h2 {
+  margin: 0 0 0.75rem;
+  font-size: var(--font-lg);
+  color: var(--gray-5);
+}
+
+.dashboard .tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 1rem;
+}
+
+.dashboard .card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: 1.5rem;
+}
+
+.dashboard .card {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--gray-2);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+
+.dashboard .card > header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard h3 {
+  margin: 0;
+  font-size: var(--font-lg);
+  color: var(--gray-5);
+}
+
+.dashboard .card > header p,
+.dashboard .note {
+  margin: 0.25rem 0 0;
+  color: var(--gray-4);
+  font-size: var(--font-sm);
+}
+
+.dashboard .toggle {
+  display: inline-flex;
+  border: 1px solid var(--gray-2);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.dashboard .toggle label {
+  padding: 0.375rem 0.75rem;
+  font-size: var(--font-sm);
+  color: var(--gray-4);
+  cursor: pointer;
+}
+
+.dashboard .toggle label.active {
+  background: var(--blue-1);
+  color: var(--blue-5);
+  font-weight: var(--font-semibold);
+}
+
+.dashboard .toggle label:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.dashboard .toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dashboard .picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--font-sm);
+  color: var(--gray-4);
+}
+
+.dashboard .table-wrap {
+  overflow-x: auto;
+}
+
+.dashboard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.dashboard th,
+.dashboard td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--gray-1);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dashboard th:first-child {
+  text-align: left;
+}
+
+.dashboard thead th {
+  color: var(--gray-4);
+  font-weight: var(--font-semibold);
+  border-bottom-color: var(--gray-2);
+}
+
+.dashboard tbody th {
+  font-weight: var(--font-regular);
+}
+
+.dashboard tfoot th,
+.dashboard tfoot td {
+  font-weight: var(--font-semibold);
+  border-top: 1px solid var(--gray-2);
+  border-bottom: none;
+}
+
+/* The month still in progress. */
+.dashboard tr.partial th,
+.dashboard tr.partial td {
+  color: var(--gray-4);
+}
+
+.dashboard .swatch {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 2px;
+  margin-right: 0.375rem;
+}
+
+.dashboard .empty {
+  color: var(--gray-4);
+}
+
+.dashboard .definitions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+
+.dashboard .definitions dt {
+  font-weight: var(--font-semibold);
+  color: var(--gray-5);
+}
+
+.dashboard .definitions dd {
+  margin: 0.125rem 0 0;
+  color: var(--gray-4);
+  font-size: var(--font-sm);
+  line-height: 1.45;
+}
+
+.revenue-chart {
+  height: 18rem;
+  margin: 0;
+}
+
+.revenue-chart.tall {
+  height: 20rem;
+}

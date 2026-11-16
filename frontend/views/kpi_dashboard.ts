@@ -1,5 +1,5 @@
 import "layerchart/core.css";
-import "@/css/kpi_dashboard.css";
+import "@/css/dashboard.css";
 
 import KpiDashboard from "../components/kpis/KpiDashboard.svelte";
 import type { Activity } from "../components/kpis/activity";

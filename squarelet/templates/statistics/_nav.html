@@ -1,0 +1,5 @@
+{% load i18n %}
+<nav class="dashboard-nav" aria-label="{% trans "Statistics" %}">
+  <a href="{% url "statistics:users" %}"{% if dashboard == "users" %} aria-current="page"{% endif %}>{% trans "Users" %}</a>
+  <a href="{% url "statistics:revenue" %}"{% if dashboard == "revenue" %} aria-current="page"{% endif %}>{% trans "Revenue" %}</a>
+</nav>

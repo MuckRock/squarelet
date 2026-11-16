@@ -173,6 +173,9 @@ class StripeModernSubscriptionService(SubscriptionService):
         except stripe.InvalidRequestError:  # pragma: no cover
             return None
 
+    def list(self, **params):
+        return stripe.Subscription.list(**params).auto_paging_iter()
+
     def modify(self, subscription_id, **kwargs):
         # `billing` -> `collection_method` may appear in kwargs from direct
         # modify() calls; translate if present

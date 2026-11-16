@@ -2,14 +2,22 @@
   interface Props {
     label: string;
     value: string;
-    change: number | null;
+    /** Omit for a figure with nothing to compare against. */
+    change?: number | null;
+    formatChange?: (change: number) => string;
     detail?: string;
   }
 
-  let { label, value, change, detail }: Props = $props();
+  let {
+    label,
+    value,
+    change,
+    formatChange = (n) => `${n > 0 ? "+" : ""}${n.toFixed(1)}%`,
+    detail,
+  }: Props = $props();
 
   const direction = $derived(
-    change === null || Math.abs(change) < 0.05
+    change == null || Math.abs(change) < 0.05
       ? "flat"
       : change > 0
         ? "up"
@@ -18,18 +26,26 @@
   const changeText = $derived(
     change === null
       ? "No prior month"
-      : `${change > 0 ? "+" : ""}${change.toFixed(1)}%`,
+      : change === undefined
+        ? ""
+        : formatChange(change),
   );
 </script>
 
 <div class="tile">
   <div class="label">{label}</div>
   <div class="value">{value}</div>
-  <div class="change {direction}">
-    {#if direction === "up"}▲{:else if direction === "down"}▼{/if}
-    {changeText}
-    <span class="detail">{detail ?? "vs. previous month"}</span>
-  </div>
+  {#if change === undefined}
+    {#if detail}<div class="change">
+        <span class="detail">{detail}</span>
+      </div>{/if}
+  {:else}
+    <div class="change {direction}">
+      {#if direction === "up"}▲{:else if direction === "down"}▼{/if}
+      {changeText}
+      <span class="detail">{detail ?? "vs. previous month"}</span>
+    </div>
+  {/if}
 </div>
 
 <style>
