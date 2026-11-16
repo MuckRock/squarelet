@@ -47,32 +47,34 @@
     <section class="card card--stack">
       <h3>{% trans "Billing information" %}</h3>
       <dl class="checkout-rows">
-        {% if not organization.individual %}
-          <div class="checkout-row">
-            <div class="checkout-data">
+        <div class="checkout-row">
+          <div class="checkout-data">
+            {% if subject == "users" %}
+              <dt>{% trans "Your account" %}</dt>
+            {% else %}
               <dt>{% trans "Your organization" %}</dt>
-              <dd>
-                {{ organization.name }}
-                {% if organization.nonprofit %}
-                  <span class="badge">{% trans "Non-profit" %}</span>
-                {% endif %}
-              </dd>
-            </div>
-            {% if organization_choices|length > 1 %}
-              <label class="btn primary ghost small checkout-select">
-                {% icon "chevron-down" %}
-                {% trans "Change organization" %}
-                <select id="organization-select">
-                  {% for choice, url in organization_choices %}
-                    <option value="{{ url }}"{% if choice == organization %} selected{% endif %}>
-                      {{ choice.name }}{% if choice.individual %} ({% trans "Personal" %}){% endif %}
-                    </option>
-                  {% endfor %}
-                </select>
-              </label>
             {% endif %}
+            <dd>
+              {{ organization.name }}
+              {% if organization.nonprofit %}
+                <span class="badge">{% trans "Non-profit" %}</span>
+              {% endif %}
+            </dd>
           </div>
-        {% endif %}
+          {% if organization_choices|length > 1 %}
+            <label class="btn primary ghost small checkout-select">
+              {% icon "chevron-down" %}
+              {% trans "Change organization" %}
+              <select id="organization-select">
+                {% for choice, url in organization_choices %}
+                  <option value="{{ url }}"{% if choice == organization %} selected{% endif %}>
+                    {{ choice.name }}{% if choice.individual %} ({% trans "Personal" %}){% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            </label>
+          {% endif %}
+        </div>
 
         <div class="checkout-row">
           <div class="checkout-data">

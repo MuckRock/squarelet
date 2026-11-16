@@ -508,6 +508,17 @@ class SubscriptionItemQuerySet(models.QuerySet):
         }
         return set(Plan.objects.filter(slug__in=slugs))
 
+    def paid_holders(self, plan, organizations):
+        """The ids of `organizations` holding `plan`'s tier on a paid subscription."""
+        return set(
+            self.filter(
+                plan__in=self.plans_of_tier(plan),
+                subscription__organization__in=organizations,
+            )
+            .exclude(subscription__kind="free")
+            .values_list("subscription__organization_id", flat=True)
+        )
+
     def start(
         self,
         organization,

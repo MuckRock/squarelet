@@ -117,26 +117,26 @@ class TestSelectPlan(ViewTestMixin):
             if tier["name"] == name
         )
 
-    def test_a_tier_links_to_checkout_for_an_organization_the_user_runs(
+    def test_a_user_who_runs_several_organizations_picks_one_on_the_plan_page(
         self, rf, user_factory, organization_factory, essential
     ):
         user = user_factory()
-        organization = organization_factory(admins=[user], name="Acme")
+        organization_factory(admins=[user], name="Acme")
+        organization_factory(admins=[user], name="Zeta")
 
         response = self.call_view(rf, user)
 
-        checkout = f"/organizations/{organization.slug}/plans/{essential.slug}/"
-        assert self.tier(response)["checkout_url"] == checkout
-        assert f'href="{checkout}"' in response.render().content.decode()
+        plan_page = essential.get_absolute_url()
+        assert self.tier(response)["plan_url"] == plan_page
+        assert f'href="{plan_page}"' in response.render().content.decode()
 
-    @pytest.mark.usefixtures("essential")
-    def test_a_tier_has_no_checkout_for_a_user_who_runs_no_organization(
-        self, rf, user_factory
+    def test_a_user_who_runs_no_organization_is_still_offered_the_plan(
+        self, rf, user_factory, essential
     ):
         response = self.call_view(rf, user_factory())
 
-        assert self.tier(response)["checkout_url"] is None
-        assert b"/plans/" not in response.render().content
+        plan_page = essential.get_absolute_url()
+        assert f'href="{plan_page}"' in response.render().content.decode()
 
     @pytest.mark.usefixtures("essential")
     def test_a_visitor_signs_up_and_returns_to_the_pricing_page(self, rf):

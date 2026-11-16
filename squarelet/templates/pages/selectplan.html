@@ -325,8 +325,8 @@
                   {% trans "Sign up & subscribe" %}
                 </a>
                 {% endif %}
-              {% elif tier.checkout_url %}
-              <a class="btn premium" href="{{ tier.checkout_url }}">
+              {% elif tier.plan_url %}
+              <a class="btn premium" href="{{ tier.plan_url }}">
                 {% trans "Subscribe" %}
               </a>
               {% endif %}

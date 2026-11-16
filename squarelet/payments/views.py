@@ -87,29 +87,22 @@ class PlanDetailView(DetailView):
         user = self.request.user
         if not user.is_authenticated or plan.is_enterprise:
             return []
-        if plan.for_individuals:
-            organizations = [user.individual_organization]
-        else:
-            organizations = Organization.objects.filter(
-                memberships__user=user, memberships__admin=True, individual=False
-            ).order_by("name")
-        accounts = []
-        for organization in organizations:
-            url = plan.get_checkout_url(organization)
-            if url is None:
-                continue
-            held = organization.line_holding(plan)
-            accounts.append(
-                {
-                    "organization": organization,
-                    "checkout_url": self.with_query(url),
-                    "manage_url": reverse(
-                        "organizations:subscriptions",
-                        kwargs={"slug": organization.slug},
-                    ),
-                    "held": held is not None and held.subscription.kind != "free",
-                }
-            )
+        urls = plan.checkout_urls(user)
+        held = SubscriptionItem.objects.paid_holders(
+            plan, [organization for organization, _url in urls]
+        )
+        accounts = [
+            {
+                "organization": organization,
+                "checkout_url": self.with_query(url),
+                "manage_url": reverse(
+                    "organizations:subscriptions",
+                    kwargs={"slug": organization.slug},
+                ),
+                "held": organization.pk in held,
+            }
+            for organization, url in urls
+        ]
         return sorted(accounts, key=lambda account: account["held"])
 
     def get_prices(self, plan):
@@ -786,22 +779,17 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         The page's own organization comes first, so staff acting on someone
         else's account still see it selected.
         """
-        if self.individual:
-            return []
-
         user = self.request.user
         query = self.purchase_query()
         choices = [(self.object, self.request.path + query)]
-        admin_orgs = (
-            user.organizations.filter(memberships__admin=True)
-            .exclude(pk=self.object.pk)
-            .order_by("name")
-        )
-        for organization in admin_orgs:
-            if not Plan.objects.choices(organization).filter(pk=plan.pk).exists():
-                continue
-            held = organization.line_holding(plan)
-            if held is not None and held.subscription.kind != "free":
+        orgs = [
+            organization
+            for organization in plan.eligible_accounts(user)
+            if organization != self.object
+        ]
+        held = SubscriptionItem.objects.paid_holders(plan, orgs)
+        for organization in orgs:
+            if organization.pk in held:
                 continue
             if organization.individual:
                 url = reverse(

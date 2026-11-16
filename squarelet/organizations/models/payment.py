@@ -1453,6 +1453,8 @@ def plan_file_path(instance, filename):
 class Plan(models.Model):
     """Plans that organizations can subscribe to"""
 
+    # pylint: disable=too-many-public-methods
+
     CHECKOUT_INTERVALS = ("annual", "monthly")
 
     objects = PlanQuerySet.as_manager()
@@ -1726,11 +1728,16 @@ class Plan(models.Model):
         """
         if not Plan.objects.choices(organization).filter(pk=self.pk).exists():
             return None
-        if (
-            not self.is_enterprise
-            and self.default_interval(organization.nonprofit) is None
-        ):
-            return None
+        return self._checkout_url(organization, {})
+
+    def _checkout_url(self, organization, intervals):
+        """`get_checkout_url` for an `organization` already known to be eligible."""
+        if not self.is_enterprise:
+            nonprofit = organization.nonprofit
+            if nonprofit not in intervals:
+                intervals[nonprofit] = self.default_interval(nonprofit)
+            if intervals[nonprofit] is None:
+                return None
         if organization.individual:
             return reverse(
                 "users:plan",
@@ -1741,32 +1748,43 @@ class Plan(models.Model):
             kwargs={"slug": organization.slug, "plan_slug": self.slug},
         )
 
-    def get_checkout_url_for(self, user):
-        """`user`'s checkout link for this plan, or None if no account of theirs
-        may buy it.
-        Their own account for a plan sold to individuals, else the first
-        organization they administer, by name, that may buy it.
-        """
+    def eligible_accounts(self, user):
+        """The accounts `user` may buy this plan for: their own, then the
+        organizations they administer, by name."""
         # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.models.organization import Organization
 
+        if self.archived:
+            return []
+        accounts = Q(pk__in=[])
         if self.for_individuals:
-            accounts = [user.individual_organization]
-        else:
-            accounts = Organization.objects.filter(
+            accounts |= Q(uuid=user.individual_organization_id)
+        if self.for_groups:
+            accounts |= Q(
                 memberships__user=user, memberships__admin=True, individual=False
-            ).order_by("name")
-        held_url = None
-        for organization in accounts:
-            url = self.get_checkout_url(organization)
-            if not url:
-                continue
-            held = organization.line_holding(self)
-            if held is None or held.subscription.kind == "free":
-                return url
-            held_url = held_url or url
-        return held_url
+            )
+        offered = (
+            Q() if self.public else Q(subscriptions__plans=self) | Q(private_plans=self)
+        )
+        return list(
+            Organization.objects.filter(accounts)
+            .filter(offered)
+            .select_related("user")
+            .distinct()
+            .order_by("-individual", "name")
+        )
+
+    def checkout_urls(self, user):
+        """`(organization, checkout url)` for each of `user`'s eligible accounts
+        this plan is sold to."""
+        intervals = {}
+        urls = []
+        for organization in self.eligible_accounts(user):
+            url = self._checkout_url(organization, intervals)
+            if url is not None:
+                urls.append((organization, url))
+        return urls
 
     def cost(self, users):
         """Total monthly cost for a given number of resource blocks
