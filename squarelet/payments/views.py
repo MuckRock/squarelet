@@ -1029,6 +1029,8 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         if payment_method == "invoice":
             if price.interval != "annual":
                 return self._error(_("Only annual plans can be paid by invoice."))
+            if price.amount == 0:
+                return self._error(_("This plan is free, so there's nothing to pay."))
         elif payment_method != "card":
             return self._error(_("Choose a card or invoice to pay with."))
         elif (

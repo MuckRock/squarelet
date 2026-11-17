@@ -113,6 +113,33 @@ class TestCheckingOutAtTheGrantedPrice(ViewTestMixin):
         self.call(rf, admin, organization, plan, data={})
         add_subscription.assert_not_called()
 
+    def test_a_comp_is_never_invoiced(
+        self,
+        rf,
+        admin,
+        organization,
+        plan_price_factory,
+        price_grant_factory,
+        add_subscription,
+    ):
+        """The page hides the option; a posted one is refused too."""
+        plan = plan_price_factory(plan__name="Tier", interval="annual").plan
+        comp = plan_price_factory(
+            plan=plan, interval="annual", label="comped", amount=0
+        )
+        price_grant_factory(organization=organization, plan_price=comp)
+
+        self.call_view(
+            rf,
+            admin,
+            {"payment_method": "invoice"},
+            slug=organization.slug,
+            plan_slug=plan.slug,
+            interval="annual",
+        )
+
+        add_subscription.assert_not_called()
+
     def test_a_paid_deal_still_needs_one(
         self,
         rf,
