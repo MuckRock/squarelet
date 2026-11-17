@@ -88,6 +88,31 @@ class TestCheckingOutAtTheGrantedPrice(ViewTestMixin):
 
         add_subscription.assert_called_once()
 
+    def test_a_comp_already_held_is_not_offered_again(
+        self,
+        rf,
+        admin,
+        organization,
+        plan_price_factory,
+        price_grant_factory,
+        subscription_item_factory,
+        add_subscription,
+    ):
+        """Buying it again would only fail."""
+        plan = plan_price_factory(plan__name="Tier", amount=10_000).plan
+        comp = plan_price_factory(plan=plan, label="comped", amount=0)
+        price_grant_factory(organization=organization, plan_price=comp)
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="free",
+            plan=plan,
+            plan_price=comp,
+        )
+
+        assert self.call(rf, admin, organization, plan).context_data["held"]
+        self.call(rf, admin, organization, plan, data={})
+        add_subscription.assert_not_called()
+
     def test_a_paid_deal_still_needs_one(
         self,
         rf,

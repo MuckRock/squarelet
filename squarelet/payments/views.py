@@ -847,9 +847,16 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         url = self.get_purchase_redirect()
         return f"?{urlencode({'purchase_redirect': url})}" if url else ""
 
-    def is_held(self, plan):
+    def is_held(self, plan, price=None):
+        """Whether buying `plan` (at `price`) would be refused as already held.
+
+        A comp doesn't hold its tier, unless it is the very price on sale, as
+        in `add_subscription`.
+        """
         held = self.object.line_holding(plan)
-        return held is not None and held.subscription.kind != "free"
+        return held is not None and (
+            held.subscription.kind != "free" or held.plan_price == price
+        )
 
     @staticmethod
     def _sold_at(plan, interval, organization, dealt, sold_by_rate):
@@ -937,7 +944,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
                 + self.purchase_query()
             )
 
-        held = self.is_held(plan)
+        held = self.is_held(plan, price)
         # None when held, or when Stripe could not preview the charge.
         due_cents = (
             None if held else SubscriptionItem.objects.due_on_start(organization, price)
@@ -1003,7 +1010,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             "subscriptions"
         )
 
-        if self.is_held(plan):
+        if self.is_held(plan, price):
             return self._error(_("You are already subscribed to this plan."))
         has_waitlist = plan.is_sunlight_plan and plan.wix
         if request.POST.get("action") == "waitlist":
