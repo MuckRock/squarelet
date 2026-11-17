@@ -9,7 +9,7 @@ from datetime import date
 import pytest
 
 # Squarelet
-from squarelet.organizations.models import PriceGrant, SubscriptionItem
+from squarelet.organizations.models import Plan, PriceGrant, SubscriptionItem
 from squarelet.organizations.payments.exceptions import SubscriptionError
 
 
@@ -396,6 +396,20 @@ class TestCheckoutQuotesTheGrant:
         grant.organization.add_creator(admin)
 
         assert plan.eligible_accounts(admin) == [grant.organization]
+
+    def test_an_ended_comp_no_longer_does(
+        self, plan_factory, plan_price_factory, price_grant_factory, user_factory
+    ):
+        """Else the org could buy the private plan at list price."""
+        admin = user_factory()
+        plan = plan_factory(name="Private Tier", for_individuals=False, public=False)
+        plan_price_factory(plan=plan, amount=10_000)
+        comp = plan_price_factory(plan=plan, label="comped", amount=0)
+        grant = price_grant_factory(plan_price=comp, ends_on=date(2020, 1, 1))
+        grant.organization.add_creator(admin)
+
+        assert not Plan.objects.choices(grant.organization).filter(pk=plan.pk)
+        assert plan.eligible_accounts(admin) == []
 
     def test_a_tier_with_no_list_price_is_still_sold_to_it(
         self, plan_factory, plan_price_factory, price_grant_factory

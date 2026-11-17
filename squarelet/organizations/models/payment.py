@@ -1825,7 +1825,11 @@ class Plan(models.Model):
             if self.public
             else Q(subscriptions__plans=self)
             | Q(private_plans=self)
-            | Q(price_grants__plan_price__plan=self)
+            | Q(
+                pk__in=PriceGrant.live()
+                .filter(plan_price__plan=self)
+                .values("organization")
+            )
         )
         return list(
             Organization.objects.filter(accounts)
@@ -2322,6 +2326,11 @@ class PriceGrant(models.Model):
         return f"{self.organization} at {self.plan_price}"
 
     @classmethod
+    def live(cls):
+        """Grants still in force: a comp past its end date is left out."""
+        return cls.objects.exclude(ends_on__lt=localdate())
+
+    @classmethod
     def holders(cls, organizations, plan):
         """The pks of `organizations` with a deal on `plan`'s tier, in one query.
 
@@ -2330,11 +2339,11 @@ class PriceGrant(models.Model):
         """
         target = resolve_target(plan.slug)
         return set(
-            cls.objects.filter(
+            cls.live()
+            .filter(
                 organization__in=organizations,
                 plan_price__plan__slug=target[0] if target else plan.slug,
             )
-            .exclude(ends_on__lt=localdate())
             .values_list("organization_id", flat=True)
         )
 
@@ -2352,9 +2361,9 @@ class PriceGrant(models.Model):
             )
         }
         grants = (
-            cls.objects.select_related("plan_price", "granted_by")
+            cls.live()
+            .select_related("plan_price", "granted_by")
             .filter(organization=organization, plan_price__plan__slug=slug)
-            .exclude(ends_on__lt=localdate())
         )
         live = {}
         for grant in grants:
