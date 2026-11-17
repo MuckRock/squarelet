@@ -309,3 +309,67 @@ class TestTheCheckoutLinkGoesToTheDeal(ViewTestMixin):
         )
 
         assert response.url.endswith(f"/plans/{plan.slug}/monthly/")
+
+
+@pytest.mark.django_db()
+class TestThePlansPageShowsTheDeal(ViewTestMixin):
+    view = views.Plans
+    url = "/organizations/{slug}/plans/"
+
+    def plans(self, rf, admin, organization):
+        response = self.call_view(rf, admin, slug=organization.slug)
+        return {
+            plan.pk: plan
+            for group in response.context_data["services"]
+            for plan in group["plans"]
+        }
+
+    def test_a_plan_sold_only_by_deal_is_listed_at_it(
+        self,
+        rf,
+        admin,
+        organization,
+        plan_factory,
+        plan_price_factory,
+        price_grant_factory,
+    ):
+        plan = plan_factory(
+            name="Private Tier",
+            for_individuals=False,
+            public=False,
+            service=ServiceFactory(),
+        )
+        deal = plan_price_factory(plan=plan, code="deal", amount=7_000)
+        price_grant_factory(organization=organization, plan_price=deal)
+
+        listed = self.plans(rf, admin, organization)[plan.pk]
+
+        assert listed.display_prices == [deal]
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+        assert "Special price" in page.content.decode()
+
+    def test_the_deal_replaces_the_list_prices(
+        self,
+        rf,
+        admin,
+        organization,
+        organization_factory,
+        plan_price_factory,
+        price_grant_factory,
+    ):
+        """Checkout sells the org only its deal's intervals, so show those."""
+        plan = plan_price_factory(
+            plan__name="Tier", plan__service=ServiceFactory(), interval="annual"
+        ).plan
+        plan_price_factory(plan=plan, interval="monthly", amount=10_000)
+        deal = plan_price_factory(plan=plan, code="deal", amount=7_000)
+        price_grant_factory(organization=organization, plan_price=deal)
+        other = organization_factory(admins=[admin], name="Other Newsroom")
+
+        assert self.plans(rf, admin, organization)[plan.pk].display_prices == [deal]
+        listed = self.plans(rf, admin, other)[plan.pk]
+        assert [price.interval for price in listed.display_prices] == [
+            "annual",
+            "monthly",
+        ]
+        assert not listed.deal

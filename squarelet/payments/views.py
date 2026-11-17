@@ -403,9 +403,17 @@ class BasePlans(SubscriptionObjectMixin, DetailView):
         context = super().get_context_data(**kwargs)
         organization = self.object
         list_prices = PlanPrice.objects.filter(active=True, code="")
+        # Tiers staff have given this org a price on; a tier sold to it only
+        # by deal is listed too.
+        dealt = set(
+            PriceGrant.live()
+            .filter(organization=organization)
+            .values_list("plan_price__plan__slug", flat=True)
+        )
         plans = (
             Plan.objects.choices(organization)
-            .filter(service__isnull=False, prices__in=list_prices)
+            .filter(service__isnull=False)
+            .filter(Q(prices__in=list_prices) | Q(slug__in=dealt))
             .distinct()
             .select_related("service")
             .prefetch_related(Prefetch("prices", queryset=list_prices), "entitlements")
@@ -420,7 +428,24 @@ class BasePlans(SubscriptionObjectMixin, DetailView):
 
         services = {}
         for plan in plans:
-            plan.display_prices = self.get_display_prices(plan, organization.nonprofit)
+            target = resolve_target(plan.slug)
+            granted = (
+                SubscriptionItem.objects.granted_prices(plan, organization)
+                if (target[0] if target else plan.slug) in dealt
+                else {}
+            )
+            plan.deal = bool(granted)
+            if plan.deal:
+                # Checkout sells the org only its deal's intervals.
+                plan.display_prices = [
+                    granted[interval]
+                    for interval in Plan.CHECKOUT_INTERVALS
+                    if interval in granted
+                ]
+            else:
+                plan.display_prices = self.get_display_prices(
+                    plan, organization.nonprofit
+                )
             if not plan.display_prices:
                 continue
             plan.nonprofit = any(
