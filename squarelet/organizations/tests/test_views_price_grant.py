@@ -145,6 +145,30 @@ class TestCheckingOutAtTheGrantedPrice(ViewTestMixin):
         )
         assert urls[other.pk] == f"/organizations/{other.slug}/plans/{plan.slug}/"
 
+    def test_an_account_that_cannot_buy_the_plan_is_not_offered(
+        self,
+        rf,
+        admin,
+        organization,
+        organization_factory,
+        plan_factory,
+        plan_price_factory,
+        price_grant_factory,
+    ):
+        """On a tier sold only by deal, another account would land on a 404."""
+        other = organization_factory(admins=[admin], name="Other Newsroom")
+        plan = plan_factory(name="Unlisted Tier", for_individuals=False, public=True)
+        deal = plan_price_factory(plan=plan, code="deal", amount=7_000)
+        price_grant_factory(organization=organization, plan_price=deal)
+
+        response = self.call_view(
+            rf, admin, slug=organization.slug, plan_slug=plan.slug, interval="monthly"
+        )
+
+        offered = [org for org, _url in response.context_data["organization_choices"]]
+        assert other not in offered
+        assert offered == [organization]
+
 
 @pytest.mark.django_db()
 class TestADealSkipsTheSunlightCap(ViewTestMixin):

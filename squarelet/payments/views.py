@@ -861,9 +861,11 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         nonprofit = organization.nonprofit
         if organization.pk in dealt:
             return plan.checkout_prices(interval, nonprofit, organization)[0]
-        if nonprofit not in sold_by_rate:
-            sold_by_rate[nonprofit] = plan.checkout_prices(interval, nonprofit)[0]
-        return sold_by_rate[nonprofit]
+        if (interval, nonprofit) not in sold_by_rate:
+            sold_by_rate[interval, nonprofit] = plan.checkout_prices(
+                interval, nonprofit
+            )[0]
+        return sold_by_rate[interval, nonprofit]
 
     def get_organization_choices(self, plan, interval):
         """`(organization, checkout url)` for each account the user may switch to.
@@ -885,12 +887,19 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         for organization in orgs:
             if organization.pk in held:
                 continue
-            # Another account may not be sold this interval (its deal is at the
-            # other), so its own checkout link picks one for it.
-            sold = self._sold_at(plan, interval, organization, dealt, sold_by_rate)
-            name = "plan-checkout" if sold is not None else "plan"
+            sold = [
+                other
+                for other in Plan.CHECKOUT_INTERVALS
+                if self._sold_at(plan, other, organization, dealt, sold_by_rate)
+            ]
+            if not sold:
+                # It would land on a 404.
+                continue
+            # Not sold this interval (its deal is at the other): its own
+            # checkout link picks one.
+            name = "plan-checkout" if interval in sold else "plan"
             kwargs = {"plan_slug": plan.slug}
-            if sold is not None:
+            if interval in sold:
                 kwargs["interval"] = interval
             if organization.individual:
                 url = reverse(
