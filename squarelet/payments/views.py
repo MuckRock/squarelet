@@ -77,15 +77,23 @@ def legacy_alias_url(plan, query):
 
 def protect_private_plan(plan, user):
     """404 a private plan to anyone who doesn't administer an organization it
-    is offered to or held by. Enterprise pages stay open: they sell by contact.
+    is offered to, held by or has a deal on. Enterprise pages stay open: they
+    sell by contact.
     """
     if plan.public or plan.is_enterprise:
         return
     if not user.is_authenticated:
         raise Http404("Plan not found")
+    administered = Organization.objects.filter(
+        memberships__user=user, memberships__admin=True
+    )
     offered = (
-        Organization.objects.filter(memberships__user=user, memberships__admin=True)
-        .filter(Q(private_plans=plan) | Q(subscriptions__plans=plan))
+        administered.filter(
+            Q(private_plans=plan) | Q(subscriptions__plans=plan)
+        ).exists()
+        # A deal on the plan offers it too.
+        or PriceGrant.live()
+        .filter(organization__in=administered, plan_price__plan=plan)
         .exists()
     )
     if not offered:
