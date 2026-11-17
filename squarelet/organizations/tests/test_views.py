@@ -251,6 +251,28 @@ class TestDetail(ViewTestMixin):
         assert page.context_data["private_plans"] == []
         assert b"eligible to subscribe to a private plan" not in page.content
 
+    def test_a_private_plan_held_only_as_a_comp_is_still_offered(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        deal = plan_factory(name="Newsroom Deal", public=False)
+        deal.private_organizations.add(organization)
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="free",
+            plan=deal,
+        )
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+
+        assert page.context_data["private_plans"] == [deal]
+
     def test_a_member_who_cannot_subscribe_sees_no_private_plan_banner(
         self, rf, organization_factory, user_factory, plan_factory
     ):
@@ -2168,6 +2190,30 @@ class TestPlans(ViewTestMixin):
         assert b"/subscriptions/" in page.content
         assert f"/plans/{held.slug}/".encode() not in page.content
         assert f"/plans/{other.slug}/".encode() in page.content
+
+    def test_a_comp_does_not_hold_its_plan(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_price_factory,
+        subscription_item_factory,
+    ):
+        """A comp can end, so the org may still subscribe, as at checkout."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        comped = plan_price_factory(plan__name="Comped", plan__service=ServiceFactory())
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="free",
+            plan=comped.plan,
+        )
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+
+        (group,) = page.context_data["services"]
+        assert not group["plans"][0].held
+        assert f"/plans/{comped.plan.slug}/".encode() in page.content
 
     def test_subscribing_goes_to_the_plans_checkout(
         self, rf, user_factory, organization_factory, plan_price_factory

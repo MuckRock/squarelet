@@ -574,9 +574,9 @@ class BasePlans(SubscriptionObjectMixin, DetailView):
 
         held_tiers = {
             tier_of(slug)
-            for slug in organization.subscription_items.values_list(
-                "plan__slug", flat=True
-            )
+            for slug in organization.subscription_items.exclude(
+                subscription__kind="free"
+            ).values_list("plan__slug", flat=True)
         }
 
         services = {}

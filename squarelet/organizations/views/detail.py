@@ -64,7 +64,7 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
         upgrade_plan = Plan.objects.get(slug="organization")
         subscriptions = list(
             org.subscription_items.select_related(
-                "plan", "plan_price"
+                "plan", "plan_price", "subscription"
             ).prefetch_related("plan__entitlements")
         )
         context["subscriptions"] = subscriptions
@@ -72,7 +72,12 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
             sub.plan for sub in subscriptions
         )
         context["upgrade_plan"] = upgrade_plan
-        held_tiers = {tier_of(sub.plan.slug) for sub in subscriptions}
+        # A comp can end, so it doesn't hold its tier; checkout agrees.
+        held_tiers = {
+            tier_of(sub.plan.slug)
+            for sub in subscriptions
+            if sub.subscription.kind != "free"
+        }
         context["private_plans"] = [
             plan
             for plan in org.private_plans.filter(public=False).order_by("name")
