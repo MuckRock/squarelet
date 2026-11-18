@@ -1,0 +1,7 @@
+{% load progress_bar %}
+
+{% progress_bar value max as progress_class %}
+
+<div class="progress-bar {{ progress_class }}" role="progressbar" aria-valuemax="{{ max }}" aria-valuenow="{{ value }}">
+  <div style="width: {% widthratio value max 100 %}%"></div>
+</div>
