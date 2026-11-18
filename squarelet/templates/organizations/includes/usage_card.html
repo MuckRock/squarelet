@@ -36,7 +36,11 @@
                     {{ subject }} <strong>{{ amount }} {{ resource }}s</strong> that never expire.
                   {% endblocktrans %}
                 {% endif %}
-                {% if stats.available_inherited %}
+                {% if stats.available_inherited > 100 %}
+                  {% blocktrans trimmed with resource=resource subject=subject pronoun=pronoun %}
+                    {{ subject }} <strong>100+ additional {{ resource }}s</strong> from {{ pronoun }} organization memberships.
+                  {% endblocktrans %}
+                {% elif stats.available_inherited %}
                   {% blocktrans trimmed count counter=stats.available_inherited with amount=stats.available_inherited|intcomma resource=resource subject=subject pronoun=pronoun %}
                     {{ subject }} <strong>{{ amount }} additional {{ resource }}</strong> from {{ pronoun }} organization memberships.
                   {% plural %}
