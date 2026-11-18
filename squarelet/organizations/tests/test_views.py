@@ -3465,6 +3465,19 @@ class TestCreate(ViewTestMixin):
         assert response.status_code == 200
         assert not user.organizations.filter(individual=False).exists()
 
+    def test_an_unverified_user_returns_here_after_verifying(self, rf, user_factory):
+        user = user_factory(email_verified=False)
+        self.call_view(rf, user, params={"next": "/plans/1-pro/?purchase_redirect=x"})
+        self.request.session.__setitem__.assert_called_once_with(
+            "next_url", self.request.get_full_path()
+        )
+        assert "next=" in self.request.get_full_path()
+
+    def test_a_verified_user_leaves_the_session_next_url_alone(self, rf, user_factory):
+        user = user_factory(email_verified=True)
+        self.call_view(rf, user, params={"next": "/plans/1-pro/"})
+        self.request.session.__setitem__.assert_not_called()
+
     def test_get_verified_email(self, rf, user_factory):
         """User with verified email sees the creation form"""
         user = user_factory(email_verified=True)
