@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.core.signing import BadSignature, TimestampSigner
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -70,16 +70,20 @@ def legacy_alias_url(plan, query):
 
 
 def protect_private_plan(plan, user):
-    """Raise 404 if user should not access this private plan"""
-    if not plan.public and plan.private_organizations.exists():
-        # If user is not authenticated, raise 404
-        if not user.is_authenticated:
-            raise Http404("Plan not found")
-
-        # If user is not admin of any organization for this plan, raise 404
-        user_admin_orgs = user.organizations.filter(memberships__admin=True)
-        if not plan.private_organizations.filter(pk__in=user_admin_orgs).exists():
-            raise Http404("Plan not found")
+    """404 a private plan to anyone who doesn't administer an organization it
+    is offered to or held by. Enterprise pages stay open: they sell by contact.
+    """
+    if plan.public or plan.is_enterprise:
+        return
+    if not user.is_authenticated:
+        raise Http404("Plan not found")
+    offered = (
+        Organization.objects.filter(memberships__user=user, memberships__admin=True)
+        .filter(Q(private_plans=plan) | Q(subscriptions__plans=plan))
+        .exists()
+    )
+    if not offered:
+        raise Http404("Plan not found")
 
 
 class PlanDetailView(AdminLinkMixin, DetailView):

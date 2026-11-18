@@ -469,6 +469,60 @@ class TestPlanDetailView(ViewTestMixin):  # pylint: disable=too-many-public-meth
         with pytest.raises(Http404):
             self.view_plan(rf, None, group_plan)
 
+    def test_a_private_plan_offered_to_no_one_is_hidden(
+        self, rf, user_factory, organization_factory, group_plan
+    ):
+        group_plan.public = False
+        group_plan.save()
+        user = user_factory()
+        organization_factory(admins=[user])
+
+        with pytest.raises(Http404):
+            self.view_plan(rf, None, group_plan)
+        with pytest.raises(Http404):
+            self.view_plan(rf, user, group_plan)
+
+    def test_a_private_plan_is_hidden_from_a_member_who_is_not_an_admin(
+        self, rf, user_factory, organization_factory, group_plan
+    ):
+        group_plan.public = False
+        group_plan.save()
+        user = user_factory()
+        group_plan.private_organizations.add(organization_factory(users=[user]))
+
+        with pytest.raises(Http404):
+            self.view_plan(rf, user, group_plan)
+
+    def test_an_organization_holding_a_private_plan_can_see_its_page(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        subscription_item_factory,
+        group_plan,
+    ):
+        group_plan.public = False
+        group_plan.save()
+        user = user_factory()
+        holder = organization_factory(admins=[user])
+        subscription_item_factory(subscription__organization=holder, plan=group_plan)
+
+        response = self.view_plan(rf, user, group_plan)
+
+        assert response.status_code == 200
+
+    def test_a_private_enterprise_plan_stays_visible_as_a_contact_page(
+        self, rf, plan_factory
+    ):
+        plan = plan_factory(
+            name="Sunlight Enterprise", slug="sunlight-enterprise", public=False
+        )
+
+        response = self.view_plan(rf, None, plan)
+
+        assert response.status_code == 200
+        assert "calendar.app.google" in response.render().content.decode()
+
 
 @pytest.mark.django_db()
 class TestOldPlanUrls(ViewTestMixin):
@@ -509,12 +563,22 @@ class TestOldPlanUrls(ViewTestMixin):
         assert response.context_data["object"] == tier
 
     @pytest.mark.usefixtures("tier")
-    def test_a_negotiated_row_keeps_its_own_page(self, rf, plan_factory):
+    def test_a_negotiated_row_keeps_its_own_page(
+        self,
+        rf,
+        plan_factory,
+        user_factory,
+        organization_factory,
+        subscription_item_factory,
+    ):
         row = plan_with_slug(
             plan_factory, "Sunlight Basic (Annual)", "sunlight-basic-annual"
         )
+        user = user_factory()
+        holder = organization_factory(admins=[user])
+        subscription_item_factory(subscription__organization=holder, plan=row)
 
-        response = self.call_view(rf, pk=row.pk, slug=row.slug)
+        response = self.call_view(rf, user, pk=row.pk, slug=row.slug)
 
         assert response.status_code == 200
         assert response.context_data["object"] == row
