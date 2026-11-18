@@ -101,6 +101,37 @@
   line-height: 1;
 }
 
+.plan-price-rows {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+@media (max-width: 28rem) {
+  .plan-pricing {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .plan-pricing .plan-price-rows {
+    align-items: flex-start;
+  }
+
+  .plan-pricing .plan-price-rows,
+  .plan-pricing .plan-prices {
+    margin-left: 0;
+  }
+}
+
+.plan-price-label {
+  font-size: var(--font-sm, 0.875rem);
+  font-weight: 600;
+  color: var(--gray-4);
+  line-height: 1;
+}
+
 .plan-price-separator {
   text-transform: uppercase;
   font-size: 0.625rem;

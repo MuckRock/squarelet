@@ -105,14 +105,16 @@ class PlanDetailView(DetailView):
         ]
         return sorted(accounts, key=lambda account: account["held"])
 
-    def get_prices(self, plan):
-        """The standard price at each interval `plan` is sold at, annual first."""
+    def get_prices(self, plan, nonprofit=False):
+        """The price at each interval `plan` is sold at, annual first."""
         prices = []
+        discounted = False
         for interval in Plan.CHECKOUT_INTERVALS:
-            price, _list_price = plan.checkout_prices(interval, nonprofit=False)
+            price, list_price = plan.checkout_prices(interval, nonprofit=nonprofit)
             if price is not None:
                 prices.append(price)
-        return prices
+                discounted = discounted or price.amount < list_price.amount
+        return prices if discounted or not nonprofit else []
 
     def get(self, request, *args, **kwargs):
         self.object = plan = self.get_object()
@@ -120,7 +122,14 @@ class PlanDetailView(DetailView):
         buyers = [account for account in accounts if not account["held"]]
         if len(buyers) == 1:
             return redirect(buyers[0]["checkout_url"])
-        context = self.get_context_data(object=plan, accounts=accounts)
+        nonprofit_prices = (
+            self.get_prices(plan, nonprofit=True)
+            if any(buyer["organization"].nonprofit for buyer in buyers)
+            else []
+        )
+        context = self.get_context_data(
+            object=plan, accounts=accounts, nonprofit_prices=nonprofit_prices
+        )
         return self.render_to_response(context)
 
     def get_context_data(self, **kwargs):

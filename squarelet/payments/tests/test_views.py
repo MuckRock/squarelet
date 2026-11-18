@@ -151,7 +151,7 @@ class TestPlanRedirectView(ViewTestMixin):
 
 
 @pytest.mark.django_db()
-class TestPlanDetailView(ViewTestMixin):
+class TestPlanDetailView(ViewTestMixin):  # pylint: disable=too-many-public-methods
     """A plan's page sells it to the accounts the user may buy it for."""
 
     view = views.PlanDetailView
@@ -339,6 +339,48 @@ class TestPlanDetailView(ViewTestMixin):
             "organizations:plan",
             kwargs={"slug": buyer.slug, "plan_slug": group_plan.slug},
         )
+
+    def test_the_nonprofit_rate_is_priced_beside_the_standard_one(
+        self, rf, user_factory, organization_factory, plan_price_factory, group_plan
+    ):
+        plan_price_factory(plan=group_plan, label="nonprofit", amount=5000)
+        user = user_factory()
+        organization_factory(admins=[user], name="Alpha", nonprofit=True)
+        organization_factory(admins=[user], name="Beta")
+
+        response = self.view_plan(rf, user, group_plan)
+
+        assert [
+            (p.interval, p.amount) for p in response.context_data["nonprofit_prices"]
+        ] == [("annual", 100000), ("monthly", 5000)]
+        content = " ".join(response.render().content.decode().split())
+        assert "Standard" in content
+        assert "<strong>$50</strong>" in content
+
+    def test_no_nonprofit_rate_is_priced_when_no_buyer_is_a_nonprofit(
+        self, rf, user_factory, organization_factory, plan_price_factory, group_plan
+    ):
+        plan_price_factory(plan=group_plan, label="nonprofit", amount=5000)
+        user = user_factory()
+        organization_factory(admins=[user], name="Alpha")
+        organization_factory(admins=[user], name="Beta")
+
+        response = self.view_plan(rf, user, group_plan)
+
+        assert response.context_data["nonprofit_prices"] == []
+        assert "$50" not in response.render().content.decode()
+
+    def test_no_nonprofit_rate_is_priced_where_the_plan_has_no_discount(
+        self, rf, user_factory, organization_factory, group_plan
+    ):
+        user = user_factory()
+        organization_factory(admins=[user], name="Alpha", nonprofit=True)
+        organization_factory(admins=[user], name="Beta")
+
+        response = self.view_plan(rf, user, group_plan)
+
+        assert response.context_data["nonprofit_prices"] == []
+        assert "Standard" not in response.render().content.decode()
 
     def test_a_user_who_runs_no_organization_is_offered_to_create_one(
         self, rf, user_factory, organization_factory, group_plan
