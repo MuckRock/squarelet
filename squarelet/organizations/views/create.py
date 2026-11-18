@@ -3,7 +3,11 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import CreateView
+
+# Third Party
+from allauth.account.utils import has_verified_email
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
@@ -35,6 +39,15 @@ class Create(LoginRequiredMixin, CreateView):
     @transaction.atomic
     def form_valid(self, form):
         """The organization creator is automatically a member and admin"""
+        if not has_verified_email(self.request.user):
+            form.add_error(
+                None,
+                _(
+                    "You must verify your email address before creating "
+                    "an organization."
+                ),
+            )
+            return self.form_invalid(form)
         organization = form.save()
         organization.add_creator(self.request.user)
         organization.change_logs.create(

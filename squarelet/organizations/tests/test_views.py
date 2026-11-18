@@ -3457,6 +3457,14 @@ class TestCreate(ViewTestMixin):
         response = self.call_view(rf, user)
         assert response.status_code == 200
 
+    def test_an_unverified_user_cannot_post_an_organization_into_being(
+        self, rf, user_factory
+    ):
+        user = user_factory(email_verified=False)
+        response = self.call_view(rf, user, {"name": "test", "next": "/plans/1-pro/"})
+        assert response.status_code == 200
+        assert not user.organizations.filter(individual=False).exists()
+
     def test_get_verified_email(self, rf, user_factory):
         """User with verified email sees the creation form"""
         user = user_factory(email_verified=True)
