@@ -30,6 +30,7 @@ import stripe
 from allauth.account.adapter import get_adapter
 
 # Squarelet
+from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import format_stripe_error, new_action
 from squarelet.organizations.models import Charge, Organization, Plan, PlanPrice
 from squarelet.organizations.models.payment import ReceiptEmail, SubscriptionItem
@@ -59,7 +60,7 @@ def protect_private_plan(plan, user):
             raise Http404("Plan not found")
 
 
-class PlanDetailView(DetailView):
+class PlanDetailView(AdminLinkMixin, DetailView):
     """A plan's benefits and prices, and the accounts the user may buy it for.
 
     Redirects to checkout when exactly one account of the user's may buy it.
