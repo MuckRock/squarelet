@@ -6,6 +6,7 @@ import "../css/profile_card.css";
 import "../css/plan_card.css";
 import "../css/organization_list.css";
 import "../css/team_list_item.css";
+import "../css/progress_bar.css";
 
 // The join button opens a request modal instead of following its link.
 document.addEventListener("DOMContentLoaded", () => {
