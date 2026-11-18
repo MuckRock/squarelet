@@ -29,22 +29,18 @@
     {% endif %}
   {% else %}
     <section class="card card--stack">
-      <div class="plan-card-actions">
+      <div class="plan-card-actions plan-pricing">
         <h3>{% trans "Pricing" %}</h3>
         {% if prices %}
-          <div class="plan-prices">
-            {% for price in prices %}
-              {% if not forloop.first %}
-                <span class="plan-price-separator">{% trans "or" %}</span>
-              {% endif %}
-              <div class="plan-price">
-                <strong>${{ price.amount_dollars|floatformat:"-2"|intcomma }}</strong>
-                <span>
-                  &nbsp;/
-                  {% if price.interval == "annual" %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}
-                </span>
-              </div>
-            {% endfor %}
+          <div class="plan-price-rows">
+            {% if nonprofit_prices %}
+              {% trans "Standard" as standard_label %}
+              {% include "payments/includes/plan_prices.html" with prices=prices label=standard_label %}
+              {% trans "Non-profit" as nonprofit_label %}
+              {% include "payments/includes/plan_prices.html" with prices=nonprofit_prices label=nonprofit_label %}
+            {% else %}
+              {% include "payments/includes/plan_prices.html" with prices=prices %}
+            {% endif %}
           </div>
         {% endif %}
       </div>
