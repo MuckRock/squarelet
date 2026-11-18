@@ -117,8 +117,9 @@ class PlanDetailView(DetailView):
     def get(self, request, *args, **kwargs):
         self.object = plan = self.get_object()
         accounts = self.get_accounts(plan)
-        if len(accounts) == 1:
-            return redirect(accounts[0]["checkout_url"])
+        buyers = [account for account in accounts if not account["held"]]
+        if len(buyers) == 1:
+            return redirect(buyers[0]["checkout_url"])
         context = self.get_context_data(object=plan, accounts=accounts)
         return self.render_to_response(context)
 

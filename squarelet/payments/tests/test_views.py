@@ -303,19 +303,42 @@ class TestPlanDetailView(ViewTestMixin):
     ):
         user = user_factory()
         subscribed = organization_factory(admins=[user], name="Alpha")
-        organization_factory(admins=[user], name="Beta")
         subscription_item_factory(
             subscription__organization=subscribed, plan=group_plan
         )
 
         response = self.view_plan(rf, user, group_plan)
 
+        assert response.status_code == 200
         held = {a["organization"]: a["held"] for a in response.context_data["accounts"]}
         assert held[subscribed] is True
         manage = reverse(
             "organizations:subscriptions", kwargs={"slug": subscribed.slug}
         )
         assert f'href="{manage}"' in response.render().content.decode()
+
+    def test_an_admin_goes_straight_to_the_one_organization_that_can_buy(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        subscription_item_factory,
+        group_plan,
+    ):
+        user = user_factory()
+        subscribed = organization_factory(admins=[user], name="Alpha")
+        buyer = organization_factory(admins=[user], name="Beta")
+        subscription_item_factory(
+            subscription__organization=subscribed, plan=group_plan
+        )
+
+        response = self.view_plan(rf, user, group_plan)
+
+        assert response.status_code == 302
+        assert response.url == reverse(
+            "organizations:plan",
+            kwargs={"slug": buyer.slug, "plan_slug": group_plan.slug},
+        )
 
     def test_a_user_who_runs_no_organization_is_offered_to_create_one(
         self, rf, user_factory, organization_factory, group_plan
@@ -360,10 +383,11 @@ class TestPlanDetailView(ViewTestMixin):
         held = organization_factory(admins=[user], name="Held")
         subscription_item_factory(subscription__organization=held, plan=group_plan)
         organization_factory(admins=[user], name="Alpha")
+        organization_factory(admins=[user], name="Beta")
 
         with CaptureQueriesContext(connection) as few:
             self.view_plan(rf, user, group_plan)
-        for name in ("Beta", "Charlie", "Delta", "Echo"):
+        for name in ("Charlie", "Delta", "Echo"):
             organization_factory(admins=[user], name=name)
         with CaptureQueriesContext(connection) as many:
             response = self.view_plan(rf, user, group_plan)
