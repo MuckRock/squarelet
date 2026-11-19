@@ -43,6 +43,16 @@ class TestGetUsageStats:
 
         assert list(get_usage_stats(org, [])) == [services["muckrock"].name]
 
+    def test_a_service_with_only_empty_balances_is_left_out(self, services):
+        org = OrganizationFactory(
+            client_stats={
+                "muckrock": {"requests": _requests()},
+                "documentcloud": {"ai_credits": {"number_ai_credits": 4}},
+            }
+        )
+
+        assert list(get_usage_stats(org, [])) == [services["documentcloud"].name]
+
     def test_an_organization_reads_its_own_balances(self, services):
         org = OrganizationFactory(
             client_stats={
