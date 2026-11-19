@@ -228,6 +228,43 @@ class TestUserDetailView(ViewTestMixin):
         assert response.context_data["inherited_orgs"] == [org]
         assert response.context_data["inherited_benefits"] == ["Org benefit"]
 
+    def test_a_comped_org_plan_still_passes_its_benefits_on(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        plan_price_factory,
+        subscription_item_factory,
+    ):
+        """A $0 comp on a paid plan grants that plan's benefits; only the Free
+        plan is left out."""
+        user = user_factory()
+        org = organization_factory(name="News Co", users=[user])
+        org_plan = plan_factory(benefits=["Org benefit"], base_price=100)
+        subscription_item_factory(
+            subscription__organization=org,
+            plan=org_plan,
+            plan_price=plan_price_factory(plan=org_plan, amount=0, label="comped"),
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["inherited_orgs"] == [org]
+        assert response.context_data["inherited_benefits"] == ["Org benefit"]
+
+    def test_an_org_on_the_free_plan_passes_nothing_on(
+        self, rf, user_factory, organization_factory, plan_factory
+    ):
+        user = user_factory()
+        free_plan = plan_factory(benefits=["Free benefit"], base_price=0)
+        organization_factory(name="News Co", plans=[free_plan], users=[user])
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["inherited_orgs"] == []
+        assert response.context_data["inherited_benefits"] == []
+
     def test_inherited_benefits_include_org_group_benefits(
         self, rf, user_factory, organization_factory, plan_factory
     ):
