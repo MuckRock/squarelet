@@ -25,7 +25,8 @@ const STRIPE_STYLE = {
 type AjaxResult = { status: number; data: any };
 
 function postForm(form: HTMLFormElement): Promise<AjaxResult> {
-  return fetch(form.action || window.location.href, {
+  // Not `form.action`: the waitlist form's input named "action" shadows it.
+  return fetch(form.getAttribute("action") || window.location.href, {
     method: "POST",
     headers: { "X-Requested-With": "XMLHttpRequest" },
     body: new FormData(form),
