@@ -10,12 +10,12 @@
       </div>
     </section>
   {% endif %}
-  {% if third_party_services %}
+  {% if partner_services %}
     <section class="_cls-servicesGroup _cls-servicesGroupSecondary">
-      <h3 class="_cls-servicesHeading">{% trans "3rd Parties" %}</h3>
+      <h3 class="_cls-servicesHeading">{% trans "Ecosystem Partners" %}</h3>
       <div class="_cls-servicesList">
-        {% for service in third_party_services %}
-          {% include "templatetags/services_dropdown_item.html" %}
+        {% for service in partner_services %}
+          {% include "templatetags/services_dropdown_item.html" with show_provider=True %}
         {% endfor %}
       </div>
     </section>

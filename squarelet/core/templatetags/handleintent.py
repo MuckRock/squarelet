@@ -25,11 +25,11 @@ def services_list():
 
 @register.inclusion_tag("templatetags/services_dropdown.html")
 def services_dropdown():
-    """Linkable services, split into MuckRock's own and third parties'."""
+    """Linkable services, split into MuckRock's own and its partners'."""
     services = Service.objects.exclude(base_url__isnull=True).exclude(base_url="")
     return {
         "muckrock_services": services.filter(provider_name="MuckRock"),
-        "third_party_services": services.exclude(provider_name="MuckRock").order_by(
+        "partner_services": services.exclude(provider_name="MuckRock").order_by(
             "provider_name", "name"
         ),
     }

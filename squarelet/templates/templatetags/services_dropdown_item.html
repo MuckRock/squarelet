@@ -1,7 +1,11 @@
+{% load i18n %}
 <a href="{{ service.base_url }}" class="_cls-serviceItem">
   <img src="{{ service.icon.url }}" alt="">
   <div>
     <div class="_cls-serviceName">{{ service.name }}</div>
+    {% if show_provider %}
+      <div class="_cls-serviceProvider">{% blocktrans with provider=service.provider_name %}by {{ provider }}{% endblocktrans %}</div>
+    {% endif %}
     <div class="_cls-serviceDescription">{{ service.description }}</div>
   </div>
 </a>

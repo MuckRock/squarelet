@@ -1,3 +1,6 @@
+# Django
+from django.template import Context, Template
+
 # Third Party
 import pytest
 
@@ -17,7 +20,7 @@ def test_the_dropdown_groups_services_by_provider():
     context = services_dropdown()
 
     assert list(context["muckrock_services"]) == [documentcloud, foia]
-    assert list(context["third_party_services"]) == [agenda]
+    assert list(context["partner_services"]) == [agenda]
 
 
 @pytest.mark.django_db
@@ -29,4 +32,16 @@ def test_the_dropdown_leaves_out_services_without_a_link():
     context = services_dropdown()
 
     assert not context["muckrock_services"]
-    assert not context["third_party_services"]
+    assert not context["partner_services"]
+
+
+@pytest.mark.django_db
+def test_only_partner_services_carry_a_provider_byline():
+    Service.objects.all().delete()
+    ServiceFactory(name="DocumentCloud", provider_name="MuckRock")
+    ServiceFactory(name="Agenda Watch", provider_name="Big Local News")
+
+    html = Template("{% load handleintent %}{% services_dropdown %}").render(Context())
+
+    assert "by Big Local News" in html
+    assert "by MuckRock" not in html

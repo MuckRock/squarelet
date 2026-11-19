@@ -1290,6 +1290,13 @@ button._cls-navItem:hover {
   color: var(--blue-5);
 }
 
+._cls-serviceItem ._cls-serviceProvider {
+  font-size: var(--font-xs, 0.75rem);
+  font-weight: 600;
+  color: var(--gray-4);
+  margin-bottom: 0.25rem;
+}
+
 ._cls-serviceItem ._cls-serviceDescription {
   font-size: var(--font-sm);
   color: var(--gray-4);
