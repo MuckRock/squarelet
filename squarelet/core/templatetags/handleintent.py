@@ -25,15 +25,14 @@ def services_list():
 
 @register.inclusion_tag("templatetags/services_dropdown.html")
 def services_dropdown():
-    providers = (
-        Service.objects.all()
-        .order_by("-provider_name__exact", "name")
-        .extra(
-            select={"provider_name_is_muckrock": "provider_name = 'MuckRock'"},
-            order_by=["-provider_name_is_muckrock", "name"],
-        )
-    )
-    return {"service_providers": providers}
+    """Linkable services, split into MuckRock's own and third parties'."""
+    services = Service.objects.exclude(base_url__isnull=True).exclude(base_url="")
+    return {
+        "muckrock_services": services.filter(provider_name="MuckRock"),
+        "third_party_services": services.exclude(provider_name="MuckRock").order_by(
+            "provider_name", "name"
+        ),
+    }
 
 
 def match_service_to_intent(context):

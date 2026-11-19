@@ -1,11 +1,23 @@
-{% for provider in service_providers %}
-  {% if provider.base_url %}
-    <a href="{{ provider.base_url }}" class="_cls-serviceItem">
-      <img src="{{ provider.icon.url }}" alt="{{ provider.name }}">
-      <div>
-        <div class="_cls-serviceName">{{ provider.name }}</div>
-        <div class="_cls-serviceDescription">{{ provider.description }}</div>
+{% load i18n %}
+<div class="_cls-servicesGrid">
+  {% if muckrock_services %}
+    <section class="_cls-servicesGroup _cls-servicesGroupPrimary">
+      <h3 class="_cls-servicesHeading">{% trans "MuckRock" %}</h3>
+      <div class="_cls-servicesList">
+        {% for service in muckrock_services %}
+          {% include "templatetags/services_dropdown_item.html" %}
+        {% endfor %}
       </div>
-    </a>
+    </section>
   {% endif %}
-{% endfor %}
+  {% if third_party_services %}
+    <section class="_cls-servicesGroup _cls-servicesGroupSecondary">
+      <h3 class="_cls-servicesHeading">{% trans "3rd Parties" %}</h3>
+      <div class="_cls-servicesList">
+        {% for service in third_party_services %}
+          {% include "templatetags/services_dropdown_item.html" %}
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+</div>
