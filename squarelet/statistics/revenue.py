@@ -164,6 +164,44 @@ def _month_row(subs, start, end):
     }
 
 
+def _month_start(month):
+    return timezone.make_aware(datetime(month.year, month.month, 1))
+
+
+def _groups(subs):
+    """`(key, label, subs)` for all plans, then each segment."""
+    by_segment = defaultdict(list)
+    for sub in subs:
+        by_segment[sub["segment"]].append(sub)
+    return [(ALL, "All plans", subs)] + [
+        (key, label, by_segment[key]) for key, label in SEGMENTS
+    ]
+
+
+def _segment_months(subs, calendar, now):
+    """A row per month of `calendar`; its last month is partial and runs to now."""
+    rows = []
+    for month in calendar:
+        partial = month == calendar[-1]
+        end = now if partial else _month_start(_add_months(month, 1))
+        rows.append(
+            {
+                "month": f"{month:%Y-%m}",
+                "partial": partial,
+                **_month_row(subs, _month_start(month), end),
+            }
+        )
+    return rows
+
+
+def _pending(subs):
+    pending = [s for s in subs if s["pending"]]
+    return {
+        "subs": len(pending),
+        "mrr": round(sum(s["mrr"] for s in pending), 2),
+    }
+
+
 def revenue_report(stripe_subs, months=MONTHS):
     """Monthly growth and churn, overall and per segment, from Stripe subscriptions.
 
@@ -171,46 +209,15 @@ def revenue_report(stripe_subs, months=MONTHS):
     runs to now.  MRR uses each subscription's current price and quantity for
     every month.
     """
-    subs = subscription_rows(stripe_subs, PlanIndex())
     now = timezone.now()
     current = timezone.localdate().replace(day=1)
-    first = _add_months(current, 1 - months)
+    calendar = [_add_months(current, i + 1 - months) for i in range(months)]
 
-    def moment(month):
-        return timezone.make_aware(datetime(month.year, month.month, 1))
-
-    by_segment = defaultdict(list)
-    for sub in subs:
-        by_segment[sub["segment"]].append(sub)
-    groups = [(ALL, "All plans", subs)] + [
-        (key, label, by_segment[key]) for key, label in SEGMENTS
-    ]
-
-    rows = []
-    for key, label, group in groups:
-        for i in range(months):
-            month = _add_months(first, i)
-            partial = month == current
-            end = now if partial else moment(_add_months(month, 1))
-            rows.append(
-                {
-                    "segment": key,
-                    "segment_label": label,
-                    "month": f"{month:%Y-%m}",
-                    "partial": partial,
-                    **_month_row(group, moment(month), end),
-                }
-            )
-
-    pending = [
-        {
-            "segment": key,
-            "segment_label": label,
-            "subs": len([s for s in group if s["pending"]]),
-            "mrr": round(sum(s["mrr"] for s in group if s["pending"]), 2),
-        }
-        for key, label, group in groups
-    ]
+    rows, pending = [], []
+    for key, label, group in _groups(subscription_rows(stripe_subs, PlanIndex())):
+        labels = {"segment": key, "segment_label": label}
+        rows.extend({**labels, **row} for row in _segment_months(group, calendar, now))
+        pending.append({**labels, **_pending(group)})
     return {
         "generated_at": now.isoformat(),
         "current_month": f"{current:%Y-%m}",
