@@ -16,6 +16,7 @@ import logging
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
+from squarelet.core.usage import get_usage_stats
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.mixins import ResolveOrganizationSlugMixin
@@ -118,6 +119,8 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
         context["inherited_benefits"] = inherited_benefits
 
         context.update(self._get_groups_context(user, org))
+
+        context["usage_stats"] = get_usage_stats(org, inherited_orgs)
 
         return context
 

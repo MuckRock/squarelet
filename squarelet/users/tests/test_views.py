@@ -312,6 +312,93 @@ class TestUserDetailView(ViewTestMixin):
             "Group benefit",
         ]
 
+    def test_usage_shows_the_users_own_requests(self, rf, user_factory):
+        muckrock = ServiceFactory(slug="muckrock")
+        user = user_factory(
+            client_stats={
+                "muckrock": {
+                    "individual_requests": {
+                        "requests_per_month": 10,
+                        "monthly_requests": 6,
+                        "number_requests": 2,
+                    }
+                }
+            }
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["usage_stats"] == {
+            muckrock.name: {
+                "request": {
+                    "allowance_monthly": 10,
+                    "used_monthly": 4,
+                    "available_purchased": 2,
+                    "available_inherited": 0,
+                }
+            }
+        }
+        response.render()
+        content = " ".join(response.content.decode().split())
+        assert 'id="usage"' in content
+        assert "4 / 10 used" in content
+        assert "additional requests" not in content
+
+    def test_usage_includes_requests_from_each_paid_org_the_user_belongs_to(
+        self, rf, user_factory, organization_factory, plan_factory
+    ):
+        muckrock = ServiceFactory(slug="muckrock")
+        paid_plan = plan_factory(base_price=100)
+        user = user_factory(
+            client_stats={
+                "muckrock": {
+                    "individual_requests": {
+                        "requests_per_month": 5,
+                        "monthly_requests": 5,
+                        "number_requests": 1,
+                    }
+                }
+            }
+        )
+        organization_factory(
+            users=[user],
+            plans=[paid_plan],
+            client_stats={"muckrock": {"requests": {"monthly_requests": 20}}},
+        )
+        organization_factory(
+            admins=[user],
+            plans=[paid_plan],
+            client_stats={"muckrock": {"requests": {"number_requests": 3}}},
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["usage_stats"] == {
+            muckrock.name: {
+                "request": {
+                    "allowance_monthly": 5,
+                    "used_monthly": 0,
+                    "available_purchased": 1,
+                    "available_inherited": 23,
+                }
+            }
+        }
+        response.render()
+        content = response.content.decode()
+        assert 'id="usage"' in content
+        assert "You have <strong>1 request</strong> that never expires." in " ".join(
+            content.split()
+        )
+
+    def test_a_user_without_stats_has_no_usage_section(self, rf, user_factory):
+        user = user_factory(client_stats={})
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["usage_stats"] == {}
+        response.render()
+        assert 'id="usage"' not in response.content.decode()
+
     def test_no_subscription_benefits_without_subscriptions(self, rf, user_factory):
         """A user on the free plan has no consolidated benefits"""
         user = user_factory()

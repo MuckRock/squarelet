@@ -1,0 +1,26 @@
+.progress-bar {
+  display: flex;
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background-color: var(--gray-1);
+}
+
+.progress-bar:not(:last-child) {
+  margin-bottom: 0.25rem;
+}
+
+.progress-bar div {
+  background-color: var(--blue-3);
+  border-radius: 0.25rem;
+  min-width: 0.5rem;
+  max-width: 100%;
+}
+
+.progress-bar.caution div {
+  background-color: var(--orange-3);
+}
+
+.progress-bar.danger div {
+  background-color: var(--red-3);
+}

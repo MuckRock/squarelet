@@ -1,0 +1,61 @@
+{% load i18n icon humanize %}
+
+<div class="card card--stack stats-card">
+  {% for service, resources in usage_stats.items %}
+    <section class="card-section">
+      <header class="card-section-label">
+        <h3>{{ service }}</h3>
+      </header>
+      <ul class="card-subsection">
+        {% for resource, stats in resources.items %}
+          <li class="card-item">
+            <div class="card-item-title">
+              {% if stats.allowance_monthly %}
+                <h4>{% trans "Monthly" %} {{ resource }}s</h4>
+                <span class="caption">
+                  {{ stats.used_monthly|intcomma }} / {{ stats.allowance_monthly|intcomma }} {% trans "used" %}
+                </span>
+              {% else %}
+                <h4>{{ resource|title }}s</h4>
+              {% endif %}
+          </div>
+            {% if stats.allowance_monthly %}
+              {% include "widgets/progress_bar.html" with value=stats.used_monthly max=stats.allowance_monthly %}
+            {% endif %}
+            <p class="help-text">
+              {% with subject=individual|yesno:_("You have,This organization has") pronoun=individual|yesno:_("your,its") %}
+                {% if stats.allowance_monthly and stats.used_monthly >= stats.allowance_monthly %}
+                  {% blocktrans trimmed with resource=resource subject=subject pronoun=pronoun %}
+                    {{ subject }} used all of {{ pronoun }} monthly {{ resource }}s.
+                  {% endblocktrans %}
+                {% endif %}
+                {% if stats.available_purchased %}
+                  {% blocktrans trimmed count counter=stats.available_purchased with amount=stats.available_purchased|intcomma resource=resource subject=subject %}
+                    {{ subject }} <strong>{{ amount }} {{ resource }}</strong> that never expires.
+                  {% plural %}
+                    {{ subject }} <strong>{{ amount }} {{ resource }}s</strong> that never expire.
+                  {% endblocktrans %}
+                {% endif %}
+                {% if stats.available_inherited > 100 %}
+                  {% blocktrans trimmed with resource=resource subject=subject pronoun=pronoun %}
+                    {{ subject }} <strong>100+ additional {{ resource }}s</strong> from {{ pronoun }} organization memberships.
+                  {% endblocktrans %}
+                {% elif stats.available_inherited %}
+                  {% blocktrans trimmed count counter=stats.available_inherited with amount=stats.available_inherited|intcomma resource=resource subject=subject pronoun=pronoun %}
+                    {{ subject }} <strong>{{ amount }} additional {{ resource }}</strong> from {{ pronoun }} organization memberships.
+                  {% plural %}
+                    {{ subject }} <strong>{{ amount }} additional {{ resource }}s</strong> from {{ pronoun }} organization memberships.
+                  {% endblocktrans %}
+                {% endif %}
+              {% endwith %}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endfor %}
+</div>
+
+<footer>
+  <p class="help-text">{% trans "Usage statistics are updated daily." %}</p>
+</footer>

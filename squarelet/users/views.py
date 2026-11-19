@@ -47,6 +47,7 @@ from allauth.socialaccount.views import ConnectionsView
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
+from squarelet.core.usage import get_usage_stats
 from squarelet.core.utils import new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import (
@@ -204,6 +205,9 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         )
         context["inherited_orgs"] = inherited_orgs
         context["inherited_benefits"] = inherited_benefits
+
+        context["usage_stats"] = get_usage_stats(user, inherited_orgs)
+
         # Autologin preference form
         context["autologin_form"] = UserAutologinPreferenceForm(instance=user)
         context["may_hijack"] = hijack_by_group(self.request.user, user)

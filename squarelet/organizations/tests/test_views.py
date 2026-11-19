@@ -160,6 +160,87 @@ class TestDetail(ViewTestMixin):
         assert response.context_data["inherited_orgs"] == [parent]
         assert response.context_data["inherited_benefits"] == ["Shared benefit"]
 
+    def test_usage_shows_the_orgs_own_requests(
+        self, rf, organization_factory, user_factory
+    ):
+        muckrock = ServiceFactory(slug="muckrock")
+        organization = organization_factory(
+            client_stats={
+                "muckrock": {
+                    "requests": {
+                        "requests_per_month": 50,
+                        "monthly_requests": 20,
+                        "number_requests": 7,
+                    }
+                }
+            },
+        )
+
+        response = self.call_view(rf, user_factory(), slug=organization.slug)
+
+        assert response.context_data["usage_stats"] == {
+            muckrock.name: {
+                "request": {
+                    "allowance_monthly": 50,
+                    "used_monthly": 30,
+                    "available_purchased": 7,
+                    "available_inherited": 0,
+                }
+            }
+        }
+        response.render()
+        content = " ".join(response.content.decode().split())
+        assert 'id="usage"' in content
+        assert "30 / 50 used" in content
+        assert "additional requests" not in content
+
+    def test_usage_includes_requests_shared_by_a_parent(
+        self, rf, organization_factory, plan_factory, user_factory
+    ):
+        muckrock = ServiceFactory(slug="muckrock")
+        shared_plan = plan_factory(base_price=100)
+        parent = organization_factory(
+            share_resources=True,
+            plans=[shared_plan],
+            client_stats={
+                "muckrock": {"requests": {"monthly_requests": 40, "number_requests": 2}}
+            },
+        )
+        organization = organization_factory(
+            parent=parent,
+            client_stats={
+                "muckrock": {
+                    "requests": {"requests_per_month": 10, "monthly_requests": 4}
+                }
+            },
+        )
+
+        response = self.call_view(rf, user_factory(), slug=organization.slug)
+
+        assert response.context_data["usage_stats"] == {
+            muckrock.name: {
+                "request": {
+                    "allowance_monthly": 10,
+                    "used_monthly": 6,
+                    "available_purchased": 0,
+                    "available_inherited": 42,
+                }
+            }
+        }
+        response.render()
+        assert 'id="usage"' in response.content.decode()
+
+    def test_an_org_without_stats_has_no_usage_section(
+        self, rf, organization_factory, user_factory
+    ):
+        organization = organization_factory(client_stats={})
+
+        response = self.call_view(rf, user_factory(), slug=organization.slug)
+
+        assert response.context_data["usage_stats"] == {}
+        response.render()
+        assert 'id="usage"' not in response.content.decode()
+
     def test_no_subscription_benefits_without_subscriptions(
         self, rf, organization_factory, user_factory
     ):
