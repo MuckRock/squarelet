@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load django_vite i18n %}
+
+{% block title %}{% trans "Revenue" %}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/revenue_dashboard.ts" %}
+{% endblock vite %}
+
+{% block content %}
+<article class="dashboard-page">
+  {% include "statistics/_nav.html" %}
+  <header>
+    <h1>{% trans "Revenue" %}</h1>
+    {% if report %}
+      <p>{% blocktrans with generated_at=report.generated_at|slice:":10" %}Subscription growth and churn on paid plans, from Stripe. Refreshed daily; last refreshed {{ generated_at }}.{% endblocktrans %}</p>
+    {% else %}
+      <p>{% trans "The report is being prepared from Stripe. Check back in a few minutes." %}</p>
+    {% endif %}
+  </header>
+  {% if report %}
+    {{ report|json_script:"revenue-report" }}
+    <div id="revenue-dashboard"></div>
+  {% endif %}
+</article>
+{% endblock content %}

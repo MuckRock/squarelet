@@ -1,10 +1,16 @@
 # Django
 from django.urls import path
+from django.views.generic import RedirectView
 
 # Local
 from . import views
 
 app_name = "statistics"
 urlpatterns = [
-    path("kpis/", view=views.KPIDashboardView.as_view(), name="kpis"),
+    path("users/", view=views.UserDashboardView.as_view(), name="users"),
+    path("revenue/", view=views.RevenueDashboardView.as_view(), name="revenue"),
+    path(
+        "kpis/",
+        view=RedirectView.as_view(pattern_name="statistics:users", permanent=True),
+    ),
 ]

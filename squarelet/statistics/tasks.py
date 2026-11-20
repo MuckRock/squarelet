@@ -12,6 +12,7 @@ from allauth.mfa.models import Authenticator
 from squarelet.organizations.models import Organization, SubscriptionItem
 from squarelet.statistics.mail import Digest
 from squarelet.statistics.models import Statistics
+from squarelet.statistics.revenue import refresh_revenue_report as refresh_report
 from squarelet.users.models import User
 
 
@@ -63,3 +64,10 @@ def store_statistics():
 @shared_task
 def send_digest():
     Digest().send()
+
+
+# A stuck run fails with a traceback showing where it stopped, instead of
+# holding a worker process with nothing logged.
+@shared_task(soft_time_limit=5 * 60, time_limit=6 * 60)
+def refresh_revenue_report():
+    refresh_report()

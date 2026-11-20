@@ -18,6 +18,7 @@ from squarelet.users.tests.factories import UserFactory
 # Local
 from .. import tasks
 from ..models import Statistics
+from ..revenue import cached_revenue_report
 
 
 @pytest.mark.django_db()
@@ -92,3 +93,22 @@ class TestPayingUsers:
         stats = Statistics.objects.get()
         assert stats.total_users_pro == 0
         assert stats.total_users_org == 1
+
+
+@pytest.mark.django_db()
+@pytest.mark.freeze_time("2026-10-21 12:00")
+def test_refreshing_the_revenue_report_pages_stripe_and_caches_it(mocker):
+    provider = mocker.patch("squarelet.statistics.revenue.get_payment_provider")
+    listing = provider.return_value.get_subscription_service.return_value.list
+    listing.return_value = iter([])
+
+    tasks.refresh_revenue_report()
+
+    listing.assert_called_once_with(status="all", limit=100)
+    report = cached_revenue_report()
+    assert report["current_month"] == "2026-10"
+
+
+def test_a_stuck_revenue_refresh_is_stopped_with_a_traceback():
+    assert tasks.refresh_revenue_report.soft_time_limit == 5 * 60
+    assert tasks.refresh_revenue_report.time_limit > 5 * 60
