@@ -55,12 +55,12 @@ class PlanIndex:
     """Finds the local plan behind a Stripe price, without a query per item."""
 
     def __init__(self):
-        plans = list(Plan.objects.all())
+        plans = list(Plan.objects.select_related("service"))
         self.by_price = {plan.stripe_id: plan for plan in plans}
         self.by_price.update(
             (price.stripe_price_id, price.plan)
             for price in PlanPrice.objects.exclude(stripe_price_id="").select_related(
-                "plan"
+                "plan__service"
             )
         )
         self.by_product = {

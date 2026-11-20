@@ -8,7 +8,9 @@ from datetime import datetime
 import pytest
 
 # Squarelet
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.organizations.tests.factories import PlanFactory, PlanPriceFactory
+from squarelet.services.tests.factories import ServiceFactory
 from squarelet.statistics.revenue import revenue_report
 
 pytestmark = [pytest.mark.django_db(), pytest.mark.freeze_time("2026-10-21 12:00")]
@@ -146,6 +148,19 @@ def test_the_election_cohort_counts_as_sunlight():
 
     assert row(report, "2026-09", "sunlight")["subs_end"] == 1
     assert row(report, "2026-09", "other")["subs_end"] == 0
+
+
+def test_a_plan_sold_under_the_sunlight_service_counts_as_sunlight():
+    plan = PlanFactory(
+        name="Sunlight Essential",
+        slug="sunlight-essential",
+        service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+    )
+    PlanPriceFactory(plan=plan, stripe_price_id="price_sunlight")
+
+    report = revenue_report([stripe_sub("price_sunlight", 25000, (2026, 1, 15))])
+
+    assert row(report, "2026-09", "sunlight")["subs_end"] == 1
 
 
 def test_a_legacy_price_finds_its_plan_by_slug():
