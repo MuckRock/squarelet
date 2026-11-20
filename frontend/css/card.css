@@ -156,6 +156,8 @@
 .card-item-title :is(h3, h4) {
   margin: 0;
   font-size: var(--font-md, 1rem);
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-feature-settings: "ss04" on;
   font-weight: 600;
   color: var(--gray-5, #233944);
   overflow-wrap: anywhere;
