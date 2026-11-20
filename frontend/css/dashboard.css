@@ -251,3 +251,8 @@
 .revenue-chart.tall {
   height: 20rem;
 }
+
+/* The dots sit over the bars; hovering one should still reach the bar's tooltip. */
+.revenue-net-dot {
+  pointer-events: none;
+}

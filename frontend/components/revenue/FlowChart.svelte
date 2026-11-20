@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BarChart } from "layerchart";
+  import { BarChart, Circle } from "layerchart";
   import Legend from "./Legend.svelte";
   import {
     longMonth,
@@ -14,7 +14,8 @@
 
   const NEW = "var(--blue-4)";
   const CHURNED = "var(--red-3)";
-  const NET = "var(--gray-5)";
+  const NET_FILL = "var(--white)";
+  const NET_OUTLINE = "var(--gray-5)";
 
   let width = $state(0);
 
@@ -22,7 +23,8 @@
     rows.map((r) => ({
       month: r.month,
       new: r.new_mrr,
-      churned: -r.churned_mrr,
+      // 0 - x rather than -x: a month with no churn would show as "-$0".
+      churned: 0 - r.churned_mrr,
     })),
   );
   // The tooltip's total of the two series is the month's net change.
@@ -40,16 +42,8 @@
       color: CHURNED,
     },
   ];
-  const annotations = $derived(
-    rows.map((r) => ({
-      type: "point" as const,
-      x: r.month,
-      y: r.new_mrr - r.churned_mrr,
-      r: 3.5,
-      fill: NET,
-      stroke: "var(--white)",
-      strokeWidth: 1.5,
-    })),
+  const net = $derived(
+    rows.map((r) => ({ month: r.month, value: r.new_mrr - r.churned_mrr })),
   );
 </script>
 
@@ -64,7 +58,6 @@
     {series}
     seriesLayout="stackDiverging"
     bandPadding={0.3}
-    {annotations}
     props={{
       bars: { strokeWidth: 0 },
       xAxis: {
@@ -77,12 +70,28 @@
         item: { format: money },
       },
     }}
-  />
+  >
+    <!-- LayerChart's annotation points treat 0 as missing and drop to the
+         chart's floor, so the dots are placed from the scales here. -->
+    {#snippet aboveMarks({ context })}
+      {#each net as point (point.month)}
+        <Circle
+          cx={context.xScale(point.month) + context.xScale.bandwidth() / 2}
+          cy={context.yScale(point.value)}
+          r={4}
+          fill={NET_FILL}
+          stroke={NET_OUTLINE}
+          strokeWidth={1.5}
+          class="revenue-net-dot"
+        />
+      {/each}
+    {/snippet}
+  </BarChart>
 </figure>
 <Legend
   series={[
     { key: "New MRR", color: NEW },
     { key: "Churned MRR", color: CHURNED },
-    { key: "Net change", color: NET },
+    { key: "Net change", color: NET_FILL, outline: NET_OUTLINE, round: true },
   ]}
 />

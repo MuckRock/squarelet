@@ -1,14 +1,31 @@
 <script lang="ts">
-  let { series }: { series: { key: string; color: string }[] } = $props();
+  interface Entry {
+    key: string;
+    color: string;
+    outline?: string;
+    round?: boolean;
+  }
+
+  let { series }: { series: Entry[] } = $props();
 </script>
 
 <ul class="legend">
   {#each series as s (s.key)}
-    <li><span class="swatch" style:background={s.color}></span>{s.key}</li>
+    <li>
+      <span
+        class="swatch"
+        class:round={s.round}
+        style:background={s.color}
+        style:box-shadow={s.outline ? `inset 0 0 0 1.5px ${s.outline}` : null}
+      ></span>{s.key}
+    </li>
   {/each}
 </ul>
 
 <style>
+  .round {
+    border-radius: 50%;
+  }
   .legend {
     display: flex;
     flex-wrap: wrap;
