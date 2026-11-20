@@ -32,7 +32,7 @@ describe("RevenueDashboard", () => {
     expect(subs).toContain("+33");
   });
 
-  it("narrows the headline and table to the last 3 months", () => {
+  it("narrows the headline and table to the last 3 months, newest first", () => {
     const target = render();
     const three = target.querySelector<HTMLInputElement>('input[value="3"]')!;
     three.checked = true;
@@ -42,10 +42,10 @@ describe("RevenueDashboard", () => {
     expect(tiles(target)[2]).toContain("10.5%");
     const rows = [...target.querySelectorAll("table:not(.pending) tbody th")];
     expect(rows.map((r) => r.textContent?.trim())).toEqual([
-      "Jul 2026",
-      "Aug 2026",
-      "Sep 2026",
       "Oct 2026 (to date)",
+      "Sep 2026",
+      "Aug 2026",
+      "Jul 2026",
     ]);
   });
 

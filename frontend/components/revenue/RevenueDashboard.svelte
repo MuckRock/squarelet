@@ -73,7 +73,9 @@
 
   let segment = $state(ALL);
   const tableRows = $derived(
-    segmentMonths(report, segment).filter((r) => shown.has(r.month)),
+    segmentMonths(report, segment)
+      .filter((r) => shown.has(r.month))
+      .reverse(),
   );
 
   const pendingAll = $derived(report.pending.find((p) => p.segment === ALL));
