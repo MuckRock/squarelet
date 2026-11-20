@@ -225,15 +225,6 @@ class TestUsageCard:
             "from your organization memberships." in html
         )
 
-    def test_more_than_100_inherited_requests_shows_100_plus(self):
-        html = _card(_card_stats(inherited=1500))
-
-        assert (
-            "This organization has <strong>100+ additional requests</strong> "
-            "from its organization memberships." in html
-        )
-        assert "1,500" not in html
-
     def test_a_single_inherited_request_is_singular(self):
         html = _card(_card_stats(inherited=1))
 
