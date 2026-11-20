@@ -51,7 +51,9 @@
     {series}
     seriesLayout="stack"
     bandPadding={0.3}
+    stackPadding={1}
     props={{
+      bars: { strokeWidth: 0 },
       xAxis: {
         format: shortMonth,
         ticks: monthTicks(width),

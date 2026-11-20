@@ -66,6 +66,7 @@
     bandPadding={0.3}
     {annotations}
     props={{
+      bars: { strokeWidth: 0 },
       xAxis: {
         format: shortMonth,
         ticks: monthTicks(width),
