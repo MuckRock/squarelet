@@ -33,24 +33,26 @@ def get_usage_stats(user_or_org, other_orgs):
 
         service_name = services[service].name if service in services else service
 
-        usage[service_name] = {}
-
         for resource, label in resources:
             own = own_service.get(f"{prefix}{resource}") or {}
-            inherited = [stats.get(resource) or {} for stats in org_services]
+            inherited_stats = [stats.get(resource) or {} for stats in org_services]
 
             allowance = own.get(f"{resource}_per_month") or 0
+            used = allowance - (own.get(f"monthly_{resource}") or 0)
+            purchased = own.get(f"number_{resource}") or 0
+            # Remaining monthly and purchased resource count across all orgs
+            inherited = sum(
+                (org.get(f"number_{resource}") or 0)
+                + (org.get(f"monthly_{resource}") or 0)
+                for org in inherited_stats
+            )
 
-            usage[service_name][label] = {
-                "allowance_monthly": allowance,
-                "used_monthly": allowance - (own.get(f"monthly_{resource}") or 0),
-                "available_purchased": own.get(f"number_{resource}") or 0,
-                # Remaining monthly and purchased resource count across all orgs
-                "available_inherited": sum(
-                    (org.get(f"number_{resource}") or 0)
-                    + (org.get(f"monthly_{resource}") or 0)
-                    for org in inherited
-                ),
-            }
+            if allowance > 0 or purchased > 0 or inherited > 0:
+                usage.setdefault(service_name, {})[label] = {
+                    "allowance_monthly": allowance,
+                    "used_monthly": used,
+                    "available_purchased": purchased,
+                    "available_inherited": inherited,
+                }
 
     return usage
