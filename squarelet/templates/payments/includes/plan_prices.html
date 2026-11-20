@@ -1,0 +1,18 @@
+{% load humanize i18n %}
+<div class="plan-prices">
+  {% if label %}
+    <span class="plan-price-label">{{ label }}</span>
+  {% endif %}
+  {% for price in prices %}
+    {% if not forloop.first %}
+      <span class="plan-price-separator">{% trans "or" %}</span>
+    {% endif %}
+    <div class="plan-price">
+      <strong>${{ price.amount_dollars|floatformat:"-2"|intcomma }}</strong>
+      <span>
+        &nbsp;/
+        {% if price.interval == "annual" %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}
+      </span>
+    </div>
+  {% endfor %}
+</div>

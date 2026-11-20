@@ -20,6 +20,7 @@ from allauth.account.models import EmailAddress
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.models import Invitation
 from squarelet.organizations.models.payment import Plan
+from squarelet.services.tests.factories import ServiceFactory
 from squarelet.users import forms, views
 from squarelet.users.models import User
 
@@ -152,6 +153,22 @@ class TestUserDetailView(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["upgrade_plan"] is None
 
+    def test_the_upgrade_goes_to_checkout(
+        self, rf, user_factory, professional_plan_factory, plan_price_factory
+    ):
+        user = user_factory()
+        professional = professional_plan_factory()
+        professional.public = True
+        professional.save()
+        professional.prices.all().delete()
+        plan_price_factory(plan=professional, interval="monthly")
+        plan_price_factory(plan=professional, interval="annual", amount=100_000)
+
+        page = self.call_view(rf, user, username=user.username).render()
+
+        checkout = f"/users/{user.username}/plans/{professional.slug}/"
+        assert f'href="{checkout}"' in page.content.decode()
+
     def test_get_bad(self, rf, user_factory):
         user = user_factory()
         other_user = user_factory()
@@ -211,6 +228,43 @@ class TestUserDetailView(ViewTestMixin):
         assert response.context_data["inherited_orgs"] == [org]
         assert response.context_data["inherited_benefits"] == ["Org benefit"]
 
+    def test_a_comped_org_plan_still_passes_its_benefits_on(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        plan_price_factory,
+        subscription_item_factory,
+    ):
+        """A $0 comp on a paid plan grants that plan's benefits; only the Free
+        plan is left out."""
+        user = user_factory()
+        org = organization_factory(name="News Co", users=[user])
+        org_plan = plan_factory(benefits=["Org benefit"], base_price=100)
+        subscription_item_factory(
+            subscription__organization=org,
+            plan=org_plan,
+            plan_price=plan_price_factory(plan=org_plan, amount=0, label="comped"),
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["inherited_orgs"] == [org]
+        assert response.context_data["inherited_benefits"] == ["Org benefit"]
+
+    def test_an_org_on_the_free_plan_passes_nothing_on(
+        self, rf, user_factory, organization_factory, plan_factory
+    ):
+        user = user_factory()
+        free_plan = plan_factory(benefits=["Free benefit"], base_price=0)
+        organization_factory(name="News Co", plans=[free_plan], users=[user])
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["inherited_orgs"] == []
+        assert response.context_data["inherited_benefits"] == []
+
     def test_inherited_benefits_include_org_group_benefits(
         self, rf, user_factory, organization_factory, plan_factory
     ):
@@ -257,6 +311,93 @@ class TestUserDetailView(ViewTestMixin):
             "Org benefit",
             "Group benefit",
         ]
+
+    def test_usage_shows_the_users_own_requests(self, rf, user_factory):
+        muckrock = ServiceFactory(slug="muckrock")
+        user = user_factory(
+            client_stats={
+                "muckrock": {
+                    "individual_requests": {
+                        "requests_per_month": 10,
+                        "monthly_requests": 6,
+                        "number_requests": 2,
+                    }
+                }
+            }
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["usage_stats"] == {
+            muckrock.name: {
+                "request": {
+                    "allowance_monthly": 10,
+                    "used_monthly": 4,
+                    "available_purchased": 2,
+                    "available_inherited": 0,
+                }
+            }
+        }
+        response.render()
+        content = " ".join(response.content.decode().split())
+        assert 'id="usage"' in content
+        assert "4 / 10 used" in content
+        assert "additional requests" not in content
+
+    def test_usage_includes_requests_from_each_paid_org_the_user_belongs_to(
+        self, rf, user_factory, organization_factory, plan_factory
+    ):
+        muckrock = ServiceFactory(slug="muckrock")
+        paid_plan = plan_factory(base_price=100)
+        user = user_factory(
+            client_stats={
+                "muckrock": {
+                    "individual_requests": {
+                        "requests_per_month": 5,
+                        "monthly_requests": 5,
+                        "number_requests": 1,
+                    }
+                }
+            }
+        )
+        organization_factory(
+            users=[user],
+            plans=[paid_plan],
+            client_stats={"muckrock": {"requests": {"monthly_requests": 20}}},
+        )
+        organization_factory(
+            admins=[user],
+            plans=[paid_plan],
+            client_stats={"muckrock": {"requests": {"number_requests": 3}}},
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["usage_stats"] == {
+            muckrock.name: {
+                "request": {
+                    "allowance_monthly": 5,
+                    "used_monthly": 0,
+                    "available_purchased": 1,
+                    "available_inherited": 23,
+                }
+            }
+        }
+        response.render()
+        content = response.content.decode()
+        assert 'id="usage"' in content
+        assert "You have <strong>1 request</strong> that never expires." in " ".join(
+            content.split()
+        )
+
+    def test_a_user_without_stats_has_no_usage_section(self, rf, user_factory):
+        user = user_factory(client_stats={})
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["usage_stats"] == {}
+        response.render()
+        assert 'id="usage"' not in response.content.decode()
 
     def test_no_subscription_benefits_without_subscriptions(self, rf, user_factory):
         """A user on the free plan has no consolidated benefits"""
@@ -3094,3 +3235,78 @@ class TestUserRequestsView(ViewTestMixin):
         assert response.context_data["target_user"] == target_user
         assert response.context_data["is_own_page"] is False
         assert len(response.context_data["requests"]) == 2
+
+
+@pytest.mark.django_db()
+class TestPlans(ViewTestMixin):
+    """The plans page for a member's own account."""
+
+    view = views.Plans
+    url = "/users/{username}/plans/"
+
+    def test_only_plans_for_individuals_are_offered(
+        self, rf, user_factory, plan_price_factory
+    ):
+        user = user_factory()
+        service = ServiceFactory()
+        solo = plan_price_factory(plan__name="Solo", plan__service=service).plan
+        plan_price_factory(
+            plan__name="Team", plan__service=service, plan__for_individuals=False
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.context_data["organization"] == user.individual_organization
+        (group,) = response.context_data["services"]
+        assert group["plans"] == [solo]
+
+    def test_a_held_plan_links_to_the_members_own_subscriptions(
+        self, rf, user_factory, plan_price_factory, subscription_item_factory
+    ):
+        user = user_factory()
+        held = plan_price_factory(plan__name="Held", plan__service=ServiceFactory())
+        subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=held.plan
+        )
+
+        page = self.call_view(rf, user, username=user.username).render()
+
+        assert f"/users/{user.username}/subscriptions/".encode() in page.content
+        assert f"/plans/{held.plan.slug}/".encode() not in page.content
+
+    def test_a_plan_is_bought_at_the_members_own_checkout(
+        self, rf, user_factory, plan_price_factory
+    ):
+        user = user_factory()
+        plan = plan_price_factory(plan__name="Solo", plan__service=ServiceFactory())
+
+        page = self.call_view(rf, user, username=user.username).render()
+
+        checkout = f"/users/{user.username}/plans/{plan.plan.slug}/"
+        assert f'href="{checkout}"'.encode() in page.content
+        response = views.PlanCheckoutRedirect.as_view()(
+            self.request, username=user.username, plan_slug=plan.plan.slug
+        )
+        assert response.url == f"{checkout}monthly/"
+        response = views.PlanCheckout.as_view()(
+            self.request,
+            username=user.username,
+            plan_slug=plan.plan.slug,
+            interval="monthly",
+        )
+        assert response.context_data["price"] == plan
+
+    def test_another_member_cannot_see_the_page(self, rf, user_factory):
+        user = user_factory()
+
+        with pytest.raises(Http404):
+            self.call_view(rf, user_factory(), username=user.username)
+
+    def test_staff_can_see_the_page(self, rf, user_factory):
+        user = user_factory()
+
+        response = self.call_view(
+            rf, user_factory(is_staff=True), username=user.username
+        )
+
+        assert response.status_code == 200

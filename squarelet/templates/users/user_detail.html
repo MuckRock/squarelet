@@ -35,6 +35,14 @@
         {% trans "Billing" %}
       </a>
     </li>
+    {% if usage_stats %}
+      <li>
+        <a href="#usage" class="nav-item">
+          {% icon "graph" %}
+          {% trans "Usage" %}
+        </a>
+      </li>
+    {% endif %}
     <li>
       <a href="#verification" class="nav-item">
         {% if verified %}
@@ -106,6 +114,10 @@
       <header>
         <h2>{% trans "Billing" %}</h2>
         <div class="header-actions">
+          <a href="{% url 'users:plans' user.username %}" class="btn ghost primary">
+            {% icon "premium" %}
+            {% trans "Browse plans" %}
+          </a>
           <a href="{% url 'users:subscriptions' user.username %}" class="btn ghost primary">
             {% icon "gear" %}
             {% trans "Manage billing" %}
@@ -118,6 +130,15 @@
       </header>
       {% include "organizations/includes/plan_card.html" with org=user.individual_organization subject_slug=user.username subscriptions=subscriptions subscription_benefits=subscription_benefits inherited_orgs=inherited_orgs inherited_benefits=inherited_benefits upgrade_plan=upgrade_plan card=current_plan_card card_brand=current_plan_card_brand card_last4=current_plan_card_last4 can_edit_subscription=True subject="users" %}
     </section>
+
+    {% if usage_stats %}
+      <section id="usage">
+        <header>
+          <h2>{% trans "Usage" %}</h2>
+        </header>
+        {% include "organizations/includes/usage_card.html" with individual=True usage_stats=usage_stats %}
+      </section>
+    {% endif %}
 
     <section id="verification">
       <header>

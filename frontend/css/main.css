@@ -1207,12 +1207,13 @@ button._cls-navItem:hover {
   position: absolute;
   top: 100%;
   left: 0;
-  min-width: 320px;
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 5rem);
+  overflow-y: auto;
   background: var(--white);
   border: 1px solid var(--gray-2);
   border-radius: var(--radius-3);
   box-shadow: var(--shadow-2);
-  padding: 0.5rem;
   margin-top: 0.25rem;
   z-index: var(--z-dropdown);
 }
@@ -1221,10 +1222,42 @@ button._cls-navItem:hover {
   display: block;
 }
 
+._cls-servicesGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+._cls-servicesGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 0.5rem;
+}
+
+._cls-servicesGroupSecondary {
+  background: var(--gray-1);
+  border-left: 1px solid var(--gray-2);
+}
+
+._cls-servicesHeading {
+  margin: 0;
+  padding: 0 0.75rem;
+  color: var(--gray-4);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+._cls-servicesList {
+  display: flex;
+  flex-direction: column;
+}
+
 ._cls-serviceItem {
   display: flex;
   gap: 0.75rem;
-  padding: 0.75rem;
+  padding: 0.625rem 0.75rem;
   border-radius: var(--radius-2);
   text-decoration: none;
   color: var(--gray-5);
@@ -1234,6 +1267,11 @@ button._cls-navItem:hover {
 
 ._cls-serviceItem:hover {
   background: var(--blue-1);
+  text-decoration: none;
+}
+
+._cls-servicesGroupSecondary ._cls-serviceItem:hover {
+  background: var(--blue-2);
 }
 
 ._cls-serviceItem img {
@@ -1248,10 +1286,32 @@ button._cls-navItem:hover {
   margin-bottom: 0.125rem;
 }
 
+._cls-serviceItem:hover ._cls-serviceName {
+  color: var(--blue-5);
+}
+
+._cls-serviceItem ._cls-serviceProvider {
+  font-size: var(--font-xs, 0.75rem);
+  font-weight: 600;
+  color: var(--gray-4);
+  margin-bottom: 0.25rem;
+}
+
 ._cls-serviceItem ._cls-serviceDescription {
   font-size: var(--font-sm);
   color: var(--gray-4);
   line-height: 1.3;
+}
+
+@media (max-width: 36rem) {
+  ._cls-servicesGrid {
+    grid-template-columns: 1fr;
+  }
+
+  ._cls-servicesGroupSecondary {
+    border-left: none;
+    border-top: 1px solid var(--gray-2);
+  }
 }
 
 /* Organizations dropdown */

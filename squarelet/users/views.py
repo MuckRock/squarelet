@@ -47,6 +47,7 @@ from allauth.socialaccount.views import ConnectionsView
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
+from squarelet.core.usage import get_usage_stats
 from squarelet.core.utils import new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import (
@@ -61,6 +62,9 @@ from squarelet.payments.views import (
     BaseEndSubscription,
     BaseManageSubscriptions,
     BasePaymentsList,
+    BasePlanCheckout,
+    BasePlanCheckoutRedirect,
+    BasePlans,
     BaseRemoveCard,
     BaseResubscribe,
     BaseUpdateCard,
@@ -185,6 +189,8 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["subscription_benefits"] = consolidate_plan_benefits(
             sub.plan for sub in subscriptions
         )
+        if upgrade_plan:
+            upgrade_plan.checkout_url = upgrade_plan.get_checkout_url(individual_org)
         context["upgrade_plan"] = upgrade_plan
         # Get card for active subscription
         customer = individual_org.customer()
@@ -199,6 +205,9 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         )
         context["inherited_orgs"] = inherited_orgs
         context["inherited_benefits"] = inherited_benefits
+
+        context["usage_stats"] = get_usage_stats(user, inherited_orgs)
+
         # Autologin preference form
         context["autologin_form"] = UserAutologinPreferenceForm(instance=user)
         context["may_hijack"] = hijack_by_group(self.request.user, user)
@@ -714,6 +723,18 @@ class IndividualSubscriptionView(LoginRequiredMixin, StaffAccessMixin):
 
 
 class ManageSubscriptions(IndividualSubscriptionView, BaseManageSubscriptions):
+    pass
+
+
+class Plans(IndividualSubscriptionView, BasePlans):
+    pass
+
+
+class PlanCheckout(IndividualSubscriptionView, BasePlanCheckout):
+    pass
+
+
+class PlanCheckoutRedirect(IndividualSubscriptionView, BasePlanCheckoutRedirect):
     pass
 
 

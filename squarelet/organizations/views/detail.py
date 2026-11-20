@@ -16,6 +16,7 @@ import logging
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
+from squarelet.core.usage import get_usage_stats
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.mixins import ResolveOrganizationSlugMixin
@@ -28,6 +29,7 @@ from squarelet.organizations.models import (
     consolidate_plan_benefits,
 )
 from squarelet.organizations.models.invitation import OrganizationInvitation
+from squarelet.organizations.plan_mapping import tier_of
 from squarelet.organizations.tasks import sync_wix
 
 # How much to paginate organizations list by
@@ -63,7 +65,7 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
         upgrade_plan = Plan.objects.get(slug="organization")
         subscriptions = list(
             org.subscription_items.select_related(
-                "plan", "plan_price"
+                "plan", "plan_price", "subscription"
             ).prefetch_related("plan__entitlements")
         )
         context["subscriptions"] = subscriptions
@@ -71,6 +73,19 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
             sub.plan for sub in subscriptions
         )
         context["upgrade_plan"] = upgrade_plan
+        # A comp can end, so it doesn't hold its tier; checkout agrees.
+        held_tiers = {
+            tier_of(sub.plan.slug)
+            for sub in subscriptions
+            if sub.subscription.kind != "free"
+        }
+        context["private_plans"] = [
+            plan
+            for plan in org.private_plans.filter(public=False).order_by("name")
+            if tier_of(plan.slug) not in held_tiers
+        ]
+        for plan in [upgrade_plan, *context["private_plans"]]:
+            plan.checkout_url = plan.get_checkout_url(org)
         context["member_count"] = len(users)
         context["admin_count"] = len(admins)
 
@@ -104,6 +119,8 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
         context["inherited_benefits"] = inherited_benefits
 
         context.update(self._get_groups_context(user, org))
+
+        context["usage_stats"] = get_usage_stats(org, inherited_orgs)
 
         return context
 

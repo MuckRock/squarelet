@@ -2,13 +2,14 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
 from django.core.signing import BadSignature, TimestampSigner
 from django.db import transaction
+from django.db.models import Prefetch, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
@@ -26,335 +27,165 @@ import time
 
 # Third Party
 import stripe
+from allauth.account.adapter import get_adapter
 
 # Squarelet
+from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import format_stripe_error, new_action
-from squarelet.organizations.models import Charge, Organization, Plan
-from squarelet.organizations.models.payment import (
-    ReceiptEmail,
-    SubscriptionItem,
-    get_payment_brand,
-)
+from squarelet.organizations.models import Charge, Organization, Plan, PlanPrice
+from squarelet.organizations.models.payment import ReceiptEmail, SubscriptionItem
 from squarelet.organizations.payments.base import PaymentActionRequired
-from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.exceptions import NotForSale, SubscriptionError
+from squarelet.organizations.plan_mapping import resolve_target, tier_of
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import (
     CancelSubscriptionForm,
     CardForm,
-    PlanPurchaseForm,
     UpdateReceiptEmailForm,
 )
+
+# pylint: disable=too-many-lines
 
 logger = logging.getLogger(__name__)
 
 
-def get_matching_plan_tier(plan):
-    """
-    For Sunlight Research Center plans, find the matching plan tier
-    with a different payment schedule (monthly <-> annual).
-    """
-    if not plan.slug.startswith("sunlight-"):
-        return None
+def legacy_alias_url(plan, query):
+    """Where an old entry row's page now lives, or None.
 
-    if plan.annual:
-        # Find monthly equivalent by removing "-annual" suffix
-        matching_slug = plan.slug.replace("-annual", "")
-    else:
-        # Find annual equivalent by adding "-annual" suffix
-        matching_slug = f"{plan.slug}-annual"
-
-    try:
-        return Plan.objects.get(slug=matching_slug)
-    except Plan.DoesNotExist:
+    Rows like `sunlight-essential-annual` are their tier at an interval, and
+    the Sunlight site links to their old URLs.  A negotiated (`code`) row
+    keeps its own page, for the organizations it names.
+    """
+    target = resolve_target(plan.slug)
+    if target is None:
         return None
+    slug, _interval, _label, code = target
+    if code or slug == plan.slug:
+        return None
+    canonical = Plan.objects.filter(slug=slug).first()
+    if canonical is None:
+        return None
+    url = canonical.get_absolute_url()
+    return f"{url}?{query.urlencode()}" if query else url
 
 
 def protect_private_plan(plan, user):
-    """Raise 404 if user should not access this private plan"""
-    if not plan.public and plan.private_organizations.exists():
-        # If user is not authenticated, raise 404
-        if not user.is_authenticated:
-            raise Http404("Plan not found")
+    """404 a private plan to anyone who doesn't administer an organization it
+    is offered to or held by. Enterprise pages stay open: they sell by contact.
+    """
+    if plan.public or plan.is_enterprise:
+        return
+    if not user.is_authenticated:
+        raise Http404("Plan not found")
+    offered = (
+        Organization.objects.filter(memberships__user=user, memberships__admin=True)
+        .filter(Q(private_plans=plan) | Q(subscriptions__plans=plan))
+        .exists()
+    )
+    if not offered:
+        raise Http404("Plan not found")
 
-        # If user is not admin of any organization for this plan, raise 404
-        user_admin_orgs = user.organizations.filter(memberships__admin=True)
-        if not plan.private_organizations.filter(pk__in=user_admin_orgs).exists():
-            raise Http404("Plan not found")
 
+class PlanDetailView(AdminLinkMixin, DetailView):
+    """A plan's benefits and prices, and the accounts the user may buy it for.
 
-class PlanDetailView(DetailView):
+    Redirects to checkout when exactly one account of the user's may buy it.
+    """
+
     model = Plan
-    template_name = "payments/plan.html"
+    template_name = "payments/plan_detail.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        plan = get_object_or_404(Plan, pk=kwargs["pk"])
+        alias = legacy_alias_url(plan, request.GET)
+        # Reads only: a POST is answered below, not silently turned into a GET.
+        if alias is not None and request.method in ("GET", "HEAD"):
+            return redirect(alias, permanent=True)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         return Plan.objects.not_archived()
 
-    def get_template_names(self):
-        """Override to use custom template for Enterprise plans"""
-        plan = self.get_object()
-
-        # Check if this is an Enterprise plan
-        if plan.slug.startswith("sunlight-enterprise"):
-            return ["payments/plan_enterprise.html"]
-
-        return [self.template_name]
-
     def get_object(self, queryset=None):
-        """Override to check private plan access"""
-        if queryset is None:
-            queryset = self.get_queryset()
-
         plan = super().get_object(queryset)
-
         protect_private_plan(plan, self.request.user)
         return plan
 
-    def get_form(self):
-        """Get the plan purchase form"""
-        plan = self.get_object()
-        user = self.request.user if self.request.user.is_authenticated else None
-        purchase_redirect = self.request.GET.get("purchase_redirect", "")
-
-        if self.request.method == "POST":
-            return PlanPurchaseForm(self.request.POST, plan=plan, user=user)
-        return PlanPurchaseForm(
-            plan=plan,
-            user=user,
-            initial={"purchase_redirect": purchase_redirect},
+    def post(self, request, *args, **kwargs):
+        # The old plan page took purchases here, and an open tab still posts.
+        messages.info(
+            request,
+            _(
+                "This page has changed since you opened it, and nothing was "
+                "charged. Please choose your plan again."
+            ),
         )
+        return redirect(request.get_full_path())
+
+    def with_query(self, url):
+        """`url` carrying this request's query, so `purchase_redirect` survives."""
+        query = self.request.META.get("QUERY_STRING")
+        return f"{url}?{query}" if query else url
+
+    def get_accounts(self, plan):
+        """`{organization, checkout_url, manage_url, held}` for each account of
+        the user's that may buy `plan`, those not yet subscribed first."""
+        user = self.request.user
+        if not user.is_authenticated or plan.is_enterprise:
+            return []
+        urls = plan.checkout_urls(user)
+        held = SubscriptionItem.objects.paid_holders(
+            plan, [organization for organization, _url in urls]
+        )
+        accounts = [
+            {
+                "organization": organization,
+                "checkout_url": self.with_query(url),
+                "manage_url": reverse(
+                    "organizations:subscriptions",
+                    kwargs={"slug": organization.slug},
+                ),
+                "held": organization.pk in held,
+            }
+            for organization, url in urls
+        ]
+        return sorted(accounts, key=lambda account: account["held"])
+
+    def get_prices(self, plan, nonprofit=False):
+        """The price at each interval `plan` is sold at, annual first."""
+        prices = []
+        discounted = False
+        for interval in Plan.CHECKOUT_INTERVALS:
+            price, list_price = plan.checkout_prices(interval, nonprofit=nonprofit)
+            if price is not None:
+                prices.append(price)
+                discounted = discounted or price.amount < list_price.amount
+        return prices if discounted or not nonprofit else []
+
+    def get(self, request, *args, **kwargs):
+        self.object = plan = self.get_object()
+        accounts = self.get_accounts(plan)
+        buyers = [account for account in accounts if not account["held"]]
+        if len(buyers) == 1:
+            return redirect(buyers[0]["checkout_url"])
+        nonprofit_prices = (
+            self.get_prices(plan, nonprofit=True)
+            if any(buyer["organization"].nonprofit for buyer in buyers)
+            else []
+        )
+        context = self.get_context_data(
+            object=plan, accounts=accounts, nonprofit_prices=nonprofit_prices
+        )
+        return self.render_to_response(context)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        plan = self.get_object()
-
-        # Add form to context
-        if "form" not in kwargs:
-            context["form"] = self.get_form()
-
-        # Add matching plan tier with different payment schedule (for Sunlight plans)
-        context["matching_plan"] = get_matching_plan_tier(plan)
-
-        if self.request.user.is_authenticated:
-            user = self.request.user
-            existing_subscriptions = []
-
-            # Check user's individual organization
-            individual_org = user.individual_organization
-            individual_subscription = individual_org.line_holding(plan)
-            if individual_subscription:
-                existing_subscriptions.append((individual_subscription, individual_org))
-
-            # Get organizations where user is admin
-            admin_orgs_base = Organization.objects.filter(
-                users=user, memberships__admin=True, individual=False
-            ).distinct()
-
-            # Filter by private_organizations if populated
-            if not plan.public and plan.private_organizations.exists():
-                admin_orgs = admin_orgs_base.filter(
-                    pk__in=plan.private_organizations.all()
-                )
-            else:
-                admin_orgs = admin_orgs_base
-
-            for org in admin_orgs:
-                org_subscription = org.line_holding(plan)
-                if org_subscription:
-                    existing_subscriptions.append((org_subscription, org))
-
-            context.update(
-                {
-                    "existing_subscriptions": existing_subscriptions,
-                    "stripe_pk": settings.STRIPE_PUB_KEY,
-                    "show_waitlist": not plan.has_available_slots() and plan.wix,
-                }
-            )
-
-        # Add admin link if user has admin permissions
-        if self.request.user.is_authenticated and self.request.user.is_staff:
-            context["admin_link"] = reverse(
-                "admin:organizations_plan_change", args=[plan.pk]
-            )
-
-        # Add nonprofit variant flag for template
-        context["is_nonprofit_variant"] = plan.slug.startswith("sunlight-nonprofit-")
-
-        return context
-
-    def _is_ajax(self):
-        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
-
-    def _get_org_cards(self, individual_org, admin_orgs):
-        """
-        Collect saved purchase methods for template context.
-        When an org is selected, its saved purchase method should be shown.
-        Each org only has 1 saved payment method.
-        """
-        org_cards = {}
-
-        # Add individual org if it has a payment method on file
-        if individual_org:
-            individual_card = individual_org.customer().payment_details
-            if individual_card:
-                org_cards[str(individual_org.pk)] = {
-                    "last4": individual_card.last4,
-                    "brand": get_payment_brand(individual_card),
-                }
-
-        # Add admin organizations that have a payment method on file
-        for org in admin_orgs:
-            org_card = org.customer().payment_details
-            if org_card:
-                org_cards[str(org.pk)] = {
-                    "last4": org_card.last4,
-                    "brand": get_payment_brand(org_card),
-                }
-
-        return org_cards
-
-    def post(
-        self, request, *args, **kwargs
-    ):  # pylint: disable=too-many-return-statements
-        """Handle form submission for subscribing to the plan."""
-        self.object = self.get_object()
         plan = self.object
-
-        if not request.user.is_authenticated:
-            return redirect_to_login(request.get_full_path())
-
-        form = self.get_form()
-        if not form.is_valid():
-            return self.render_to_response(self.get_context_data(form=form))
-
-        with transaction.atomic():
-            try:
-                result = form.save(request.user)
-                organization = result["organization"]
-
-                held = organization.line_holding(result["plan"])
-                if held is not None and held.subscription.kind != "free":
-                    messages.warning(request, _("Already subscribed"))
-                    return redirect(plan)
-
-                early_response = self._subscribe(request, plan, result)
-                if early_response is not None:
-                    return early_response
-
-                messages.success(request, _("Successfully subscribed"))
-                purchase_redirect = form.cleaned_data.get("purchase_redirect", "")
-                redirect_url = purchase_redirect or organization.get_absolute_url()
-                if self._is_ajax():
-                    return JsonResponse(
-                        {
-                            "redirect": redirect_url,
-                            "message": str(_("Successfully subscribed")),
-                        }
-                    )
-                return redirect(purchase_redirect or organization)
-
-            except Organization.DoesNotExist:
-                pass
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.error(
-                    "Subscription creation failed: %s", exc, exc_info=sys.exc_info()
-                )
-
-        if self._is_ajax():
-            return JsonResponse({"error": str(_("Something went wrong"))}, status=400)
-        messages.error(request, _("Something went wrong"))
-        return redirect(plan)
-
-    def _subscribe(self, request, plan, result):
-        """
-        Dispatch to the Sunlight or regular subscription path.
-
-        Returns an HttpResponse for early exits (waitlist, 3DS, Stripe errors),
-        or None to signal the caller should build the success response.
-        """
-        if plan.is_sunlight_plan and plan.wix:
-            return self._handle_sunlight_subscription(request, plan, result)
-        return self._handle_regular_subscription(request, plan, result)
-
-    def _handle_sunlight_subscription(self, request, plan, result):
-        """Rate-limit with row locking; add to waitlist or defer subscription."""
-        organization = result["organization"]
-        selected_plan = result["plan"]
-        stripe_token = result["stripe_token"]
-        payment_method = result["payment_method"]
-
-        locked_count = (
-            SubscriptionItem.objects.select_for_update().sunlight_active_count()
+        context.update(
+            benefits=plan.get_benefits(),
+            prices=[] if plan.is_enterprise else self.get_prices(plan),
         )
-        if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
-            transaction.on_commit(
-                lambda: add_to_waitlist.delay(organization.pk, plan.pk, request.user.pk)
-            )
-            messages.success(request, _("You have been added to the waitlist."))
-            return redirect(plan)
-        transaction.on_commit(
-            lambda: organization.add_subscription(
-                selected_plan,
-                None,
-                request.user,
-                token=stripe_token,
-                payment_method=payment_method,
-                nonprofit=result.get("nonprofit", False),
-            )
-        )
-        return None
-
-    def _handle_regular_subscription(self, request, plan, result):
-        """Call add_subscription directly; return error response or None on success."""
-        # pylint: disable=too-many-return-statements
-        organization = result["organization"]
-        selected_plan = result["plan"]
-        stripe_token = result["stripe_token"]
-        payment_method = result["payment_method"]
-
-        try:
-            organization.add_subscription(
-                selected_plan,
-                None,
-                request.user,
-                token=stripe_token,
-                payment_method=payment_method,
-                nonprofit=result.get("nonprofit", False),
-            )
-            return None
-        except PaymentActionRequired as exc:
-            # SubscriptionItem saved but first invoice needs 3DS.
-            redirect_url = organization.get_absolute_url()
-            if self._is_ajax():
-                return JsonResponse(
-                    {
-                        "client_secret": exc.client_secret,
-                        "payment_intent_id": exc.payment_intent_id,
-                        "redirect": redirect_url,
-                    },
-                    status=402,
-                )
-            messages.error(
-                request,
-                _("Your card requires additional authentication. Please try again."),
-            )
-            return redirect(plan)
-        except SubscriptionError as exc:
-            # The message says which refusal: a duplicate, or a plan not for sale.
-            logger.error("Subscription refused: %s", exc)
-            if self._is_ajax():
-                return JsonResponse({"error": str(exc)}, status=400)
-            messages.error(request, str(exc))
-            return redirect(plan)
-        except stripe.StripeError as exc:
-            logger.error(
-                "Stripe error during subscription: %s",
-                exc,
-                exc_info=sys.exc_info(),
-            )
-            if self._is_ajax():
-                return JsonResponse({"error": str(exc)}, status=400)
-            messages.error(request, str(exc))
-            return redirect(plan)
+        return context
 
 
 class PlanRedirectView(RedirectView):
@@ -547,6 +378,73 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         context["payments"] = payments
 
         return context
+
+
+class BasePlans(SubscriptionObjectMixin, DetailView):
+    """Browse plans page."""
+
+    template_name = "subscriptions/browse_plans.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        organization = self.object
+        list_prices = PlanPrice.objects.filter(active=True, code="")
+        plans = (
+            Plan.objects.choices(organization)
+            .filter(service__isnull=False, prices__in=list_prices)
+            .distinct()
+            .select_related("service")
+            .prefetch_related(Prefetch("prices", queryset=list_prices), "entitlements")
+        )
+
+        held_tiers = {
+            tier_of(slug)
+            for slug in organization.subscription_items.exclude(
+                subscription__kind="free"
+            ).values_list("plan__slug", flat=True)
+        }
+
+        services = {}
+        for plan in plans:
+            plan.display_prices = self.get_display_prices(plan, organization.nonprofit)
+            if not plan.display_prices:
+                continue
+            plan.nonprofit = any(
+                price.label == "nonprofit" for price in plan.display_prices
+            )
+            plan.held = tier_of(plan.slug) in held_tiers
+            plan.checkout_url = self.reverse_subject("plan", plan_slug=plan.slug)
+            services.setdefault(plan.service, []).append(plan)
+        for service_plans in services.values():
+            service_plans.sort(
+                key=lambda p: (self.monthly_cost(p.display_prices), p.name)
+            )
+        context["services"] = [
+            {"service": service, "plans": services[service]}
+            for service in sorted(services, key=lambda s: s.name)
+        ]
+        return context
+
+    def get_display_prices(self, plan, nonprofit):
+        """Get a plan's prices based on its nonprofit status."""
+
+        by_variant = {
+            (price.interval, price.label): price for price in plan.prices.all()
+        }
+        labels = ("nonprofit", "standard") if nonprofit else ("standard",)
+        prices = []
+        for interval in ("annual", "monthly"):
+            for label in labels:
+                if (interval, label) in by_variant:
+                    prices.append(by_variant[interval, label])
+                    break
+        return prices
+
+    def monthly_cost(self, prices):
+        for price in prices:
+            if price.interval == "monthly":
+                return price.amount
+        return prices[0].amount / 12
 
 
 class BaseUpdateCard(SubscriptionObjectMixin, UpdateView):
@@ -842,9 +740,9 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
     def post(self, request, *args, **kwargs):
         organization = self.get_object()
         redirect_url = self.reverse_subject("subscriptions")
-        subscription = organization.subscription_items.filter(
-            id=self.kwargs["pk"]
-        ).first()
+        subscription = get_object_or_404(
+            organization.subscription_items, id=self.kwargs["pk"]
+        )
         try:
             subscription.uncancel()
         except ValidationError as exc:
@@ -859,4 +757,265 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
         if self._is_ajax():
             return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
         messages.success(request, success_msg)
+        return redirect(redirect_url)
+
+
+def get_checkout_plan(organization, slug):
+    """The plan `organization` may buy at `slug`, or 404."""
+    return get_object_or_404(
+        Plan.objects.choices(organization).select_related("service"), slug=slug
+    )
+
+
+class BasePlanCheckoutRedirect(SubscriptionObjectMixin, RedirectView):
+    """Send a plan's checkout link on to its annual checkout, else monthly."""
+
+    def get_redirect_url(self, *args, **kwargs):
+        organization = self.get_organization()
+        plan = get_checkout_plan(organization, self.kwargs["plan_slug"])
+        interval = plan.default_interval(organization.nonprofit)
+        if interval is None and plan.is_enterprise:
+            interval = "annual"
+        if interval is None:
+            raise Http404("This plan is not available")
+        url = self.reverse_subject(
+            "plan-checkout", plan_slug=plan.slug, interval=interval
+        )
+        # Checkout reads purchase_redirect from its own URL.
+        if self.request.META.get("QUERY_STRING"):
+            url = f"{url}?{self.request.META['QUERY_STRING']}"
+        return url
+
+
+class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
+    """Buy one plan at one interval with the payment method on file."""
+
+    template_name = "subscriptions/plan_checkout.html"
+
+    def _is_ajax(self):
+        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    def get_plan(self):
+        return get_checkout_plan(self.object, self.kwargs["plan_slug"])
+
+    def get_prices(self, plan, interval):
+        return plan.checkout_prices(interval, self.object.nonprofit)
+
+    def get_interval(self):
+        interval = self.kwargs["interval"]
+        if interval not in Plan.CHECKOUT_INTERVALS:
+            raise Http404("No such billing interval")
+        return interval
+
+    def get_price(self, plan):
+        """The price this page sells, or 404."""
+        interval = self.get_interval()
+        price, list_price = self.get_prices(plan, interval)
+        if price is None:
+            raise Http404("This plan is not sold at that interval")
+        return price, list_price
+
+    def get_purchase_redirect(self):
+        """The URL another app asked to send the buyer back to, or "" if unsafe."""
+        url = self.request.GET.get("purchase_redirect", "").strip()
+        return url if url and get_adapter(self.request).is_safe_url(url) else ""
+
+    def purchase_query(self):
+        """The query string carrying `purchase_redirect` to another checkout link."""
+        url = self.get_purchase_redirect()
+        return f"?{urlencode({'purchase_redirect': url})}" if url else ""
+
+    def is_held(self, plan):
+        held = self.object.line_holding(plan)
+        return held is not None and held.subscription.kind != "free"
+
+    def get_organization_choices(self, plan, interval):
+        """`(organization, checkout url)` for each account the user may switch to.
+
+        The page's own organization comes first, so staff acting on someone
+        else's account still see it selected.
+        """
+        user = self.request.user
+        query = self.purchase_query()
+        choices = [(self.object, self.request.path + query)]
+        orgs = [
+            organization
+            for organization in plan.eligible_accounts(user)
+            if organization != self.object
+        ]
+        held = SubscriptionItem.objects.paid_holders(plan, orgs)
+        for organization in orgs:
+            if organization.pk in held:
+                continue
+            if organization.individual:
+                url = reverse(
+                    "users:plan-checkout",
+                    kwargs={
+                        "username": user.username,
+                        "plan_slug": plan.slug,
+                        "interval": interval,
+                    },
+                )
+            else:
+                url = reverse(
+                    "organizations:plan-checkout",
+                    kwargs={
+                        "slug": organization.slug,
+                        "plan_slug": plan.slug,
+                        "interval": interval,
+                    },
+                )
+            choices.append((organization, url + query))
+        return choices
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        organization = self.object
+        plan = self.get_plan()
+        if plan.is_enterprise:
+            self.get_interval()
+            context.update(
+                plan=plan, benefits=plan.get_benefits(), held=self.is_held(plan)
+            )
+            return context
+        price, list_price = self.get_price(plan)
+        context["organization_choices"] = self.get_organization_choices(
+            plan, price.interval
+        )
+
+        other_interval = next(i for i in Plan.CHECKOUT_INTERVALS if i != price.interval)
+        if self.get_prices(plan, other_interval)[0] is not None:
+            context["other_interval_url"] = (
+                self.reverse_subject(
+                    "plan-checkout", plan_slug=plan.slug, interval=other_interval
+                )
+                + self.purchase_query()
+            )
+
+        held = self.is_held(plan)
+        # None when held, or when Stripe could not preview the charge.
+        due_cents = (
+            None if held else SubscriptionItem.objects.due_on_start(organization, price)
+        )
+        due_today = None if due_cents is None else due_cents / 100
+        customer = organization.customer()
+        context.update(
+            plan=plan,
+            benefits=plan.get_benefits(),
+            price=price,
+            # Struck through beside a nonprofit rate.
+            list_price=(
+                list_price if list_price and list_price.amount > price.amount else None
+            ),
+            due_today=due_today,
+            prorated=due_today is not None and due_today != price.amount_dollars,
+            held=held,
+            available=plan.has_available_slots(),
+            invoice_available=price.interval == "annual",
+            invoice_joining=(
+                None
+                if held
+                else SubscriptionItem.objects.joining_subscription(
+                    organization, price, "send_invoice"
+                )
+            ),
+            card_brand=customer.payment_brand,
+            card_last4=customer.payment_last4,
+            card_form=CardForm(),
+        )
+        return context
+
+    def _error(self, message):
+        """Return the error as JSON for AJAX callers, else flash and redirect."""
+        if self._is_ajax():
+            return JsonResponse({"error": str(message)}, status=400)
+        messages.error(self.request, message)
+        return redirect(self.request.path)
+
+    def join_waitlist(self, plan):
+        """Put the organization on a full plan's waitlist and return to its plans."""
+        organization, user = self.object, self.request.user
+        redirect_url = self.reverse_subject("plans")
+        # Wix must not hear of a waitlist entry the request then rolls back.
+        transaction.on_commit(
+            lambda: add_to_waitlist.delay(organization.pk, plan.pk, user.pk)
+        )
+        message = _("This plan is full. You have been added to its waitlist.")
+        messages.success(self.request, message)
+        if self._is_ajax():
+            return JsonResponse({"redirect": redirect_url, "message": str(message)})
+        return redirect(redirect_url)
+
+    def post(self, request, *args, **kwargs):
+        # pylint: disable=too-many-return-statements,too-many-branches
+        self.object = organization = self.get_object()
+        plan = self.get_plan()
+        if plan.is_enterprise:
+            return self._error(_("Contact us to subscribe to this plan."))
+        price, _list_price = self.get_price(plan)
+        redirect_url = self.get_purchase_redirect() or self.reverse_subject(
+            "subscriptions"
+        )
+
+        if self.is_held(plan):
+            return self._error(_("You are already subscribed to this plan."))
+        has_waitlist = plan.is_sunlight_plan and plan.wix
+        if request.POST.get("action") == "waitlist":
+            if not has_waitlist:
+                return self._error(_("This plan has no waitlist."))
+            return self.join_waitlist(plan)
+        # Locked so two purchases cannot both take the last slot.
+        if (
+            has_waitlist
+            and SubscriptionItem.objects.select_for_update().sunlight_active_count()
+            >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS
+        ):
+            return self.join_waitlist(plan)
+        payment_method = request.POST.get("payment_method", "card")
+        if payment_method == "invoice":
+            if price.interval != "annual":
+                return self._error(_("Only annual plans can be paid by invoice."))
+        elif payment_method != "card":
+            return self._error(_("Choose a card or invoice to pay with."))
+        elif organization.customer().default_payment_method_obj() is None:
+            return self._error(_("Add a payment method before subscribing."))
+
+        try:
+            organization.add_subscription(
+                plan,
+                None,
+                request.user,
+                payment_method=payment_method,
+                nonprofit=price.label == "nonprofit",
+                interval=price.interval,
+            )
+        except PaymentActionRequired as exc:
+            if self._is_ajax():
+                return JsonResponse(
+                    {
+                        "client_secret": exc.client_secret,
+                        "payment_intent_id": exc.payment_intent_id,
+                        "redirect": redirect_url,
+                    },
+                    status=402,
+                )
+            return self._error(
+                _("Your card requires additional authentication. Please try again.")
+            )
+        except NotForSale as exc:
+            logger.error("Checkout refused a plan not for sale: %s", exc)
+            return self._error(_("This plan isn't available to buy right now."))
+        except SubscriptionError as exc:
+            return self._error(str(exc))
+        except stripe.StripeError as exc:
+            logger.error(
+                "Stripe error during checkout: %s", exc, exc_info=sys.exc_info()
+            )
+            return self._error(f"Payment error: {format_stripe_error(exc)}")
+
+        self.log_staff_action("subscribed to a plan", description=plan.name)
+        success_msg = _(f"Subscribed to {plan.name}")
+        messages.success(request, success_msg)
+        if self._is_ajax():
+            return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
         return redirect(redirect_url)

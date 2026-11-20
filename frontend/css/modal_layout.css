@@ -1,5 +1,12 @@
 .modal-layout {
   box-sizing: border-box;
+  width: calc(100% - 2rem);
+  max-width: 30rem;
+  margin: 1rem auto;
+}
+
+.modal-layout.wide {
+  max-width: 36rem;
 }
 
 .modal-layout header {
@@ -93,4 +100,8 @@
 .modal-layout .footer a {
   color: var(--gray-5, #233944);
   text-decoration-color: var(--gray-5, #233944);
+}
+
+.modal-layout header:empty {
+  display: none;
 }

@@ -15,7 +15,9 @@ from squarelet.organizations.models.payment import (
     format_benefits,
     sum_resources,
 )
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.organizations.tests.factories import EntitlementFactory
+from squarelet.services.tests.factories import ServiceFactory
 
 # pylint: disable=too-many-public-methods
 
@@ -34,6 +36,21 @@ class TestPlan:
     def test_not_free(self, professional_plan_factory):
         plan = professional_plan_factory.build()
         assert not plan.free
+
+    @pytest.mark.django_db()
+    def test_requires_payment_reads_the_list_price(
+        self, plan_factory, plan_price_factory
+    ):
+        """Monthly and paid, yes; annual is invoiced, free is free, and a
+        plan with nothing to sell needs no payment either."""
+        monthly = plan_price_factory(interval="monthly", amount=4_000).plan
+        annual = plan_price_factory(interval="annual", amount=48_000).plan
+        free = plan_price_factory(interval="monthly", amount=0).plan
+
+        assert monthly.requires_payment()
+        assert not annual.requires_payment()
+        assert not free.requires_payment()
+        assert not plan_factory(name="No Price").requires_payment()
 
     @pytest.mark.parametrize(
         "users,cost", [(0, 100), (1, 100), (5, 100), (7, 120), (10, 150)]
@@ -347,7 +364,9 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """Sunlight wix plan under limit has available slots"""
         sunlight_plan = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
 
         # Create 10 active subscriptions (under limit of 15)
@@ -364,7 +383,9 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """Sunlight wix plan at limit has no available slots"""
         sunlight_plan = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
 
         # Create 15 active subscriptions (at limit)
@@ -381,7 +402,9 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """Sunlight wix plan over limit has no available slots"""
         sunlight_plan = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
 
         # Create 20 active subscriptions (over limit)
@@ -398,10 +421,14 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """Limit is shared across all Sunlight plan variants"""
         sunlight_basic = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
         sunlight_premium = plan_factory(
-            slug="sunlight-enhanced-annual", product="sunlight", wix=True
+            slug="sunlight-enhanced-annual",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
 
         # Create 10 subscriptions for basic, 5 for premium (total 15)
@@ -425,7 +452,9 @@ class TestArchivingRetiresTheStripeObjects:
     ):
         """cancelled=True means pending cancellation — counts toward limit."""
         sunlight_plan = plan_factory(
-            slug="sunlight-essential-monthly", product="sunlight", wix=True
+            slug="sunlight-essential-monthly",
+            service=ServiceFactory(slug=SUNLIGHT_SERVICE_SLUG),
+            wix=True,
         )
 
         # Create 10 active and 5 pending-cancellation subscriptions (total 15 = limit)
@@ -437,10 +466,20 @@ class TestArchivingRetiresTheStripeObjects:
         # 15 total subscriptions = at the limit, no slots available
         assert sunlight_plan.has_available_slots() is False
 
-    def test_is_sunlight_plan_is_the_product(self, plan_factory):
-        """`product` says what a plan is marketed as, not its slug prefix."""
-        assert plan_factory.build(product="sunlight").is_sunlight_plan is True
-        assert plan_factory.build(product="muckrock").is_sunlight_plan is False
+    def test_is_sunlight_plan_is_the_service(self, plan_factory):
+        """`service` says what a plan is marketed as, not its slug prefix."""
+        assert (
+            plan_factory.build(
+                service=ServiceFactory.build(slug=SUNLIGHT_SERVICE_SLUG)
+            ).is_sunlight_plan
+            is True
+        )
+        assert (
+            plan_factory.build(
+                service=ServiceFactory.build(slug="muckrock")
+            ).is_sunlight_plan
+            is False
+        )
         assert plan_factory.build(slug="sunlight-legacy").is_sunlight_plan is False
 
     def test_nonprofit_variant_slug_for_regular_sunlight(self, plan_factory):
@@ -559,6 +598,34 @@ class TestArchivingRetiresTheStripeObjects:
         assert plan.get_benefit_templates() == [
             "{base_requests} free requests each month"
         ]
+
+
+@pytest.mark.django_db()
+class TestCheckoutUrl:
+    """Where a plan's buy button sends an organization."""
+
+    def test_an_unpriced_plan_has_no_checkout(self, organization_factory, plan_factory):
+        organization = organization_factory()
+        plan = plan_factory(name="Unpriced", for_individuals=False)
+
+        assert plan.get_checkout_url(organization) is None
+
+    def test_an_unpriced_enterprise_plan_still_has_a_page(self, organization_factory):
+        organization = organization_factory()
+        # Keyed on slug: the migrations seed this row on a fresh database.
+        plan, _ = Plan.objects.update_or_create(
+            slug="sunlight-enterprise",
+            defaults={
+                "name": "Sunlight Enterprise",
+                "public": True,
+                "for_individuals": False,
+                "for_groups": True,
+            },
+        )
+
+        assert plan.get_checkout_url(organization) == (
+            f"/organizations/{organization.slug}/plans/sunlight-enterprise/"
+        )
 
 
 class TestConsolidatePlanBenefits:

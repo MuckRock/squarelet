@@ -1,0 +1,27 @@
+{% load icon %}
+<div class="plan-card-heading">
+  {% if plan.icon %}
+    <img class="plan-icon" src="{{ plan.icon.url }}" alt="" />
+  {% elif plan.service.icon %}
+    <img class="plan-icon" src="{{ plan.service.icon.url }}" alt="" />
+  {% endif %}
+  <div class="plan-info">
+    <div class="plan-title">
+      <h3>{{ plan.name }}</h3>
+    </div>
+    {% if plan.short_description %}
+      <p class="plan-description">{{ plan.short_description }}</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if benefits %}
+  <ul class="plan-benefits checklist card-subsection">
+    {% for benefit in benefits %}
+      <li class="checklist-item">
+        <span class="icon">{% icon "checkmark" %}</span>
+        <span class="text">{{ benefit }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}

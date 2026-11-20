@@ -1,6 +1,7 @@
 # Django
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Q
@@ -33,12 +34,15 @@ from squarelet.organizations.models.payment import (
     Subscription,
     SubscriptionItem,
 )
+from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG
 from squarelet.organizations.signals import make_stripe_plan
+from squarelet.services.models import Service
 from squarelet.users.models import User
 
 E2E_PASSWORD = "e2e-test-password"
 
 OIDC_CLIENT_ID = "e2e-verify-client"
+E2E_STRIPE_PRICE_PREFIX = "price_e2e_"
 OIDC_REDIRECT_URL = "https://dev.squarelet.com/"
 
 USERS = [
@@ -144,23 +148,29 @@ VISUAL_PLANS = {
     },
     "sunlight-essential": {
         "name": "Sunlight Essential",
-        "product": "sunlight",
+        "service": SUNLIGHT_SERVICE_SLUG,
         "wix": True,
         "base_price": 50,
     },
     "sunlight-essential-annual": {
         "name": "Sunlight Essential (Annual)",
-        "product": "sunlight",
+        "service": SUNLIGHT_SERVICE_SLUG,
         "wix": True,
         "annual": True,
         "base_price": 500,
     },
     "sunlight-enterprise": {
         "name": "Sunlight Enterprise",
-        "product": "sunlight",
+        "service": SUNLIGHT_SERVICE_SLUG,
         "wix": True,
     },
 }
+
+
+ICON_SVG = (
+    b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+    b'<circle cx="8" cy="8" r="8" fill="#888"/></svg>'
+)
 
 
 def fixed_date(year, month, day):
@@ -205,27 +215,15 @@ class Command(BaseCommand):
             slug="organization",
             defaults={
                 "name": "Organization",
-                "minimum_users": 1,
-                "base_price": 0,
-                "price_per_user": 0,
-                "for_individuals": False,
-                "for_groups": True,
-            },
-        )
-
-        # Create a free group plan for e2e purchase redirect tests
-        Plan.objects.get_or_create(
-            slug="e2e-test-plan",
-            defaults={
-                "name": "E2E Test Plan",
-                "minimum_users": 1,
-                "base_price": 0,
-                "price_per_user": 0,
-                "for_individuals": False,
-                "for_groups": True,
                 "public": True,
+                "minimum_users": 1,
+                "base_price": 0,
+                "price_per_user": 0,
+                "for_individuals": False,
+                "for_groups": True,
             },
         )
+        self.seed_organization_price()
 
         # Create the professional plan (referenced by the user detail view
         # as the individual upgrade option)
@@ -300,6 +298,8 @@ class Command(BaseCommand):
 
             created_orgs[slug] = org
             self.stderr.write(f"Created org: {slug}")
+
+        self.seed_enterprise_offer(created_orgs["e2e-public-org"])
 
         # Create an OIDC client that gates features behind verification
         self._seed_verification_client()
@@ -421,6 +421,37 @@ class Command(BaseCommand):
 
         self.stdout.write(json.dumps({"status": "clear_invitations_complete"}))
 
+    def seed_organization_price(self):
+        """Price the organization plan, so its upgrade button links to checkout."""
+        plan = Plan.objects.get(slug="organization")
+        for interval, amount in (("monthly", 10000), ("annual", 100000)):
+            PlanPrice.objects.get_or_create(
+                plan=plan,
+                interval=interval,
+                label="standard",
+                code="",
+                defaults={
+                    "amount": amount,
+                    "stripe_price_id": (
+                        f"{E2E_STRIPE_PRICE_PREFIX}organization_{interval}"
+                    ),
+                },
+            )
+
+    def seed_enterprise_offer(self, organization):
+        """Offer the private enterprise plan to `organization`, as staff would."""
+        plan, _ = Plan.objects.get_or_create(
+            slug="sunlight-enterprise",
+            defaults={
+                "name": "Sunlight Research Center - Enterprise",
+                "description": "Built for **newsrooms** that need more.",
+                "for_individuals": False,
+                "for_groups": True,
+                "wix": True,
+            },
+        )
+        plan.private_organizations.add(organization)
+
     @transaction.atomic
     def teardown(self):
         # Delete users (cascades to memberships, email addresses)
@@ -443,6 +474,12 @@ class Command(BaseCommand):
         count, _ = Client.objects.filter(client_id=OIDC_CLIENT_ID).delete()
         if count:
             self.stderr.write(f"Deleted OIDC client {OIDC_CLIENT_ID}")
+
+        count, _ = PlanPrice.objects.filter(
+            stripe_price_id__startswith=E2E_STRIPE_PRICE_PREFIX
+        ).delete()
+        if count:
+            self.stderr.write("Deleted seeded organization plan prices")
 
         # Delete Staff group created by seed
         count, _ = Group.objects.filter(name="Staff").delete()
@@ -568,6 +605,8 @@ class Command(BaseCommand):
         )
 
     def _get_or_create_plan(self, slug, **fields):
+        if "service" in fields:
+            fields["service"] = self._get_or_create_service(fields["service"])
         plan, _ = Plan.objects.update_or_create(
             slug=slug,
             defaults={
@@ -579,6 +618,20 @@ class Command(BaseCommand):
             },
         )
         return plan
+
+    def _get_or_create_service(self, slug):
+        # The plan pages show each service's icon, so it needs a file.
+        service, created = Service.objects.get_or_create(
+            slug=slug,
+            defaults={
+                "name": slug.title(),
+                "description": "A service for visual snapshots.",
+                "provider_name": "MuckRock",
+            },
+        )
+        if created:
+            service.icon.save(f"{slug}.svg", ContentFile(ICON_SVG), save=True)
+        return service
 
     def _subscribe(self, organization, plans):
         """Subscribe in the database only; blank Stripe ids keep Stripe out."""
