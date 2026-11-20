@@ -723,11 +723,11 @@ class Subscription(Cancellable, models.Model):
         # it already has.
         self.sync_stripe_item_ids(stripe_subscription)
 
-        # Check for 3DS/SCA on the first invoice payment.
+        # First, so `invoice.paid` finds the invoice once the customer
+        # authenticates.
+        self._sync_latest_invoice(stripe_subscription)
         if stripe_subscription.status == "incomplete":
             self._check_3ds_action_required(stripe_subscription)
-
-        self._sync_latest_invoice(stripe_subscription)
         return stripe_subscription
 
     def _check_3ds_action_required(self, stripe_subscription):
@@ -807,8 +807,8 @@ class Subscription(Cancellable, models.Model):
         `proration_behavior`), so it may need authenticating and produces an
         invoice worth keeping.  No-op for an invoiced organization.
         """
-        self._check_3ds_action_required(stripe_subscription)
         self._sync_latest_invoice(stripe_subscription)
+        self._check_3ds_action_required(stripe_subscription)
 
     def cancel(self):
         if self.stripe_subscription:
