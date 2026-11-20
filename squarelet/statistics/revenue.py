@@ -3,6 +3,7 @@ from django.core.cache import cache
 from django.utils import timezone
 
 # Standard Library
+import logging
 from collections import defaultdict
 from datetime import datetime, timezone as dt_timezone
 
@@ -11,6 +12,8 @@ from squarelet.organizations.models import Plan, PlanPrice
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.plan_mapping import tier_of
 from squarelet.statistics.kpis import _add_months
+
+logger = logging.getLogger(__name__)
 
 # Twelve full months to show, two more for the 3-month trailing churn, and the
 # current partial month.
@@ -213,8 +216,14 @@ def revenue_report(stripe_subs, months=MONTHS):
     current = timezone.localdate().replace(day=1)
     calendar = [_add_months(current, i + 1 - months) for i in range(months)]
 
+    logger.info("Revenue report: loading plans")
+    plans = PlanIndex()
+    logger.info("Revenue report: reading subscriptions")
+    subs = subscription_rows(stripe_subs, plans)
+    logger.info("Revenue report: counting %d paid subscriptions", len(subs))
+
     rows, pending = [], []
-    for key, label, group in _groups(subscription_rows(stripe_subs, PlanIndex())):
+    for key, label, group in _groups(subs):
         labels = {"segment": key, "segment_label": label}
         rows.extend({**labels, **row} for row in _segment_months(group, calendar, now))
         pending.append({**labels, **_pending(group)})
@@ -234,8 +243,11 @@ def refresh_revenue_report():
     request.
     """
     service = get_payment_provider().get_subscription_service()
+    logger.info("Revenue report: fetching subscriptions from Stripe")
     report = revenue_report(service.list(status="all", limit=100))
+    logger.info("Revenue report: storing")
     cache.set(CACHE_KEY, report, None)
+    logger.info("Revenue report: stored")
     return report
 
 

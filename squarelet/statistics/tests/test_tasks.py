@@ -107,3 +107,8 @@ def test_refreshing_the_revenue_report_pages_stripe_and_caches_it(mocker):
     listing.assert_called_once_with(status="all", limit=100)
     report = cached_revenue_report()
     assert report["current_month"] == "2026-10"
+
+
+def test_a_stuck_revenue_refresh_is_stopped_with_a_traceback():
+    assert tasks.refresh_revenue_report.soft_time_limit == 5 * 60
+    assert tasks.refresh_revenue_report.time_limit > 5 * 60

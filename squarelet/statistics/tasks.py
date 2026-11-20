@@ -66,6 +66,8 @@ def send_digest():
     Digest().send()
 
 
-@shared_task
+# A stuck run fails with a traceback showing where it stopped, instead of
+# holding a worker process with nothing logged.
+@shared_task(soft_time_limit=5 * 60, time_limit=6 * 60)
 def refresh_revenue_report():
     refresh_report()
