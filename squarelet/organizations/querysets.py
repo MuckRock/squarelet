@@ -158,12 +158,20 @@ class PlanQuerySet(models.QuerySet):
         else:
             queryset = queryset.filter(for_groups=True)
 
-        # show public plans, the organizations current plan, and any custom plan
-        # to which they have been granted explicit access
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import PriceGrant
+
+        # show public plans, the organizations current plan, any custom plan
+        # to which they have been granted explicit access, and any plan staff
+        # have given them a price on that is still in force
+        granted = PriceGrant.live().filter(organization=organization)
         return queryset.filter(
             Q(public=True)
             | Q(subscriptions__organization=organization)
             | Q(private_organizations=organization)
+            | Q(pk__in=granted.values("plan_price__plan"))
         ).distinct()
 
     def free(self):
@@ -495,6 +503,18 @@ class SubscriptionItemQuerySet(models.QuerySet):
         if price is None:
             return plan, None
         return price.plan, price
+
+    @staticmethod
+    def granted_prices(plan, organization):
+        """`{interval: price}` staff have granted `organization` on `plan`'s tier."""
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import PriceGrant
+
+        target = resolve_target(plan.slug)
+        grants = PriceGrant.for_tier(organization, target[0] if target else plan.slug)
+        return {interval: grant.price for interval, grant in grants.items()}
 
     @staticmethod
     def plans_of_tier(plan):

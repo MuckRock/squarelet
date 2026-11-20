@@ -32,7 +32,13 @@ from allauth.account.adapter import get_adapter
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import format_stripe_error, new_action
-from squarelet.organizations.models import Charge, Organization, Plan, PlanPrice
+from squarelet.organizations.models import (
+    Charge,
+    Organization,
+    Plan,
+    PlanPrice,
+    PriceGrant,
+)
 from squarelet.organizations.models.payment import ReceiptEmail, SubscriptionItem
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import NotForSale, SubscriptionError
@@ -71,15 +77,23 @@ def legacy_alias_url(plan, query):
 
 def protect_private_plan(plan, user):
     """404 a private plan to anyone who doesn't administer an organization it
-    is offered to or held by. Enterprise pages stay open: they sell by contact.
+    is offered to, held by or has a deal on. Enterprise pages stay open: they
+    sell by contact.
     """
     if plan.public or plan.is_enterprise:
         return
     if not user.is_authenticated:
         raise Http404("Plan not found")
+    administered = Organization.objects.filter(
+        memberships__user=user, memberships__admin=True
+    )
     offered = (
-        Organization.objects.filter(memberships__user=user, memberships__admin=True)
-        .filter(Q(private_plans=plan) | Q(subscriptions__plans=plan))
+        administered.filter(
+            Q(private_plans=plan) | Q(subscriptions__plans=plan)
+        ).exists()
+        # A deal on the plan offers it too.
+        or PriceGrant.live()
+        .filter(organization__in=administered, plan_price__plan=plan)
         .exists()
     )
     if not offered:
@@ -389,9 +403,17 @@ class BasePlans(SubscriptionObjectMixin, DetailView):
         context = super().get_context_data(**kwargs)
         organization = self.object
         list_prices = PlanPrice.objects.filter(active=True, code="")
+        # Tiers staff have given this org a price on; a tier sold to it only
+        # by deal is listed too.
+        dealt = set(
+            PriceGrant.live()
+            .filter(organization=organization)
+            .values_list("plan_price__plan__slug", flat=True)
+        )
         plans = (
             Plan.objects.choices(organization)
-            .filter(service__isnull=False, prices__in=list_prices)
+            .filter(service__isnull=False)
+            .filter(Q(prices__in=list_prices) | Q(slug__in=dealt))
             .distinct()
             .select_related("service")
             .prefetch_related(Prefetch("prices", queryset=list_prices), "entitlements")
@@ -406,7 +428,24 @@ class BasePlans(SubscriptionObjectMixin, DetailView):
 
         services = {}
         for plan in plans:
-            plan.display_prices = self.get_display_prices(plan, organization.nonprofit)
+            target = resolve_target(plan.slug)
+            granted = (
+                SubscriptionItem.objects.granted_prices(plan, organization)
+                if (target[0] if target else plan.slug) in dealt
+                else {}
+            )
+            plan.deal = bool(granted)
+            if plan.deal:
+                # Checkout sells the org only its deal's intervals.
+                plan.display_prices = [
+                    granted[interval]
+                    for interval in Plan.CHECKOUT_INTERVALS
+                    if interval in granted
+                ]
+            else:
+                plan.display_prices = self.get_display_prices(
+                    plan, organization.nonprofit
+                )
             if not plan.display_prices:
                 continue
             plan.nonprofit = any(
@@ -773,7 +812,7 @@ class BasePlanCheckoutRedirect(SubscriptionObjectMixin, RedirectView):
     def get_redirect_url(self, *args, **kwargs):
         organization = self.get_organization()
         plan = get_checkout_plan(organization, self.kwargs["plan_slug"])
-        interval = plan.default_interval(organization.nonprofit)
+        interval = plan.default_interval(organization.nonprofit, organization)
         if interval is None and plan.is_enterprise:
             interval = "annual"
         if interval is None:
@@ -799,7 +838,15 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         return get_checkout_plan(self.object, self.kwargs["plan_slug"])
 
     def get_prices(self, plan, interval):
-        return plan.checkout_prices(interval, self.object.nonprofit)
+        return plan.checkout_prices(interval, self.object.nonprofit, self.object)
+
+    def is_granted(self, plan, price):
+        granted = SubscriptionItem.objects.granted_prices(plan, self.object)
+        return price in granted.values()
+
+    def is_full(self, plan, price):
+        """Whether a self-serve purchase must wait; staff deals skip the cap."""
+        return not plan.has_available_slots() and not self.is_granted(plan, price)
 
     def get_interval(self):
         interval = self.kwargs["interval"]
@@ -825,9 +872,32 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         url = self.get_purchase_redirect()
         return f"?{urlencode({'purchase_redirect': url})}" if url else ""
 
-    def is_held(self, plan):
+    def is_held(self, plan, price=None):
+        """Whether buying `plan` (at `price`) would be refused as already held.
+
+        A comp doesn't hold its tier, unless it is the very price on sale, as
+        in `add_subscription`.
+        """
         held = self.object.line_holding(plan)
-        return held is not None and held.subscription.kind != "free"
+        return held is not None and (
+            held.subscription.kind != "free" or held.plan_price == price
+        )
+
+    @staticmethod
+    def _sold_at(plan, interval, organization, dealt, sold_by_rate):
+        """The price `organization` would buy `plan` at `interval`, or None.
+
+        Without a deal only the nonprofit rate decides, so those accounts
+        share one lookup in `sold_by_rate`.
+        """
+        nonprofit = organization.nonprofit
+        if organization.pk in dealt:
+            return plan.checkout_prices(interval, nonprofit, organization)[0]
+        if (interval, nonprofit) not in sold_by_rate:
+            sold_by_rate[interval, nonprofit] = plan.checkout_prices(
+                interval, nonprofit
+            )[0]
+        return sold_by_rate[interval, nonprofit]
 
     def get_organization_choices(self, plan, interval):
         """`(organization, checkout url)` for each account the user may switch to.
@@ -844,26 +914,33 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             if organization != self.object
         ]
         held = SubscriptionItem.objects.paid_holders(plan, orgs)
+        dealt = PriceGrant.holders(orgs, plan)
+        sold_by_rate = {}
         for organization in orgs:
             if organization.pk in held:
                 continue
+            sold = [
+                other
+                for other in Plan.CHECKOUT_INTERVALS
+                if self._sold_at(plan, other, organization, dealt, sold_by_rate)
+            ]
+            if not sold:
+                # It would land on a 404.
+                continue
+            # Not sold this interval (its deal is at the other): its own
+            # checkout link picks one.
+            name = "plan-checkout" if interval in sold else "plan"
+            kwargs = {"plan_slug": plan.slug}
+            if interval in sold:
+                kwargs["interval"] = interval
             if organization.individual:
                 url = reverse(
-                    "users:plan-checkout",
-                    kwargs={
-                        "username": user.username,
-                        "plan_slug": plan.slug,
-                        "interval": interval,
-                    },
+                    f"users:{name}", kwargs={"username": user.username, **kwargs}
                 )
             else:
                 url = reverse(
-                    "organizations:plan-checkout",
-                    kwargs={
-                        "slug": organization.slug,
-                        "plan_slug": plan.slug,
-                        "interval": interval,
-                    },
+                    f"organizations:{name}",
+                    kwargs={"slug": organization.slug, **kwargs},
                 )
             choices.append((organization, url + query))
         return choices
@@ -892,7 +969,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
                 + self.purchase_query()
             )
 
-        held = self.is_held(plan)
+        held = self.is_held(plan, price)
         # None when held, or when Stripe could not preview the charge.
         due_cents = (
             None if held else SubscriptionItem.objects.due_on_start(organization, price)
@@ -910,8 +987,9 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             due_today=due_today,
             prorated=due_today is not None and due_today != price.amount_dollars,
             held=held,
-            available=plan.has_available_slots(),
-            invoice_available=price.interval == "annual",
+            available=not self.is_full(plan, price),
+            free=price.amount == 0,
+            invoice_available=price.interval == "annual" and price.amount > 0,
             invoice_joining=(
                 None
                 if held
@@ -957,7 +1035,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
             "subscriptions"
         )
 
-        if self.is_held(plan):
+        if self.is_held(plan, price):
             return self._error(_("You are already subscribed to this plan."))
         has_waitlist = plan.is_sunlight_plan and plan.wix
         if request.POST.get("action") == "waitlist":
@@ -967,6 +1045,7 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         # Locked so two purchases cannot both take the last slot.
         if (
             has_waitlist
+            and not self.is_granted(plan, price)
             and SubscriptionItem.objects.select_for_update().sunlight_active_count()
             >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         ):
@@ -975,9 +1054,14 @@ class BasePlanCheckout(SubscriptionObjectMixin, DetailView):
         if payment_method == "invoice":
             if price.interval != "annual":
                 return self._error(_("Only annual plans can be paid by invoice."))
+            if price.amount == 0:
+                return self._error(_("This plan is free, so there's nothing to pay."))
         elif payment_method != "card":
             return self._error(_("Choose a card or invoice to pay with."))
-        elif organization.customer().default_payment_method_obj() is None:
+        elif (
+            price.amount > 0
+            and organization.customer().default_payment_method_obj() is None
+        ):
             return self._error(_("Add a payment method before subscribing."))
 
         try:

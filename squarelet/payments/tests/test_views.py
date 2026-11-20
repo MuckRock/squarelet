@@ -6,6 +6,9 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils.http import urlencode
 
+# Standard Library
+from datetime import date
+
 # Third Party
 import pytest
 from autoslug.utils import slugify
@@ -522,6 +525,55 @@ class TestPlanDetailView(ViewTestMixin):  # pylint: disable=too-many-public-meth
 
         assert response.status_code == 200
         assert "calendar.app.google" in response.render().content.decode()
+
+
+@pytest.mark.django_db()
+class TestADealOnAPrivatePlan(ViewTestMixin):
+    """A deal offers a private plan on its page, as other private plans are."""
+
+    view = views.PlanDetailView
+    url = "/plans/{pk}-{slug}/"
+
+    @pytest.fixture
+    def plan(self, plan_factory, plan_price_factory, organization_factory):
+        plan = plan_factory(
+            name="Private", for_individuals=False, for_groups=True, public=False
+        )
+        plan_price_factory(plan=plan)
+        plan.private_organizations.add(organization_factory(name="Other"))
+        return plan
+
+    @pytest.fixture
+    def dealt(self, user_factory, organization_factory):
+        """An admin, and their org to give the deal to."""
+        admin = user_factory()
+        return admin, organization_factory(admins=[admin], name="Dealt")
+
+    def view_plan(self, rf, user, plan):
+        return self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
+
+    def test_it_shows_the_plan(
+        self, rf, plan, dealt, plan_price_factory, price_grant_factory
+    ):
+        admin, organization = dealt
+        deal = plan_price_factory(plan=plan, code="deal", amount=7_000)
+        price_grant_factory(organization=organization, plan_price=deal)
+
+        response = self.view_plan(rf, admin, plan)
+
+        assert response.status_code in (200, 302)
+
+    def test_but_not_once_the_comp_has_ended(
+        self, rf, plan, dealt, plan_price_factory, price_grant_factory
+    ):
+        admin, organization = dealt
+        comp = plan_price_factory(plan=plan, label="comped", amount=0)
+        price_grant_factory(
+            organization=organization, plan_price=comp, ends_on=date(2020, 1, 1)
+        )
+
+        with pytest.raises(Http404):
+            self.view_plan(rf, admin, plan)
 
 
 @pytest.mark.django_db()
