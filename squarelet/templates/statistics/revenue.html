@@ -5,7 +5,7 @@
 
 {% block vite %}
 {{ block.super }}
-{% if report %}{% vite_asset "frontend/views/revenue_dashboard.ts" %}{% endif %}
+{% vite_asset "frontend/views/revenue_dashboard.ts" %}
 {% endblock vite %}
 
 {% block content %}

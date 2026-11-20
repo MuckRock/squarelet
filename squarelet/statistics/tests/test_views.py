@@ -77,6 +77,19 @@ class TestRevenueDashboardView(ViewTestMixin):
         refresh.delay.assert_called_once_with()
         assert b"being prepared" in response.content
 
+    def test_the_page_is_styled_while_the_report_is_prepared(
+        self, rf, user_factory, mocker
+    ):
+        mocker.patch(
+            "squarelet.statistics.views.cached_revenue_report", return_value=None
+        )
+        mocker.patch("squarelet.statistics.views.refresh_revenue_report")
+
+        response = self.call_view(rf, user_factory(is_staff=True))
+        response.render()
+
+        assert b"frontend/views/revenue_dashboard.ts" in response.content
+
 
 @pytest.mark.django_db()
 @pytest.mark.parametrize(
