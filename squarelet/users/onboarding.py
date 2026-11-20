@@ -331,6 +331,9 @@ class SubscriptionStep(OnboardingStep):
             try:
                 saved = form.save(request.user)
             except PaymentActionRequired as exc:
+                # Saved already; offering the plan again would sell it twice.
+                request.session["onboarding"]["subscription"] = "completed"
+                request.session.modified = True
                 # pylint: disable=protected-access
                 request._payment_action_required = exc
                 request._subscription_form_errors = form

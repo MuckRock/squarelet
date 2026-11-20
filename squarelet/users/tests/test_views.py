@@ -3,6 +3,7 @@ from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 from django.http.response import Http404
+from django.urls import reverse
 
 # Standard Library
 import hashlib
@@ -20,6 +21,7 @@ from allauth.account.models import EmailAddress
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.models import Invitation
 from squarelet.organizations.models.payment import Plan
+from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.services.tests.factories import ServiceFactory
 from squarelet.users import forms, views
 from squarelet.users.models import User
@@ -2163,6 +2165,45 @@ class TestUserOnboardingView(ViewTestMixin):
         response = self._call_view_post(request, mocker)
 
         self._assert_redirect_to_onboard(response)
+        self._assert_session_updated(request.session, "subscription", "completed")
+
+    def test_post_subscribe_needing_3ds_completes_the_step(
+        self, rf, user_factory, subscription_plans, mocker, mock_django_session
+    ):
+        """The purchase is saved while the card authenticates, so the step is
+        done: offering the plan again would sell it twice."""
+        user = user_factory()
+        form_data = {
+            "step": "subscribe",
+            "plan": "1",
+            "organization": str(user.individual_organization.pk),
+            "stripe_token": "tok_test123",
+        }
+        request = self._create_post_request(
+            rf,
+            user,
+            mock_django_session,
+            form_data,
+            {
+                "onboarding": {
+                    "email_check_completed": True,
+                    "subscription": "not_started",
+                },
+                "plan": "professional",
+            },
+        )
+        request.META["HTTP_X_REQUESTED_WITH"] = "XMLHttpRequest"
+        # The 402 reverses a URL; load the URLconf before the mocks below
+        # replace querysets it builds at import.
+        reverse("account_onboarding")
+
+        self._mock_user_state(mocker, user, has_active_subscription=False)
+        form = self._mock_subscription_forms(mocker, valid=True)
+        form.save.side_effect = PaymentActionRequired("pi_1_secret_2", "pi_1")
+
+        response = self._call_view_post(request, mocker)
+
+        assert response.status_code == 402
         self._assert_session_updated(request.session, "subscription", "completed")
 
     def test_post_subscribe_invalid_form(
