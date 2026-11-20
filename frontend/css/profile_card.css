@@ -107,3 +107,13 @@
   flex-shrink: 0;
   object-fit: contain;
 }
+
+a.profile-service-usage {
+  text-decoration: none;
+}
+
+a.profile-service-usage:hover,
+a.profile-service-usage:focus-visible {
+  color: var(--blue-4, #1367d0);
+  text-decoration: underline;
+}

@@ -26,8 +26,13 @@ def _render(entity, subject, **kwargs):
 
 @pytest.fixture(name="services")
 def fixture_services():
+    muckrock = ServiceFactory(slug="muckrock", name="MuckRock")
+    # The factory reuses a migration's placeholder row and ignores other fields.
+    muckrock.user_url = "https://muckrock.test/accounts/uuid/{uuid}/"
+    muckrock.organization_url = "https://muckrock.test/organization/uuid/{uuid}/"
+    muckrock.save()
     return {
-        "muckrock": ServiceFactory(slug="muckrock", name="MuckRock"),
+        "muckrock": muckrock,
         "documentcloud": ServiceFactory(slug="documentcloud", name="DocumentCloud"),
     }
 
@@ -150,3 +155,30 @@ class TestProfileCard:
         assert "Metropolis, New York, Canada" in html
         assert "Truth, justice." in html
         assert "Joined" not in html
+
+    def test_a_user_line_links_to_the_service_by_uuid(self):
+        user = UserFactory(client_stats={"muckrock": {"total_requests": 3}})
+
+        html = _render(user, "users", show_stats=True)
+
+        assert f'href="https://muckrock.test/accounts/uuid/{user.uuid}/"' in html
+
+    def test_an_org_line_links_with_the_org_uuid(self):
+        organization = OrganizationFactory(
+            client_stats={"muckrock": {"total_requests": 3}}
+        )
+
+        html = _render(organization, "organizations", show_stats=True)
+
+        assert (
+            f'href="https://muckrock.test/organization/uuid/{organization.uuid}/"'
+            in html
+        )
+
+    def test_a_line_without_a_url_is_not_a_link(self):
+        user = UserFactory(client_stats={"documentcloud": {"total_documents": 4}})
+
+        html = _render(user, "users", show_stats=True)
+
+        assert html.count("<a ") == 1
+        assert "4 documents" in html
