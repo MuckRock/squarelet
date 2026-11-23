@@ -1,5 +1,6 @@
 # Django
 from django.core.exceptions import PermissionDenied
+from django.test import Client
 
 # Third Party
 import pytest
@@ -10,9 +11,9 @@ from squarelet.statistics import views
 
 
 @pytest.mark.django_db()
-class TestKPIDashboardView(ViewTestMixin):
-    view = views.KPIDashboardView
-    url = "/statistics/kpis/"
+class TestUserDashboardView(ViewTestMixin):
+    view = views.UserDashboardView
+    url = "/statistics/users/"
 
     def test_anonymous_users_are_sent_to_log_in(self, rf):
         response = self.call_view(rf)
@@ -29,3 +30,9 @@ class TestKPIDashboardView(ViewTestMixin):
 
         assert response.status_code == 200
         assert len(response.context_data["activity"]["months"]) == 24
+
+    def test_the_old_kpis_address_redirects_here(self):
+        response = Client().get("/statistics/kpis/")
+
+        assert response.status_code == 301
+        assert response.url == self.url

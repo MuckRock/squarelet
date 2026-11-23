@@ -6,13 +6,17 @@ from django.views.generic import TemplateView
 from squarelet.statistics.kpis import cached_monthly_activity
 
 
-class KPIDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
-    """Staff dashboard of monthly active and multi-service users"""
-
-    template_name = "statistics/kpis.html"
+class StaffDashboardMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """A statistics dashboard only staff can see."""
 
     def test_func(self):
         return self.request.user.is_staff
+
+
+class UserDashboardView(StaffDashboardMixin, TemplateView):
+    """Staff dashboard of monthly active and multi-service users"""
+
+    template_name = "statistics/users.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
