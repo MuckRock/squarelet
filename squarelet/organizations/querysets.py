@@ -21,6 +21,7 @@ from squarelet.organizations.payments.exceptions import NotForSale
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.plan_mapping import (
     LEGACY_PLAN_MAP,
+    PACK_SLUGS,
     SUNLIGHT_SERVICE_SLUG,
     resolve_target,
     tier_of,
@@ -150,9 +151,10 @@ class PlanQuerySet(models.QuerySet):
         """Return the plan choices for the given organization
 
         Never an archived plan, even to an organization on one: retired is
-        retired for renewals too.
+        retired for renewals too.  Never a pack: one is sold only alongside a
+        base plan, though comps hold them as lines of their own.
         """
-        queryset = self.not_archived()
+        queryset = self.not_archived().exclude(slug__in=PACK_SLUGS)
         if organization.individual:
             queryset = queryset.filter(for_individuals=True)
         else:
