@@ -1793,6 +1793,37 @@ class TestManageSubscriptions(ViewTestMixin):
         assert b"Aug. 9, 2027" in response.content
         assert b"Nov. 9, 2026" not in response.content
 
+    @pytest.mark.parametrize(
+        ("cancel_at", "offered"),
+        [(date(2027, 2, 28), True), (date(2027, 3, 31), False)],
+        ids=["in its term", "already extended"],
+    )
+    def test_a_one_time_purchase_offers_another_term_once(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        subscription_item_factory,
+        cancel_at,
+        offered,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="one_off",
+            subscription__stripe_status="active",
+            subscription__cancelled=True,
+            subscription__cancel_at=cancel_at,
+            subscription__current_period_end=datetime(
+                2027, 2, 28, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug).render()
+
+        assert (b"Extend for another term" in response.content) is offered
+
     def test_a_priced_line_shows_its_own_price(
         self,
         rf,
@@ -2084,6 +2115,105 @@ class TestEndSubscription(ViewTestMixin):
         cancel.assert_called_once_with()
         assert first.subscription.items.count() == 2
         assert organization.change_logs.filter(user=admin).count() == 2
+
+
+@pytest.mark.django_db()
+class TestExtendSubscription(ViewTestMixin):
+    """A customer runs a one-time purchase for one more term."""
+
+    view = views.ExtendSubscription
+    url = "/organizations/{slug}/subscriptions/{pk}/extend"
+
+    @staticmethod
+    def one_off(user_factory, organization_factory, subscription_item_factory):
+        """An admin and their organization's one-time purchase."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="one_off",
+            subscription__subscription_id="sub_once",
+            subscription__cancelled=True,
+            subscription__cancel_at=date(2027, 2, 28),
+            subscription__current_period_end=datetime(
+                2027, 2, 28, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+        return admin, organization, line.subscription
+
+    def test_the_confirmation_shows_the_charge_and_the_new_end(
+        self, rf, user_factory, organization_factory, subscription_item_factory, mocker
+    ):
+        admin, organization, subscription = self.one_off(
+            user_factory, organization_factory, subscription_item_factory
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription",
+            MagicMock(),
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.next_term_end",
+            datetime(2027, 3, 31, 12, tzinfo=dt_timezone.utc),
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug, pk=subscription.pk)
+
+        assert response.status_code == 200
+        assert response.context_data["renews_on"] == date(2027, 2, 28)
+        assert response.context_data["ends_on"] == date(2027, 3, 31)
+
+    def test_it_extends_and_logs(
+        self, rf, user_factory, organization_factory, subscription_item_factory, mocker
+    ):
+        extend = mocker.patch(
+            "squarelet.organizations.models.Subscription.extend",
+            return_value=date(2027, 3, 31),
+        )
+        admin, organization, subscription = self.one_off(
+            user_factory, organization_factory, subscription_item_factory
+        )
+
+        response = self.call_view(
+            rf, admin, {}, slug=organization.slug, pk=subscription.pk
+        )
+
+        assert response.status_code == 302
+        extend.assert_called_once_with()
+        assert organization.change_logs.filter(user=admin).count() == 1
+        self.assert_message(messages.SUCCESS, "Extended.  It now ends on 2027-03-31.")
+
+    def test_a_renewing_subscription_is_not_extended(
+        self, rf, user_factory, organization_factory, subscription_item_factory, mocker
+    ):
+        extend = mocker.patch("squarelet.organizations.models.Subscription.extend")
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(subscription__organization=organization)
+
+        response = self.call_view(
+            rf, admin, {}, slug=organization.slug, pk=line.subscription.pk
+        )
+
+        assert response.status_code == 302
+        extend.assert_not_called()
+
+    def test_a_refusal_is_shown_not_raised(
+        self, rf, user_factory, organization_factory, subscription_item_factory, mocker
+    ):
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.extend",
+            side_effect=SubscriptionError("This already runs until 2027-03-31."),
+        )
+        admin, organization, subscription = self.one_off(
+            user_factory, organization_factory, subscription_item_factory
+        )
+
+        response = self.call_view(
+            rf, admin, {}, slug=organization.slug, pk=subscription.pk
+        )
+
+        assert response.status_code == 302
+        self.assert_message(messages.ERROR, "This already runs until 2027-03-31.")
 
 
 @pytest.mark.django_db()

@@ -772,6 +772,14 @@ def handle_subscription_updated(subscription_data):
     # finally deleted when Stripe sends the deletion event at period end.
     if subscription_data.get("cancel_at_period_end"):
         subscription.mark_cancelled(subscription.current_period_end)
+    elif subscription_data.get("cancel_at"):
+        # An extended purchase or a fixed term ends past its period, which
+        # Stripe sends without `cancel_at_period_end`.
+        subscription.mark_cancelled(
+            datetime.fromtimestamp(
+                subscription_data["cancel_at"], tz=get_current_timezone()
+            )
+        )
     else:
         subscription.clear_cancellation()
     subscription.save(

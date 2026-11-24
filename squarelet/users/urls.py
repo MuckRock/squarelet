@@ -69,6 +69,11 @@ urlpatterns = [
         name="end-subscription",
     ),
     path(
+        "<str:username>/extend/<int:pk>/",
+        view=views.ExtendSubscription.as_view(),
+        name="extend-subscription",
+    ),
+    path(
         "<str:username>/resubscribe/<int:pk>/",
         view=views.Resubscribe.as_view(),
         name="resubscribe",

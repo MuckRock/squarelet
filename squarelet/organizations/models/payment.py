@@ -10,12 +10,13 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 from functools import cached_property
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
+from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.core.storage import private_storage
@@ -441,6 +442,9 @@ class Subscription(Cancellable, models.Model):
     an organization needs one subscription per combination it holds - what the
     uniqueness constraint below encodes.
     """
+
+    # Its whole life on Stripe lives here: start, cancel, uncancel, extend.
+    # pylint: disable=too-many-public-methods
 
     INTERVAL_CHOICES = [
         ("monthly", _("Monthly")),
@@ -870,6 +874,78 @@ class Subscription(Cancellable, models.Model):
                 self.cache_stripe_subscription_fields(updated)
         self.clear_cancellation()
         self.save()
+
+    @property
+    def extended(self):
+        """Whether this already runs past its current period."""
+        return bool(
+            self.cancelled
+            and self.cancel_at
+            and self.next_date
+            and self.cancel_at > self.next_date
+        )
+
+    def extend(self):
+        """Run a one-time purchase for one more term, charged when it renews.
+
+        Buying it again is refused while it's held, which left a gap between
+        terms.  Returns the new end date.
+        """
+        if self.kind != "one_off":
+            raise SubscriptionError("Only a one-time purchase can be extended.")
+        if self.extended:
+            raise SubscriptionError(f"This already runs until {self.end_date}.")
+        stripe_sub = self.stripe_subscription
+        if stripe_sub is None or stripe_sub.status != "active":
+            raise SubscriptionError(
+                "This purchase can be extended once its payment has gone through."
+            )
+        if (
+            self.collection_method == "charge_automatically"
+            and not self.organization.customer().stripe_payment_method_id
+        ):
+            raise ValidationError(
+                _(
+                    "No payment method on file. "
+                    "Please add a payment method before extending."
+                )
+            )
+        new_end = self.next_term_end
+        updated = (
+            get_payment_provider()
+            .get_subscription_service()
+            .modify(
+                self.subscription_id,
+                cancel_at=int(new_end.timestamp()),
+                # Ending off a period boundary would prorate the last term.
+                proration_behavior="none",
+            )
+        )
+        if updated:
+            self.cache_stripe_subscription_fields(updated)
+        self.mark_cancelled(new_end)
+        self.save()
+        return self.cancel_at
+
+    @property
+    def next_term_end(self):
+        """When the term after this one would end, as Stripe bills it.
+
+        Stripe counts periods from the anchor's day, so a term billed from the
+        31st that ends on Feb 28 runs to Mar 31, not Mar 28.
+        """
+        stripe_sub = self.stripe_subscription
+        period_end = datetime.fromtimestamp(
+            get_payment_provider()
+            .get_subscription_service()
+            .get_current_period_end(stripe_sub),
+            tz=dt_timezone.utc,
+        )
+        anchor = datetime.fromtimestamp(
+            stripe_sub["billing_cycle_anchor"], tz=dt_timezone.utc
+        )
+        months = 12 if self.interval == "annual" else 1
+        return period_end + relativedelta(months=months, day=anchor.day)
 
     def sync_to_stripe(self, payment_method="card"):
         """Make Stripe match this subscription, from whatever state it is in.
