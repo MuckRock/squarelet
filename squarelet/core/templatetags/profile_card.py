@@ -46,13 +46,13 @@ SERVICE_METRICS = {
 }
 
 
-def service_usage(client_stats, verified):
+def service_usage(entity, subject, verified):
     """One line per service the profile card shows, in display order.
 
     Services without a matching `Service` row are skipped, since the line has
     no icon or name to show without one.
     """
-    client_stats = client_stats or {}
+    client_stats = entity.client_stats or {}
     services = Service.objects.in_bulk(list(SERVICE_METRICS), field_name="slug")
     lines = []
     for slug, metric in SERVICE_METRICS.items():
@@ -73,6 +73,7 @@ def service_usage(client_stats, verified):
         lines.append(
             {
                 "service": service,
+                "url": service.url_for(subject, entity.uuid),
                 "label": label,
                 "last_label": metric.last_label,
                 "last_at": last_at,
@@ -111,7 +112,7 @@ def profile_card(entity, subject, verified=False, show_stats=False):
             "avatar": entity.avatar,
             "verified": verified,
             "service_lines": (
-                service_usage(entity.client_stats, verified) if show_stats else []
+                service_usage(entity, subject, verified) if show_stats else []
             ),
         }
     )
