@@ -9,6 +9,7 @@ from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
@@ -775,6 +776,65 @@ class BaseEndSubscription(SubscriptionObjectMixin, UpdateView):
                 self.request,
                 _(f"Subscription cancelled.  It ends on {subscription.next_date}."),
             )
+        return redirect(self.reverse_subject("subscriptions"))
+
+
+class BaseExtendSubscription(SubscriptionObjectMixin, UpdateView):
+    """Run a one-time purchase for one more term, charged when it renews."""
+
+    form_class = CancelSubscriptionForm
+    template_name = "subscriptions/extend_subscription.html"
+
+    def get_subscription(self):
+        return self.object.subscriptions.filter(
+            id=self.kwargs["pk"], kind="one_off"
+        ).first()
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        subscription = self.get_subscription()
+        if subscription is None or subscription.extended:
+            return redirect(self.reverse_subject("subscriptions"))
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        subscription = self.get_subscription()
+        stripe_sub = subscription.stripe_subscription if subscription else None
+        if stripe_sub:
+            lines = list(subscription.items.select_related("plan", "plan_price"))
+            context.update(
+                plans=[line.plan.name for line in lines],
+                cost=sum(line.price * line.quantity for line in lines),
+                renews_on=subscription.next_date,
+                ends_on=localtime(subscription.next_term_end).date(),
+            )
+        return context
+
+    def form_valid(self, form):
+        subscription = self.get_subscription()
+        if subscription is None:
+            return redirect(self.reverse_subject("subscriptions"))
+        try:
+            with transaction.atomic():
+                ends = self.object.extend_subscription(
+                    subscription, user=self.request.user
+                )
+        except ValidationError as exc:
+            messages.error(self.request, exc.message)
+            return redirect(self.reverse_subject("update-card"))
+        except SubscriptionError as exc:
+            messages.error(self.request, str(exc))
+        except stripe.StripeError as exc:
+            messages.error(self.request, f"Stripe error: {format_stripe_error(exc)}")
+        else:
+            self.log_staff_action(
+                "extended a purchase",
+                description=", ".join(
+                    line.plan.name for line in subscription.items.select_related("plan")
+                ),
+            )
+            messages.success(self.request, _(f"Extended.  It now ends on {ends}."))
         return redirect(self.reverse_subject("subscriptions"))
 
 

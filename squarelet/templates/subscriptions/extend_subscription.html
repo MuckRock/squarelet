@@ -1,0 +1,53 @@
+{% extends "layouts/modal_layout.html" %}
+{% load i18n crispy_forms_tags humanize %}
+{% load icon %}
+
+{% block title %}{{ plans|join:", " }} | Extend{% endblock %}
+
+{% block layout_id %}extend_subscription{% endblock %}
+
+{% block content %}
+{% endblock content %}
+
+{% block header %}
+  <h1>{{ organization.name }}</h1>
+  <span class="arrow">{% icon "chevron-right" %}</span>
+  <h2>{% trans "Extend for another term" %}</h2>
+{% endblock header %}
+
+{% block main %}
+  {% url subject|add:':subscriptions' subject_slug as subscriptions_url %}
+  <form id="extend-subscription-form" method="post" enctype="multipart/form-data">
+    {% crispy form form.helper %}
+    <div>
+      {% for plan in plans %}
+        <h3 class="plan {% if subject == "organizations" %}organization{% else %}professional{% endif %}">
+          {{ plan }}
+        </h3>
+      {% endfor %}
+      <p>{% trans "Keep this plan for another term?" %}</p>
+    </div>
+    <p class="help">
+      {% blocktrans with cost=cost|floatformat:2|intcomma renews=renews_on ends=ends_on %}
+        You'll be charged <strong>${{ cost }}</strong> on <strong>{{ renews }}</strong>, when your current term ends. Your plan then runs until <strong>{{ ends }}</strong> and doesn't renew after that.
+      {% endblocktrans %}
+    </p>
+    <div class="buttons">
+      <button type="submit" class="btn primary">
+        {% icon "arrow-loop" %}
+        {% trans "Extend" %}
+      </button>
+      <a href="{{ subscriptions_url }}" class="btn ghost primary">
+        {% trans "Not now" %}
+      </a>
+    </div>
+  </form>
+{% endblock main %}
+
+{% block footer %}
+  <p class="footer">
+    {% blocktrans %}
+      Questions about this plan? <a href="mailto:info@muckrock.com">Contact customer service</a>.
+    {% endblocktrans %}
+  </p>
+{% endblock footer %}

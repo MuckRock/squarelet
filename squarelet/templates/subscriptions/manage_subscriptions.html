@@ -114,6 +114,12 @@
                   {% trans "Resubscribe" %}
                 </button>
               </form>
+            {% elif sub.kind == "one_off" and not sub.extended and sub.stripe_status == "active" %}
+              {% url subject|add:':extend-subscription' subject_slug sub.id as extend_url %}
+              <a href="{{ extend_url }}" class="btn ghost primary small">
+                {% icon "arrow-loop" %}
+                {% trans "Extend for another term" %}
+              </a>
             {% endif %}
           </div>
           {% for line in group.lines %}

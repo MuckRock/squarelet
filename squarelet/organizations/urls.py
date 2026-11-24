@@ -31,6 +31,11 @@ urlpatterns = [
         view=views.EndSubscription.as_view(),
         name="end-subscription",
     ),
+    path(
+        "<slug:slug>/subscriptions/<int:pk>/extend",
+        view=views.ExtendSubscription.as_view(),
+        name="extend-subscription",
+    ),
     path("<slug:slug>/card/", view=views.UpdateCard.as_view(), name="update-card"),
     path(
         "<slug:slug>/card/remove/",

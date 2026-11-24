@@ -501,6 +501,35 @@ class TestAFixedTermBilledMonthly:
         assert subscription.end_date > subscription.next_date
 
 
+class TestExtendingAOneTimePurchase:
+    """A one-time purchase run for one more term, charged when it renews."""
+
+    def test_stripe_renews_once_at_the_full_price(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """The term ends on a period boundary, so nothing is prorated."""
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        plan = paid_plan(plan_factory, sandbox)
+        plan.auto_renew = False
+        plan.save()
+        subscription = start(organization, plan, sandbox).subscription
+
+        ends = subscription.extend()
+
+        live = stripe.Subscription.retrieve(subscription.subscription_id)
+        period_end = live["items"]["data"][0]["current_period_end"]
+        assert live["cancel_at"] > period_end
+        assert not live["cancel_at_period_end"]
+        upcoming = stripe.Invoice.create_preview(
+            subscription=subscription.subscription_id
+        )
+        assert upcoming["amount_due"] == 2500
+        subscription.refresh_from_db()
+        assert subscription.end_date == ends
+        assert subscription.extended
+
+
 class TestProratedInvoicing:
     """When the customer is billed for a plan added mid-period.
 

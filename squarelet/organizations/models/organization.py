@@ -703,6 +703,23 @@ class Organization(AvatarMixin, models.Model):
                 self._dispatch_wix_unsync(plan)
         return plans
 
+    def extend_subscription(self, subscription, user=None):
+        """Run a one-time purchase for one more term, logged per plan.
+
+        Returns the new end date.
+        """
+        ends = subscription.extend()
+        for line in subscription.items.select_related("plan"):
+            self.change_logs.create(
+                user=user,
+                reason=ChangeLogReason.updated,
+                from_plan=line.plan,
+                from_max_users=line.quantity,
+                to_plan=line.plan,
+                to_max_users=line.quantity,
+            )
+        return ends
+
     def modify_subscription(self, old_plan, new_plan, user, quantity=None):
         """Upgrade or downgrade from `old_plan` to `new_plan`, in place.
 
