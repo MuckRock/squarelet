@@ -1,5 +1,6 @@
 <script lang="ts">
   import StatTile from "./StatTile.svelte";
+  import Toggle from "./Toggle.svelte";
   import TrendChart from "./TrendChart.svelte";
   import {
     type Activity,
@@ -73,7 +74,7 @@
   );
 </script>
 
-<div class="kpis">
+<div class="dashboard">
   {#if !latest || !activity.months.some((m) => m.users > 0)}
     <p class="empty">
       No logins through Squarelet in the last {activity.months.length} months.
@@ -106,7 +107,15 @@
           <h3>Monthly active users</h3>
           <p>Unique users who logged in to a service through Squarelet.</p>
         </div>
-        {@render toggle("mau", mauView, (v) => (mauView = v))}
+        <Toggle
+          name="mau"
+          label="Breakdown"
+          options={[
+            ["total", "Total"],
+            ["services", "By service"],
+          ]}
+          bind:value={mauView}
+        />
       </header>
       <TrendChart
         label="Monthly active users"
@@ -143,7 +152,7 @@
             in the total.
           </p>
         </div>
-        <label class="month">
+        <label class="picker">
           Month
           <select
             value={selected}
@@ -160,183 +169,50 @@
           </select>
         </label>
       </header>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">Service</th>
-            <th scope="col">Monthly active users</th>
-            <th scope="col">Also used another service</th>
-            <th scope="col">Share</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each tableRows as row (row.service)}
+      <div class="table-wrap">
+        <table>
+          <thead>
             <tr>
-              <th scope="row">
-                {#if charted.includes(row.service)}
-                  <span
-                    class="swatch"
-                    style:background={PALETTE[charted.indexOf(row.service)]}
-                  ></span>
-                {/if}
-                {row.service}
-              </th>
-              <td>{formatUsers(row.users)}</td>
-              <td>{formatUsers(row.multi)}</td>
-              <td>{formatPct(pct(row) ?? 0)}</td>
+              <th scope="col">Service</th>
+              <th scope="col">Monthly active users</th>
+              <th scope="col">Also used another service</th>
+              <th scope="col">Share</th>
             </tr>
-          {/each}
-        </tbody>
-        {#if selectedMonth}
-          <tfoot>
-            <tr>
-              <th scope="row">{TOTAL}</th>
-              <td>{formatUsers(selectedMonth.users)}</td>
-              <td>{formatUsers(selectedMonth.multi)}</td>
-              <td
-                >{selectedMonth.users
-                  ? formatPct(pct(selectedMonth) ?? 0)
-                  : "—"}</td
-              >
-            </tr>
-          </tfoot>
-        {/if}
-      </table>
+          </thead>
+          <tbody>
+            {#each tableRows as row (row.service)}
+              <tr>
+                <th scope="row">
+                  {#if charted.includes(row.service)}
+                    <span
+                      class="swatch"
+                      style:background={PALETTE[charted.indexOf(row.service)]}
+                    ></span>
+                  {/if}
+                  {row.service}
+                </th>
+                <td>{formatUsers(row.users)}</td>
+                <td>{formatUsers(row.multi)}</td>
+                <td>{formatPct(pct(row) ?? 0)}</td>
+              </tr>
+            {/each}
+          </tbody>
+          {#if selectedMonth}
+            <tfoot>
+              <tr>
+                <th scope="row">{TOTAL}</th>
+                <td>{formatUsers(selectedMonth.users)}</td>
+                <td>{formatUsers(selectedMonth.multi)}</td>
+                <td
+                  >{selectedMonth.users
+                    ? formatPct(pct(selectedMonth) ?? 0)
+                    : "—"}</td
+                >
+              </tr>
+            </tfoot>
+          {/if}
+        </table>
+      </div>
     </section>
   {/if}
 </div>
-
-{#snippet toggle(
-  name: string,
-  value: string,
-  set: (v: "total" | "services") => void,
-)}
-  <div class="toggle" role="radiogroup" aria-label="Breakdown">
-    {#each [["total", "Total"], ["services", "By service"]] as [key, text] (key)}
-      <label class:active={value === key}>
-        <input
-          type="radio"
-          {name}
-          value={key}
-          checked={value === key}
-          onchange={() => set(key as "total" | "services")}
-        />
-        {text}
-      </label>
-    {/each}
-  </div>
-{/snippet}
-
-<style>
-  .kpis {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-  h2 {
-    margin: 0 0 0.75rem;
-    font-size: var(--font-lg);
-    color: var(--gray-5);
-  }
-  .tile-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-    gap: 1rem;
-  }
-  .card {
-    padding: 1.25rem;
-    border: 1px solid var(--gray-2);
-    border-radius: var(--radius);
-    background: var(--white);
-  }
-  .card header {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.75rem 1.5rem;
-    margin-bottom: 1rem;
-  }
-  h3 {
-    margin: 0;
-    font-size: var(--font-lg);
-    color: var(--gray-5);
-  }
-  .card header p {
-    margin: 0.25rem 0 0;
-    color: var(--gray-4);
-    font-size: var(--font-sm);
-  }
-  .toggle {
-    display: inline-flex;
-    border: 1px solid var(--gray-2);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .toggle label {
-    padding: 0.375rem 0.75rem;
-    font-size: var(--font-sm);
-    color: var(--gray-4);
-    cursor: pointer;
-  }
-  .toggle label.active {
-    background: var(--blue-1);
-    color: var(--blue-5);
-    font-weight: var(--font-semibold);
-  }
-  .toggle label:has(input:focus-visible) {
-    outline: 2px solid var(--primary);
-    outline-offset: -2px;
-  }
-  .toggle input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-  .month {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: var(--font-sm);
-    color: var(--gray-4);
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-sm);
-  }
-  th,
-  td {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--gray-1);
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-  th:first-child {
-    text-align: left;
-  }
-  thead th {
-    color: var(--gray-4);
-    font-weight: var(--font-semibold);
-    border-bottom-color: var(--gray-2);
-  }
-  tbody th {
-    font-weight: var(--font-regular);
-  }
-  tfoot th,
-  tfoot td {
-    font-weight: var(--font-semibold);
-    border-top: 1px solid var(--gray-2);
-    border-bottom: none;
-  }
-  .swatch {
-    display: inline-block;
-    width: 0.625rem;
-    height: 0.625rem;
-    border-radius: 2px;
-    margin-right: 0.375rem;
-  }
-  .empty {
-    color: var(--gray-4);
-  }
-</style>

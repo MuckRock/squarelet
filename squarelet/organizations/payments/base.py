@@ -100,6 +100,10 @@ class SubscriptionService(ABC):
         """Modify an existing subscription."""
 
     @abstractmethod
+    def list(self, **params):
+        """Iterate every subscription matching `params`, paging as needed."""
+
+    @abstractmethod
     def cancel_at_period_end(self, stripe_subscription):
         """Mark a subscription to cancel at the end of the current period.
 
