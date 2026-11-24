@@ -725,6 +725,26 @@ class TestPlanQuerySet(TestCase):
         assert group_plan not in choices
 
     @pytest.mark.django_db
+    def test_choices_leave_out_a_pack_the_organization_holds(self):
+        """A pack is sold only alongside a base plan, so holding one (as a
+        comp's decomposed blocks) must not offer it as a plan of its own."""
+        organization = OrganizationFactory()
+        pack = Plan.objects.filter(slug="scoutpost-credit-pack").first()
+        if pack is None:
+            pack = PlanFactory(slug="scoutpost-credit-pack", public=False)
+        held_plan = PlanFactory(public=False)
+        for plan in (pack, held_plan):
+            SubscriptionItemFactory(
+                subscription__organization=organization,
+                subscription__kind="free",
+                plan=plan,
+            )
+
+        choices = Plan.objects.choices(organization)
+        assert pack not in choices
+        assert held_plan in choices
+
+    @pytest.mark.django_db
     def test_free(self):
         """free() returns plans with zero price"""
 
