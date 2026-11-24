@@ -2642,6 +2642,31 @@ class TestHandleSubscriptionUpdated:
         assert subscription.cancelled is True
 
     @pytest.mark.django_db
+    def test_keeps_an_end_date_past_the_period(self, subscription_factory):
+        """An extended purchase or a fixed term: Stripe sends `cancel_at` alone.
+
+        Reading only `cancel_at_period_end` cleared the cancellation, and the
+        purchase showed as renewing.
+        """
+        subscription = subscription_factory(
+            subscription_id="sub_term", cancelled=True, cancel_at=date(2027, 2, 28)
+        )
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_term",
+                "status": "active",
+                "cancel_at_period_end": False,
+                # Noon UTC, Mar 31 2027.
+                "cancel_at": 1_806_494_400,
+            }
+        )
+
+        subscription.refresh_from_db()
+        assert subscription.cancelled is True
+        assert subscription.cancel_at == date(2027, 3, 31)
+
+    @pytest.mark.django_db
     def test_cancellation_reaches_the_lines(
         self, subscription_factory, subscription_item_factory
     ):
