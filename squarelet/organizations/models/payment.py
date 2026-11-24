@@ -23,7 +23,11 @@ from squarelet.core.utils import file_path, is_production_env, mailchimp_journey
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
-from squarelet.organizations.plan_mapping import SUNLIGHT_SERVICE_SLUG, tier_of
+from squarelet.organizations.plan_mapping import (
+    SUNLIGHT_SERVICE_SLUG,
+    resolve_target,
+    tier_of,
+)
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementGrantQuerySet,
@@ -1733,24 +1737,32 @@ class Plan(models.Model):
             return current_count < settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         return True
 
-    def checkout_prices(self, interval, nonprofit):
+    def checkout_prices(self, interval, nonprofit, organization=None):
         """The price buying this plan at `interval` bills, and its list price.
 
         Resolved as `add_subscription` resolves them, so checkout quotes what is
-        billed. `(None, None)` when the plan has no price at `interval`.
+        billed. `(None, None)` when the plan has no price at `interval`.  An
+        organization with a deal on this plan is sold only at its deal's
+        intervals.
         """
         resolve = SubscriptionItem.objects.resolve_purchase
         _plan, standard = resolve(self, interval=interval)
+        if organization is not None:
+            granted = SubscriptionItem.objects.granted_prices(self, organization)
+            if granted:
+                if interval not in granted:
+                    return None, None
+                return granted[interval], standard
         if nonprofit:
             _plan, discounted = resolve(self, nonprofit=True, interval=interval)
             if discounted is not None:
                 return discounted, standard
         return standard, standard
 
-    def default_interval(self, nonprofit):
+    def default_interval(self, nonprofit, organization=None):
         """Annual where this plan is sold annually, else monthly; None if neither."""
         for interval in self.CHECKOUT_INTERVALS:
-            if self.checkout_prices(interval, nonprofit)[0] is not None:
+            if self.checkout_prices(interval, nonprofit, organization)[0] is not None:
                 return interval
         return None
 
@@ -1762,15 +1774,24 @@ class Plan(models.Model):
         """
         if not Plan.objects.choices(organization).filter(pk=self.pk).exists():
             return None
-        return self._checkout_url(organization, {})
+        return self._checkout_url(organization, {}, {organization.pk})
 
-    def _checkout_url(self, organization, intervals):
-        """`get_checkout_url` for an `organization` already known to be eligible."""
+    def _checkout_url(self, organization, intervals, dealt):
+        """`get_checkout_url` for an `organization` already known to be eligible.
+
+        `intervals` caches the default interval by nonprofit status, which
+        decides it for every account except those in `dealt`, whose deal may
+        sell other intervals.
+        """
         if not self.is_enterprise:
             nonprofit = organization.nonprofit
-            if nonprofit not in intervals:
-                intervals[nonprofit] = self.default_interval(nonprofit)
-            if intervals[nonprofit] is None:
+            if organization.pk in dealt:
+                interval = self.default_interval(nonprofit, organization)
+            else:
+                if nonprofit not in intervals:
+                    intervals[nonprofit] = self.default_interval(nonprofit)
+                interval = intervals[nonprofit]
+            if interval is None:
                 return None
         if organization.individual:
             return reverse(
@@ -1798,8 +1819,17 @@ class Plan(models.Model):
             accounts |= Q(
                 memberships__user=user, memberships__admin=True, individual=False
             )
+        # As `Plan.objects.choices`: a deal makes a private plan buyable.
         offered = (
-            Q() if self.public else Q(subscriptions__plans=self) | Q(private_plans=self)
+            Q()
+            if self.public
+            else Q(subscriptions__plans=self)
+            | Q(private_plans=self)
+            | Q(
+                pk__in=PriceGrant.live()
+                .filter(plan_price__plan=self)
+                .values("organization")
+            )
         )
         return list(
             Organization.objects.filter(accounts)
@@ -1812,10 +1842,12 @@ class Plan(models.Model):
     def checkout_urls(self, user):
         """`(organization, checkout url)` for each of `user`'s eligible accounts
         this plan is sold to."""
+        accounts = self.eligible_accounts(user)
+        dealt = PriceGrant.holders(accounts, self)
         intervals = {}
         urls = []
-        for organization in self.eligible_accounts(user):
-            url = self._checkout_url(organization, intervals)
+        for organization in accounts:
+            url = self._checkout_url(organization, intervals, dealt)
             if url is not None:
                 urls.append((organization, url))
         return urls
@@ -2294,6 +2326,28 @@ class PriceGrant(models.Model):
         return f"{self.organization} at {self.plan_price}"
 
     @classmethod
+    def live(cls):
+        """Grants still in force: a comp past its end date is left out."""
+        return cls.objects.exclude(ends_on__lt=localdate())
+
+    @classmethod
+    def holders(cls, organizations, plan):
+        """The pks of `organizations` with a deal on `plan`'s tier, in one query.
+
+        Ended comps are left out; a deal whose terms have no active row is
+        not, so callers look its price up before trusting it.
+        """
+        target = resolve_target(plan.slug)
+        return set(
+            cls.live()
+            .filter(
+                organization__in=organizations,
+                plan_price__plan__slug=target[0] if target else plan.slug,
+            )
+            .values_list("organization_id", flat=True)
+        )
+
+    @classmethod
     def for_tier(cls, organization, slug):
         """`{interval: grant}` for `organization`'s live deals on tier `slug`.
 
@@ -2307,9 +2361,9 @@ class PriceGrant(models.Model):
             )
         }
         grants = (
-            cls.objects.select_related("plan_price", "granted_by")
+            cls.live()
+            .select_related("plan_price", "granted_by")
             .filter(organization=organization, plan_price__plan__slug=slug)
-            .exclude(ends_on__lt=localdate())
         )
         live = {}
         for grant in grants:

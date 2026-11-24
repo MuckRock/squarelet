@@ -69,7 +69,9 @@
                 <div class="plan-info">
                   <div class="plan-title">
                     <h3>{{ plan.name }}</h3>
-                    {% if plan.nonprofit %}
+                    {% if plan.deal %}
+                      <span class="badge">{% trans "Special price" %}</span>
+                    {% elif plan.nonprofit %}
                       <span class="badge">{% trans "Non-profit" %}</span>
                     {% endif %}
                   </div>
