@@ -807,6 +807,10 @@ class Subscription(Cancellable, models.Model):
         `proration_behavior`), so it may need authenticating and produces an
         invoice worth keeping.  No-op for an invoiced organization.
         """
+        # Its latest invoice is the one it hasn't paid yet, which reads as
+        # waiting on a card.
+        if self.collection_method == "send_invoice":
+            return
         self._check_3ds_action_required(stripe_subscription)
         self._sync_latest_invoice(stripe_subscription)
 
