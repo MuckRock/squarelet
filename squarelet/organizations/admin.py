@@ -40,6 +40,7 @@ from squarelet.organizations.models import (
     PaymentMethod,
     Plan,
     PlanPrice,
+    PriceGrant,
     ProfileChangeRequest,
     ReceiptEmail,
     Subscription,
@@ -862,6 +863,27 @@ class PlanPriceAdmin(StripeLinkMixin, VersionAdmin):
         """
         super().save_model(request, obj, form, change)
         obj.ensure_stripe_price()
+
+
+@admin.register(PriceGrant)
+class PriceGrantAdmin(VersionAdmin):
+    """Give an organization a comped or negotiated price.
+
+    It pays this price the next time it buys the plan at that interval.  A
+    line it already holds keeps its price.
+    """
+
+    list_display = ("organization", "plan_price", "granted_by", "ends_on", "created_at")
+    list_select_related = ("organization", "plan_price__plan", "granted_by")
+    search_fields = ("organization__name", "plan_price__plan__name", "reason")
+    autocomplete_fields = ("organization", "plan_price", "granted_by")
+    readonly_fields = ("created_at",)
+
+    def get_changeform_initial_data(self, request):
+        return {
+            "granted_by": request.user.pk,
+            **super().get_changeform_initial_data(request),
+        }
 
 
 @admin.register(Entitlement)
