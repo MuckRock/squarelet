@@ -34,6 +34,7 @@ from squarelet.organizations.models.payment import (
     ReceiptEmail,
     consolidate_plan_benefits,
 )
+from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import OrganizationQuerySet
@@ -548,7 +549,6 @@ class Organization(AvatarMixin, models.Model):
                     break
         return users_list
 
-    @transaction.atomic
     def add_subscription(  # pylint: disable=too-many-positional-arguments
         self,
         plan,
@@ -567,7 +567,23 @@ class Organization(AvatarMixin, models.Model):
         same subscription cannot exist.  Reviving one is `uncancel`'s job,
         reached through Resubscribe.  A free line holding the tier, such as a
         comp, is replaced by the paid one.
+
+        Raises PaymentActionRequired after the purchase is saved when the card
+        must authenticate the charge; Stripe takes it once the customer does.
         """
+        action_required = self._add_subscription(
+            plan, max_users, user, token, payment_method, nonprofit, interval
+        )
+        if action_required is not None:
+            raise action_required
+
+    @transaction.atomic
+    def _add_subscription(  # pylint: disable=too-many-positional-arguments
+        self, plan, max_users, user, token, payment_method, nonprofit, interval
+    ):
+        """`add_subscription`, returning a needed authentication, not raising
+        it, so the purchase commits."""
+        # pylint: disable=too-many-locals
         # Lock this org row to serialize concurrent subscription attempts
         # (e.g. double form submit), preventing a race between the exists()
         # check and the INSERT.
@@ -596,14 +612,19 @@ class Organization(AvatarMixin, models.Model):
         # the subscription exists do we record the anchor for subsequent subscriptions
         # to align to.
         # `max_users` None lets `start` decide what one of the plan is.
-        item, stripe_subscription = self.subscription_items.start(
-            organization=self,
-            plan=plan,
-            payment_method=payment_method,
-            quantity=max_users,
-            nonprofit=nonprofit,
-            interval=interval,
-        )
+        action_required = None
+        try:
+            item, stripe_subscription = self.subscription_items.start(
+                organization=self,
+                plan=plan,
+                payment_method=payment_method,
+                quantity=max_users,
+                nonprofit=nonprofit,
+                interval=interval,
+            )
+        except PaymentActionRequired as exc:
+            action_required = exc
+            item, stripe_subscription = exc.item, exc.stripe_subscription
 
         if is_first and stripe_subscription:
             period_end = (
@@ -635,6 +656,7 @@ class Organization(AvatarMixin, models.Model):
             self._dispatch_wix_unsync(held.plan)
         if item.plan.wix:
             self._dispatch_wix_sync(item.plan)
+        return action_required
 
     def _resolve_payment_method(self, payment_method, token):
         """Normalize the payment_method value for a subscription."""

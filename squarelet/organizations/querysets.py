@@ -17,6 +17,7 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import NotForSale
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.plan_mapping import (
@@ -586,6 +587,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 kind=kind,
                 cancelled=False,
             )
+        action_required = None
         # Inside the transaction on purpose: a Stripe failure must not leave
         # an organization holding a line nobody bills.
         with transaction.atomic():
@@ -596,24 +598,34 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 quantity=quantity,
             )
 
-            if created or not subscription.subscription_id:
-                # Only a monthly plan renews on the billing day; anchored, an
-                # annual plan or a one-off would bill a stub to the next one.
-                anchored = kind == "renewing" and interval == "monthly"
-                anchor = organization.billing_anchor if anchored else None
-                stripe_subscription = subscription.start(
-                    payment_method=payment_method,
-                    anchor_day=anchor.day if anchor else None,
-                )
-            else:
-                # The cached object was fetched before the line was added.
-                stripe_subscription = subscription.stripe_modify()
-                if stripe_subscription is not None:
-                    subscription.settle_added_line(stripe_subscription)
+            # Caught here, not raised through the block: Stripe keeps the line
+            # and charges it once the customer authenticates, so must we.
+            try:
+                if created or not subscription.subscription_id:
+                    # Only a monthly plan renews on the billing day; anchored,
+                    # an annual plan or a one-off would bill a stub to the next.
+                    anchored = kind == "renewing" and interval == "monthly"
+                    anchor = organization.billing_anchor if anchored else None
+                    stripe_subscription = subscription.start(
+                        payment_method=payment_method,
+                        anchor_day=anchor.day if anchor else None,
+                    )
+                else:
+                    # The cached object was fetched before the line was added.
+                    stripe_subscription = subscription.stripe_modify()
+                    if stripe_subscription is not None:
+                        subscription.settle_added_line(stripe_subscription)
+            except PaymentActionRequired as exc:
+                action_required = exc
+                stripe_subscription = subscription.stripe_subscription
 
         # `notify_started` gates on entitlement; gating on price here would
         # drop free signups that carry `organization`.
         item.notify_started()
+        if action_required is not None:
+            action_required.item = item
+            action_required.stripe_subscription = stripe_subscription
+            raise action_required
         return item, stripe_subscription
 
     def paid(self):

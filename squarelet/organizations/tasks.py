@@ -801,8 +801,11 @@ def handle_subscription_updated(subscription_data):
     # sends customer.subscription.deleted, but handling it here is idempotent
     # (the other event will hit DoesNotExist). Check before caching fields so a
     # terminal payload that omits period data does not need to be parsed.
-    if subscription_data.get("status") == "canceled":
-        _reconcile_cancelled_subscription(subscription, "status=canceled")
+    # `incomplete_expired` is a first charge never authenticated: nothing was
+    # paid, so nothing is kept.
+    status = subscription_data.get("status")
+    if status in ("canceled", "incomplete_expired"):
+        _reconcile_cancelled_subscription(subscription, f"status={status}")
         return
 
     stripe_sub = stripe.Subscription.construct_from(subscription_data, key=None)
