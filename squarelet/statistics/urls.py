@@ -8,6 +8,7 @@ from . import views
 app_name = "statistics"
 urlpatterns = [
     path("users/", view=views.UserDashboardView.as_view(), name="users"),
+    path("revenue/", view=views.RevenueDashboardView.as_view(), name="revenue"),
     path(
         "kpis/",
         view=RedirectView.as_view(pattern_name="statistics:users", permanent=True),

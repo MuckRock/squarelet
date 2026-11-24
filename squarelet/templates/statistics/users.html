@@ -10,6 +10,7 @@
 
 {% block content %}
 <article class="dashboard-page">
+  {% include "statistics/_nav.html" %}
   <header>
     <h1>{% trans "Users" %}</h1>
     <p>{% trans "Logins to MuckRock services through Squarelet. Charts show complete months; refreshed hourly." %}</p>
